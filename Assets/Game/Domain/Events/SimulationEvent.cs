@@ -18,7 +18,12 @@ namespace ThreeInARow.Domain.Events
         XPGranted,
         LevelUpOffered,
         SkillChosen,
-        RunEnded
+        RunEnded,
+        BoardInitialized,
+        SpecialActivated,
+        GemMoved,
+        GemSpawned,
+        BoardReshuffled
     }
 
     [Serializable]
@@ -29,7 +34,11 @@ namespace ThreeInARow.Domain.Events
         public ContentId SourceId = "system.foundation";
         public string Detail = string.Empty;
         public int Amount;
-        public GridCell? Cell;
+        public bool HasCell;
+        public GridCell Cell;
+        public bool HasTargetCell;
+        public GridCell TargetCell;
+        public ContentId RelatedId = "content.none";
     }
 
     [Serializable]
@@ -39,7 +48,14 @@ namespace ThreeInARow.Domain.Events
 
         public IReadOnlyList<SimulationEvent> Events => _events;
 
-        public void Add(SimulationEventType type, ContentId sourceId, string detail, int amount = 0, GridCell? cell = null)
+        public void Add(
+            SimulationEventType type,
+            ContentId sourceId,
+            string detail,
+            int amount = 0,
+            GridCell? cell = null,
+            GridCell? targetCell = null,
+            ContentId? relatedId = null)
         {
             _events.Add(new SimulationEvent
             {
@@ -48,7 +64,11 @@ namespace ThreeInARow.Domain.Events
                 SourceId = sourceId,
                 Detail = detail ?? string.Empty,
                 Amount = amount,
-                Cell = cell
+                HasCell = cell.HasValue,
+                Cell = cell.GetValueOrDefault(),
+                HasTargetCell = targetCell.HasValue,
+                TargetCell = targetCell.GetValueOrDefault(),
+                RelatedId = relatedId ?? (ContentId)"content.none"
             });
         }
     }

@@ -12,10 +12,10 @@ namespace ThreeInARow.Domain.State
     [Serializable]
     public sealed class RunState
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         public int SchemaVersion = CurrentSchemaVersion;
-        public string ContentVersion = "0.1.0";
+        public string ContentVersion = "0.2.0";
         public ulong Seed;
         public int EncounterIndex;
         public int ResolvedTurnCount;
@@ -63,6 +63,7 @@ namespace ThreeInARow.Domain.State
     {
         public GridCell Cell;
         public ContentId GemId = "gem.unset";
+        public ContentId SpecialId = "special.none";
         public List<ContentId> StatusIds = new List<ContentId>();
     }
 

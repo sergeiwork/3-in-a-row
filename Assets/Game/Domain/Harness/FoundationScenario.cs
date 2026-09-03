@@ -31,7 +31,7 @@ namespace ThreeInARow.Domain.Harness
 
             events.Add(SimulationEventType.SwapAccepted, "system.foundation", "scripted swap accepted", cell: new GridCell(3, 3));
             events.Add(SimulationEventType.GemsMatched, "gem.ember", "scripted three-match", 3);
-            events.Add(SimulationEventType.GemCleared, "gem.ember", "scripted clear", 4, new GridCell(scriptedRoll % 7, scriptedRoll / 7));
+            events.Add(SimulationEventType.GemCleared, "gem.ember", "scripted clear", 1, new GridCell(scriptedRoll % 7, scriptedRoll / 7));
             state.Enemy.Health -= 4;
             state.ResolvedTurnCount = 1;
             events.Add(SimulationEventType.DamageApplied, "gem.ember", "enemy direct damage", 4);

@@ -25,9 +25,17 @@ namespace ThreeInARow.Domain.Replay
                 text.Append(stream.Stream).Append(':').Append(stream.State).Append('|');
             foreach (var skill in state.SelectedSkillIds)
                 text.Append(skill).Append('|');
+            foreach (var gem in state.Board.Gems)
+            {
+                text.Append(gem.Cell).Append(':').Append(gem.GemId).Append(':').Append(gem.SpecialId).Append('[');
+                foreach (var statusId in gem.StatusIds) text.Append(statusId).Append(',');
+                text.Append("]|");
+            }
             foreach (var item in events.Events)
                 text.Append(item.Sequence).Append(':').Append(item.Type).Append(':').Append(item.SourceId).Append(':')
-                    .Append(item.Detail).Append(':').Append(item.Amount).Append(':').Append(item.Cell.HasValue ? item.Cell.Value.ToString() : "-").Append('|');
+                    .Append(item.RelatedId).Append(':').Append(item.Detail).Append(':').Append(item.Amount).Append(':')
+                    .Append(item.HasCell ? item.Cell.ToString() : "-").Append(':')
+                    .Append(item.HasTargetCell ? item.TargetCell.ToString() : "-").Append('|');
 
             using (var sha = SHA256.Create())
             {

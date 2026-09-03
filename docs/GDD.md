@@ -1,8 +1,8 @@
 # Three in a Row: Roguelike Crystals
 
-**Status:** Foundation draft v0.1  
+**Status:** Board implementation v0.2  
 **Engine / platform:** Unity, C#, portrait mobile  
-**Canonical format:** This Markdown file is the editable source of truth. The `.docx` is a formatted snapshot only.
+**Canonical format:** This Markdown file is the sole editable source of truth; focused Markdown documents may link back here when this file becomes too large.
 
 ## Document purpose
 
@@ -96,11 +96,14 @@ A valid player swap causes exactly one complete board-resolution phase and, unle
 ### Board rules
 
 - Grid is 7 columns × 7 rows. Gravity pulls down; refills spawn from the top using the encounter RNG stream.
+- Coordinates are zero-based with `(0,0)` at the bottom-left. Canonical board storage and board-event ordering are row-major: bottom row to top row, then left to right within a row.
 - Gems swap only orthogonally. A valid swap creates a horizontal or vertical match of three or more normal gems.
 - All gems in a match clear simultaneously. Cascades continue until the board stabilizes.
 - Input locks after an accepted swap and unlocks only after combat resolution is complete.
 - **Frozen** gems cannot be swapped but can be included in a match. Clearing one removes Frozen before resolving its normal gem effect.
 - If a stable board has no legal swap, reshuffle movable gems while preserving locked/frozen states where feasible. Log the reshuffle reason.
+- Initial fill cannot contain a pre-existing match and must expose at least one legal swap. A stable dead board first attempts a color/special permutation; a deterministic regeneration of movable normal gems is the fallback when no playable permutation is found.
+- Frozen and Anchored gems are immovable for swap validation. Anchored gems also divide a column into independent gravity/refill segments so they never move while the board remains full.
 
 ### Gem definitions
 
@@ -125,6 +128,10 @@ A valid player swap causes exactly one complete board-resolution phase and, unle
 `Validate swap → detect all matches → create specials (Prism has priority) → clear matched cells and activated-special targets → emit GemCleared events in deterministic row-major order → resolve each effect → gravity/spawn → repeat cascade`
 
 Damage visuals may wait until the cascade stabilizes, but the simulation applies effects immediately in the documented event order.
+
+For a player-created special, the destination cell is preferred, then the source cell, then the first non-special matched cell in row-major order. The creation cell becomes the special and is not also cleared. A T/L intersection or a line of five or more creates Prism; otherwise a line of four creates the color's match-4 special. Simultaneous disconnected matches each resolve as their own row-major match group.
+
+`GemCleared` is a board lifecycle event with amount `1`, not precomputed combat damage. Its `sourceId` is the base gem and `relatedId` is its special ID. A special-bearing gem also emits `SpecialActivated`; its intensified special effect replaces its normal per-gem clear effect. Prism plus a normal or color-special gem clears that base color; the color special activates if present. Prism-to-Prism swaps are not valid in the MVP.
 
 ### Balance seed
 
@@ -292,10 +299,13 @@ ContinueCommand()
 The application layer validates timing, asks the simulation to resolve, records a checkpoint, then publishes an immutable batch of events. Initial event names:
 
 ```text
-SwapAccepted, GemsMatched, GemCleared, SpecialCreated,
+BoardInitialized, SwapAccepted, GemsMatched, GemCleared, SpecialCreated,
+SpecialActivated, GemMoved, GemSpawned, BoardReshuffled,
 DamageApplied, StatusAdded, EnemyIntentStarted, EnemyDefeated,
 XPGranted, LevelUpOffered, SkillChosen, RunEnded
 ```
+
+Board events use `cell` as an origin/location and optional `targetCell` for a destination, serialized with explicit `hasCell` / `hasTargetCell` flags. `relatedId` carries the secondary content identity (for example, a gem's special ID). A rejected swap returns a typed rejection and an empty event batch, changes neither board nor RNG state, and does not advance `ResolvedTurnCount`. Full turn advancement remains an application/combat responsibility in Session C.
 
 **Integration invariant:** the simulation owns truth. A view can animate a predicted swap but must reconcile to the event batch and resulting snapshot. Never calculate final damage from animation callbacks.
 
@@ -359,7 +369,7 @@ Each session updates its own section and adds a short **Changed contracts** note
 
 ## 13. Open decisions & current blockers
 
-There is **no design blocker** for Session A. The unresolved items below should be settled through the earliest vertical-slice playtests rather than speculative design.
+There is **no design blocker** for Session C. The unresolved items below should be settled through the earliest vertical-slice playtests rather than speculative design.
 
 | Decision | Why it matters | Recommended validation |
 | --- | --- | --- |
@@ -370,7 +380,7 @@ There is **no design blocker** for Session A. The unresolved items below should 
 
 ## Next session
 
-Begin **Session A — Foundation**: implement pure state, command, event, and deterministic RNG skeletons plus one replayable scripted scenario before building a Unity board view or final artwork.
+Begin **Session C — Combat/enemies**: consume the authoritative board event batch through effect definitions, implement damage/status ordering and deterministic intent cycles, and keep turn advancement outside the board resolver.
 
 ## Changed contracts — Session A
 
@@ -378,3 +388,11 @@ Begin **Session A — Foundation**: implement pure state, command, event, and de
 - Content/save references use stable ordinal string `ContentId` values (for example, `gem.ember` and `enemy.geode_mite`); Unity asset instance IDs are never persisted.
 - The initial command contracts are `SwapCommand`, `UseSkillCommand`, `SelectRewardCommand`, and `ContinueCommand`. The initial event types and their order are represented by an immutable-facing `EventBatch`.
 - Session A's scripted foundation scenario is intentionally limited to the contract pipeline. It emits a four-event log and a SHA-256 state hash; Session B replaces the scripted match with authoritative board resolution.
+
+## Changed contracts — Session B
+
+- `BoardGemState` now persists `specialId` separately from its base `gemId`; normal gems use `special.none`, while Prism uses `gem.prism` plus `special.prism`. Board cells remain a complete 49-entry row-major snapshot after every committed operation.
+- The save schema advances to version `2` and the default content version to `0.2.0` for the persisted `specialId` field. A schema-1 board gem migrates with `special.none`.
+- Board initialization and accepted swaps consume only the named `BoardSpawn` RNG stream. Swap resolution is transactional: validation failures return a typed rejection with no events and do not mutate the board or RNG state.
+- Board event payloads now include optional `targetCell` and `relatedId`; cell presence uses Unity-serializable `hasCell` / `hasTargetCell` flags rather than nullable fields. Session B adds `BoardInitialized`, `SpecialActivated`, `GemMoved`, `GemSpawned`, and `BoardReshuffled` to the event contract; `GemCleared.amount` is the cleared-cell count (`1` per event), not damage.
+- Match groups, special origin, clear order, gravity/refill events, legal-swap enumeration, and reshuffle attempts all use deterministic row-major ordering. The Session B handoff scenario initializes from a seed, resolves the first legal row-major swap, and hashes the resulting board, RNG state, and event batch.

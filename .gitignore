@@ -64,6 +64,14 @@ ExportedObj/
 *.pdb.meta
 *.mdb.meta
 
+# This machine's global Visual Studio ignore rules exclude all .meta files and
+# Packages contents. Unity projects must version both to preserve asset GUIDs
+# and reproducible package resolution.
+!*.meta
+!/[Pp]ackages/
+!/[Pp]ackages/manifest.json
+!/[Pp]ackages/packages-lock.json
+
 # Unity3D generated file on crash reports
 sysinfo.txt
 

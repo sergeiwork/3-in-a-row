@@ -371,3 +371,10 @@ There is **no design blocker** for Session A. The unresolved items below should 
 ## Next session
 
 Begin **Session A — Foundation**: implement pure state, command, event, and deterministic RNG skeletons plus one replayable scripted scenario before building a Unity board view or final artwork.
+
+## Changed contracts — Session A
+
+- The initial save schema is version `1`. `RunState` persists `schemaVersion`, `contentVersion`, the run seed, named RNG-stream states (`BoardSpawn`, `RewardSampling`, `IntentVariation`), encounter/turn counters, player/enemy state, board-state placeholders, selected skills, and a pending choice.
+- Content/save references use stable ordinal string `ContentId` values (for example, `gem.ember` and `enemy.geode_mite`); Unity asset instance IDs are never persisted.
+- The initial command contracts are `SwapCommand`, `UseSkillCommand`, `SelectRewardCommand`, and `ContinueCommand`. The initial event types and their order are represented by an immutable-facing `EventBatch`.
+- Session A's scripted foundation scenario is intentionally limited to the contract pipeline. It emits a four-event log and a SHA-256 state hash; Session B replaces the scripted match with authoritative board resolution.

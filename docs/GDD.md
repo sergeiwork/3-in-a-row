@@ -337,12 +337,33 @@ Content may subscribe through a controlled `EffectStep` / `StatusHook` registry 
 | B — Board | 7×7 simulation: swaps, matching, special creation, cascades, refill, reshuffle | Board rules | Seeded moves resolve deterministically with no soft-lock cases |
 | C — Combat/enemies | Damage pipeline, statuses, intent cycle, five encounters | Combat/enemy rules | Enemy behavior works entirely through definitions; ordering tests pass |
 | D — Progression | XP, upgrade selection, six nodes, actives, rewards | Progression rules | Eligibility/effects persist across encounters |
-| E — Mobile presentation | Board/HUD/input/animation shell, accessibility labels, save-resume | UX + architecture | One run works on target portrait aspect ratios |
+| E0 — Stub assets | Source or generate temporary visuals/audio for the vertical slice; record licenses and attribution | UX, status rules, and content IDs | Every MVP gem, special, status, enemy, intent, and HUD state has a readable placeholder asset; asset ledger is complete |
+| E — Mobile presentation | Board/HUD/input/animation shell, accessibility labels, save-resume | E0, UX + architecture | One run works on target portrait aspect ratios |
 | F — Balance/QA | Fixtures, telemetry export, tuning sheet, playtest revisions | Full MVP | Ten clean runs and an updated balance snapshot |
 
 ### Handoff rule
 
 Each session updates its own section and adds a short **Changed contracts** note. Any change to an ID, event ordering, timing window, or save field must be updated here before dependent sessions proceed.
+
+### Session E0 — Stub asset sourcing and generation
+
+Prepare only the temporary assets needed to make the vertical slice readable and playable; final art direction and production audio remain out of scope. E0 must finish before presentation integration begins, so visual readability can be tested on device instead of being deferred to polish.
+
+| Asset group | Minimum temporary coverage | Preferred acquisition route |
+| --- | --- | --- |
+| Board | Ember, Tide, Venom, Volt, Prism, and clear visual distinctions for Spark, Current, Spore, and Charge | Generate simple original sprites or source permissively licensed icon/sprite assets |
+| Board statuses | Frozen, Cracked, Anchored overlays, duration counters, and tooltipped status icons | Generate or create simple original overlays; verify contrast against every gem color |
+| Enemies and intents | One readable portrait/silhouette for each of the five encounter entries and an icon for each visible intent | Source permissively licensed placeholders or generate non-final original art |
+| HUD and progression | Player/enemy health, Focus, Toxic, Poison, Shield, active-skill, level-up branch, and reward-card icons | Use original vector/UI primitives first; source icons only where needed |
+| Feedback | Clear, hit, shield, status-added/removed, victory, and defeat feedback; optional placeholder SFX | Use simple generated/procedural visuals and free-to-use temporary audio where available |
+
+#### Asset sourcing rules
+
+- Search free asset libraries first when they can provide a consistent, readable set. Accept assets only with a license compatible with commercial game distribution (for example CC0, CC-BY with recorded attribution, or an equivalent permissive license).
+- Record every non-original asset in an asset ledger with source URL, creator, license, required attribution text, download date, and the in-project path. Do not rely on a marketplace's “free” label without confirming its license.
+- When a suitable free asset cannot be found quickly, generate an original placeholder or use a simple shape-based temporary asset. Generated assets must avoid third-party characters, logos, and recognizable franchise styles.
+- Keep each temporary asset mapped to a stable content ID or UI role, not to a filename convention alone, so final assets can replace it without changing simulation or save contracts.
+- Test gem and status combinations at 16:9 and 20:9 portrait sizes. Placeholder art succeeds only if players can distinguish gem color, special state, and board status at normal play distance.
 
 ---
 

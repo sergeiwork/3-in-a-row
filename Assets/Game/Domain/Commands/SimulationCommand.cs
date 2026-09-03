@@ -28,5 +28,12 @@ namespace ThreeInARow.Domain.Commands
     }
 
     [Serializable]
+    public sealed class EquipSkillCommand : ISimulationCommand
+    {
+        public ContentId SkillId;
+        public int SlotIndex;
+    }
+
+    [Serializable]
     public sealed class ContinueCommand : ISimulationCommand { }
 }

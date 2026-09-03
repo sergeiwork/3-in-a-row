@@ -12,19 +12,22 @@ namespace ThreeInARow.Domain.State
     [Serializable]
     public sealed class RunState
     {
-        public const int CurrentSchemaVersion = 3;
+        public const int CurrentSchemaVersion = 4;
 
         public int SchemaVersion = CurrentSchemaVersion;
-        public string ContentVersion = "0.3.0";
+        public string ContentVersion = "0.4.0";
         public ulong Seed;
         public int EncounterIndex;
         public int ResolvedTurnCount;
+        public int Experience;
+        public int Level = 1;
         public PlayerState Player = new PlayerState();
         public EnemyState Enemy = new EnemyState();
         public BoardState Board = new BoardState();
         public List<ContentId> SelectedSkillIds = new List<ContentId>();
         public List<RandomStreamState> RandomStreams = new List<RandomStreamState>();
         public PendingChoiceState PendingChoice = new PendingChoiceState();
+        public PendingCombatTurnState PendingCombatTurn = new PendingCombatTurnState();
     }
 
     [Serializable]
@@ -38,6 +41,8 @@ namespace ThreeInARow.Domain.State
         public int Toxic;
         // Counts cleared Volt gems toward the next deterministic cooldown reduction.
         public int VoltClearProgress;
+        // Stable left-to-right slot order. Learned active skills remain in SelectedSkillIds.
+        public List<ContentId> EquippedActiveSkillIds = new List<ContentId>();
         public List<SkillCooldownState> SkillCooldowns = new List<SkillCooldownState>();
     }
 
@@ -90,8 +95,18 @@ namespace ThreeInARow.Domain.State
     public sealed class PendingChoiceState
     {
         public ContentId ChoiceId = "choice.none";
+        public int Level;
         public List<ContentId> OptionIds = new List<ContentId>();
 
-        public bool IsPending => OptionIds.Count > 0;
+        public bool IsPending => OptionIds != null && OptionIds.Count > 0;
+    }
+
+    [Serializable]
+    public sealed class PendingCombatTurnState
+    {
+        // This is authoritative command timing state, not an animation checkpoint.
+        public bool AwaitingEnemyResponse;
+        public int CascadeCount;
+        public List<ContentId> SkillIdsUsed = new List<ContentId>();
     }
 }

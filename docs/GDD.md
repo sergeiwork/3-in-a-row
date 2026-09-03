@@ -1,6 +1,6 @@
 # Three in a Row: Roguelike Crystals
 
-**Status:** Combat/enemy implementation v0.3
+**Status:** Progression implementation v0.4
 **Engine / platform:** Unity, C#, portrait mobile  
 **Canonical format:** This Markdown file is the sole editable source of truth; focused Markdown documents may link back here when this file becomes too large.
 
@@ -196,7 +196,7 @@ Tune health from recorded median turns-to-kill with a no-upgrade baseline, then 
 
 ### XP and upgrade picks
 
-Each victory grants 1 XP. The run starts at level 1 and grants level-up choices after **2, 3, and 4 XP**—three upgrade picks total. A level-up presents three eligible skill-tree nodes sampled without duplicates. If no tree node is eligible, present an active-skill upgrade.
+Each victory grants 1 XP. The run starts at level 1 and grants level-up choices after **2, 3, and 4 XP**—three upgrade picks total. A level-up presents three unowned eligible rewards sampled without duplicates through the `RewardSampling` RNG stream. The pool contains skill-tree nodes whose prerequisites are met plus active skills marked as level-up rewards; for the MVP, Catalyze is the only such active reward. This keeps Catalyze reachable during the five-encounter run while preserving prerequisite rules.
 
 ### Six-node skill tree
 
@@ -217,7 +217,9 @@ Each victory grants 1 XP. The run starts at level 1 and grants level-up choices 
 | Cleanse | 5 player turns | Remove Frozen, Cracked, or Anchored from up to three selected gems | Selection is cancelable before confirmation; remove all if fewer than three exist |
 | Catalyze | 5 player turns | Convert up to 4 Focus to damage at 3 each and up to 4 Toxic to Poison at 1:2 | Uses current resources to turn near-threshold states into tactical burst |
 
-Run start equips Sunder and Cleanse. Catalyze is unlockable from a level-up choice. Active-skill UI must be generated from generic timing and targeting policies rather than per-skill UI code.
+Run start learns and equips Sunder in the left slot and Cleanse in the right slot. Catalyze is unlockable from a level-up choice but is not equipped automatically; the player may replace either active between encounters. Learned-active cooldowns persist when a skill is unequipped, and only equipped active cooldowns tick or receive generic left/both-slot reductions. An active used in the post-cascade window begins at its full listed cooldown and does not tick down on its activation turn. Active-skill UI must be generated from generic timing and targeting policies rather than per-skill UI code.
+
+Cleanse confirmation accepts one to three unique status-bearing cells; if three or fewer eligible cells exist, an empty target list means “cleanse all.” Catalyze spends up to 4 Focus for 3 damage each, then spends Toxic in pairs up to 4 total for 1 Poison per 2 Toxic without consuming resources that cannot produce an effect because Poison is capped.
 
 ---
 
@@ -297,6 +299,7 @@ Presentation may send only commands:
 SwapCommand(cellA, cellB)
 UseSkillCommand(skillId, targets)
 SelectRewardCommand(rewardId)
+EquipSkillCommand(skillId, slotIndex)
 ContinueCommand()
 ```
 
@@ -307,10 +310,13 @@ BoardInitialized, SwapAccepted, GemsMatched, GemCleared, SpecialCreated,
 SpecialActivated, GemMoved, GemSpawned, BoardReshuffled,
 DamageApplied, StatusAdded, EnemyIntentStarted, EnemyDefeated,
 XPGranted, LevelUpOffered, SkillChosen, RunEnded, StatusRemoved,
-ResourceChanged, CooldownChanged, EnemyIntentTelegraphed
+ResourceChanged, CooldownChanged, EnemyIntentTelegraphed,
+SkillUsed, SkillEquipped
 ```
 
 Board events use `cell` as an origin/location and optional `targetCell` for a destination, serialized with explicit `hasCell` / `hasTargetCell` flags. `relatedId` carries the secondary content identity (for example, a gem's special ID). `GemCleared.statusIds` snapshots the statuses present immediately before the gem left the board; this lets Cracked suppression remain deterministic after the board snapshot has already refilled. Clearing a status-bearing gem emits `StatusRemoved` before its `GemCleared` event. A rejected swap returns a typed rejection and an empty event batch, changes neither board nor RNG state, and does not advance `ResolvedTurnCount`. The combat turn resolver advances `ResolvedTurnCount` exactly once after each accepted swap.
+
+For active-skill timing, `BeginSwap` resolves the board and player effects and opens the post-cascade skill window when the enemy survives. Zero or more valid `UseSkillCommand`s may resolve before `ContinueCommand` maps to `CompleteTurn` and executes the single enemy response. The convenience `ResolveSwap` API performs `BeginSwap` plus immediate `CompleteTurn` for callers that use no active. A skill defeat closes the turn without an enemy response. No checkpoint is written while this command window is open.
 
 **Integration invariant:** the simulation owns truth. A view can animate a predicted swap but must reconcile to the event batch and resulting snapshot. Never calculate final damage from animation callbacks.
 
@@ -322,7 +328,7 @@ Board events use `cell` as an origin/location and optional `targetCell` for a de
 | --- | --- | --- |
 | Randomness | One seeded deterministic RNG per run; named streams for board spawn, reward sampling, and intent variation | Reproducible bugs and balance cases |
 | Checkpoints | Save after encounter start, resolved player/enemy turn, victory, and reward/skill choice | Never serialize half-finished animations |
-| Save payload | `schemaVersion`, `contentVersion`, seed/RNG states, encounter, player, board, enemy, selected skills, pending choice | Migration and local debugging |
+| Save payload | `schemaVersion`, `contentVersion`, seed/RNG states, encounter, player, board, enemy, XP/level, learned and equipped skills, cooldowns, pending choice, pending combat command window | Migration and local debugging |
 | Content versioning | Stable string IDs; never Unity asset instance IDs as save keys | Saves and test fixtures remain readable |
 | Debug log | Seed, commands, event batches, final state hash in development builds | Makes desyncs and balance reports actionable |
 
@@ -395,7 +401,7 @@ Prepare only the temporary assets needed to make the vertical slice readable and
 
 ## 13. Open decisions & current blockers
 
-There is **no design blocker** for Session C. The unresolved items below should be settled through the earliest vertical-slice playtests rather than speculative design.
+There is **no design blocker** for Session E0. The unresolved items below should be settled through the earliest vertical-slice playtests rather than speculative design.
 
 | Decision | Why it matters | Recommended validation |
 | --- | --- | --- |
@@ -406,7 +412,7 @@ There is **no design blocker** for Session C. The unresolved items below should 
 
 ## Next session
 
-Begin **Session D — Progression**: persist XP and level state, sample eligible upgrade choices without duplicates, implement the six passive nodes and three active skills, and connect their behavior through the Session C effect/event contracts.
+Begin **Session E0 — Stub assets**: source or generate the readable temporary board, enemy, intent, status, HUD, progression, and feedback assets listed above, and record every sourced asset in the asset ledger.
 
 ## Changed contracts — Session A
 
@@ -431,3 +437,12 @@ Begin **Session D — Progression**: persist XP and level state, sample eligible
 - The save schema advances to version `3` and default content version to `0.3.0` for enemy Poison ownership, Volt progress, and board-status durations. The state hash includes all three fields plus event status snapshots.
 - Five immutable encounter/enemy definitions provide HP, reward XP, and ordered intent cycles. Generic intent effects cover player damage, unique-cell board-status application, and Focus/Toxic drain; the resolver contains no per-enemy execution branches.
 - Session C adds `StatusRemoved`, `ResourceChanged`, `CooldownChanged`, and `EnemyIntentTelegraphed`. Poison checks before `EnemyIntentStarted`; Shield absorbs before HP; an enemy killed by player resolution or Poison emits `EnemyDefeated` and `XPGranted` and never executes an intent.
+
+## Changed contracts — Session D
+
+- `RunState` now persists `Experience`, `Level`, learned skills, two ordered equipped-active slots, cooldowns for every learned active, the pending level-up choice and its level, and the post-cascade combat command window. The save schema advances to version `4` and default content version to `0.4.0`; all new fields participate in the deterministic state hash.
+- Run initialization learns and equips Sunder and Cleanse. Catalyze participates in the deterministic level-up reward pool, becomes learned when selected, and may replace either equipped active only between encounters through `EquipSkillCommand`; an unequipped active retains its cooldown.
+- Level-up thresholds are cumulative XP 2, 3, and 4. Eligible unowned rewards include passive nodes with satisfied prerequisites and active definitions flagged for level-up. Three options are sampled without replacement through `RewardSampling` and persisted until a valid `SelectRewardCommand` resolves them.
+- The six passive nodes are generic content modifiers consumed by combat: Ember clear damage, Spark Shield, Focus-conversion damage and left cooldown reduction, Poison damage per stack, and Volt clear threshold. The resolver contains no passive-skill ID branches.
+- `BeginSwap` opens a post-cascade active-skill window and `CompleteTurn` resolves the one enemy response; the existing `ResolveSwap` remains a no-active convenience path. Sunder, Cleanse, and Catalyze resolve through generic target-policy/effect definitions. A newly used skill does not tick on its activation turn.
+- Session D adds `SkillUsed` and `SkillEquipped`. `SkillChosen` records the resolved reward and its choice ID; active effects continue to express outcomes through `DamageApplied`, `StatusRemoved`, `StatusAdded`, `ResourceChanged`, and `CooldownChanged`.

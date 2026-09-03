@@ -17,6 +17,7 @@ namespace ThreeInARow.Domain.Replay
             var text = new StringBuilder();
             text.Append(state.SchemaVersion).Append('|').Append(state.ContentVersion).Append('|')
                 .Append(state.Seed).Append('|').Append(state.EncounterIndex).Append('|').Append(state.ResolvedTurnCount).Append('|')
+                .Append(state.Experience).Append('|').Append(state.Level).Append('|')
                 .Append(state.Player.Health).Append('|').Append(state.Player.Shield).Append('|').Append(state.Player.Focus).Append('|')
                 .Append(state.Player.Toxic).Append('|')
                 .Append(state.Player.VoltClearProgress).Append('|')
@@ -27,6 +28,30 @@ namespace ThreeInARow.Domain.Replay
                 text.Append(stream.Stream).Append(':').Append(stream.State).Append('|');
             foreach (var skill in state.SelectedSkillIds)
                 text.Append(skill).Append('|');
+            if (state.Player.EquippedActiveSkillIds != null)
+                foreach (var skill in state.Player.EquippedActiveSkillIds)
+                    text.Append("equipped:").Append(skill).Append('|');
+            if (state.Player.SkillCooldowns != null)
+                foreach (var cooldown in state.Player.SkillCooldowns)
+                    if (cooldown != null)
+                        text.Append("cooldown:").Append(cooldown.SkillId).Append(':')
+                            .Append(cooldown.RemainingTurns).Append('|');
+            if (state.PendingChoice != null)
+            {
+                text.Append("choice:").Append(state.PendingChoice.ChoiceId).Append(':')
+                    .Append(state.PendingChoice.Level).Append('[');
+                if (state.PendingChoice.OptionIds != null)
+                    foreach (var option in state.PendingChoice.OptionIds) text.Append(option).Append(',');
+                text.Append("]|");
+            }
+            if (state.PendingCombatTurn != null)
+            {
+                text.Append("turn:").Append(state.PendingCombatTurn.AwaitingEnemyResponse).Append(':')
+                    .Append(state.PendingCombatTurn.CascadeCount).Append('[');
+                if (state.PendingCombatTurn.SkillIdsUsed != null)
+                    foreach (var skill in state.PendingCombatTurn.SkillIdsUsed) text.Append(skill).Append(',');
+                text.Append("]|");
+            }
             foreach (var gem in state.Board.Gems)
             {
                 text.Append(gem.Cell).Append(':').Append(gem.GemId).Append(':').Append(gem.SpecialId).Append('[');

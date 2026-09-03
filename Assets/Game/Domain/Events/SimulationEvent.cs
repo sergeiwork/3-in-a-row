@@ -27,7 +27,9 @@ namespace ThreeInARow.Domain.Events
         StatusRemoved,
         ResourceChanged,
         CooldownChanged,
-        EnemyIntentTelegraphed
+        EnemyIntentTelegraphed,
+        SkillUsed,
+        SkillEquipped
     }
 
     [Serializable]

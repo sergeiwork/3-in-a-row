@@ -1,6 +1,6 @@
 # Three in a Row: Roguelike Crystals
 
-**Status:** Progression implementation v0.4
+**Status:** Stub asset implementation v0.5
 **Engine / platform:** Unity, C#, portrait mobile  
 **Canonical format:** This Markdown file is the sole editable source of truth; focused Markdown documents may link back here when this file becomes too large.
 
@@ -376,6 +376,10 @@ Prepare only the temporary assets needed to make the vertical slice readable and
 - Keep each temporary asset mapped to a stable content ID or UI role, not to a filename convention alone, so final assets can replace it without changing simulation or save contracts.
 - Test gem and status combinations at 16:9 and 20:9 portrait sizes. Placeholder art succeeds only if players can distinguish gem color, special state, and board status at normal play distance.
 
+#### Selected E0 asset kit
+
+The temporary asset selection, stable content/UI-role mappings, generation prompts, licenses, and required attribution are recorded in [ASSET_LEDGER.md](ASSET_LEDGER.md). E0 uses a CC0 match-3 gem set, CC0 Kenney UI/audio/VFX packs, CC-BY Lorc icons from Game-icons.net, and five project-generated enemy portraits. Session E must preserve the ledger mappings and expose the recorded Lorc credit from an accessible Settings or Credits view.
+
 ---
 
 ## 12. Test plan and acceptance criteria
@@ -446,3 +450,10 @@ Begin **Session E0 — Stub assets**: source or generate the readable temporary 
 - The six passive nodes are generic content modifiers consumed by combat: Ember clear damage, Spark Shield, Focus-conversion damage and left cooldown reduction, Poison damage per stack, and Volt clear threshold. The resolver contains no passive-skill ID branches.
 - `BeginSwap` opens a post-cascade active-skill window and `CompleteTurn` resolves the one enemy response; the existing `ResolveSwap` remains a no-active convenience path. Sunder, Cleanse, and Catalyze resolve through generic target-policy/effect definitions. A newly used skill does not tick on its activation turn.
 - Session D adds `SkillUsed` and `SkillEquipped`. `SkillChosen` records the resolved reward and its choice ID; active effects continue to express outcomes through `DamageApplied`, `StatusRemoved`, `StatusAdded`, `ResourceChanged`, and `CooldownChanged`.
+
+## Changed contracts — Session E0
+
+- Temporary presentation assets are selected and mapped to every MVP gem, special, status, enemy, intent telegraph, HUD resource, skill, and feedback role in `docs/ASSET_LEDGER.md`; these mappings do not change simulation or save IDs.
+- Composite intents reuse multiple mapped effect icons, and all values, cooldowns, durations, and stack counts remain live text rather than baked artwork.
+- Session E must include the ledger's Lorc/Game-icons.net CC-BY 3.0 credit in an accessible Settings or Credits view. All other sourced E0 packs are CC0; generated enemy portraits have recorded prompt provenance.
+- E0 texture and audio import defaults are enforced by `E0AssetImportSettings`; runtime presentation code should reference imported sprites and clips through content IDs or explicit UI roles, never raw filename conventions.

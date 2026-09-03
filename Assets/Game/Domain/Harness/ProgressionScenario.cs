@@ -13,7 +13,7 @@ namespace ThreeInARow.Domain.Harness
 {
     /// <summary>
     /// Replayable Session D handoff fixture: grant the first level, select a deterministic offered
-    /// reward, carry it into combat, use Sunder in the post-cascade window, and finish the turn.
+    /// reward, carry it into combat, use Sunder before the swap, and finish the automatic-response turn.
     /// </summary>
     public static class ProgressionScenario
     {
@@ -45,6 +45,14 @@ namespace ThreeInARow.Domain.Harness
 
             BoardSimulation.InitializeBoard(state);
             events.Append(CombatSimulation.StartEncounter(state, 0));
+            var skill = ProgressionSimulation.UseActiveSkill(state, new UseSkillCommand
+            {
+                SkillId = ProgressionContentIds.Sunder
+            });
+            if (!skill.Accepted)
+                throw new InvalidOperationException("Sunder was unavailable before the player swap.");
+            events.Append(skill.Events);
+
             var legalSwaps = BoardSimulation.FindLegalSwaps(state.Board);
             if (legalSwaps.Count == 0)
                 throw new InvalidOperationException("The progression fixture board has no legal swap.");
@@ -60,17 +68,7 @@ namespace ThreeInARow.Domain.Harness
             events.Append(playerResolution.Events);
 
             if (!playerResolution.EncounterWon)
-            {
-                var skill = ProgressionSimulation.UseActiveSkill(state, new UseSkillCommand
-                {
-                    SkillId = ProgressionContentIds.Sunder
-                });
-                if (!skill.Accepted)
-                    throw new InvalidOperationException("Sunder was unavailable in the post-cascade skill window.");
-                events.Append(skill.Events);
-                if (!skill.EncounterWon)
-                    events.Append(CombatSimulation.CompleteTurn(state).Events);
-            }
+                events.Append(CombatSimulation.CompleteTurn(state).Events);
 
             return new ProgressionScenarioResult(
                 state,

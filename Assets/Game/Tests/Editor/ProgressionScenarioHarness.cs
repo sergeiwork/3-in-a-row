@@ -26,7 +26,10 @@ namespace ThreeInARow.Tests
                 if (item.Type == SimulationEventType.SkillUsed &&
                     item.SourceId.Equals(ProgressionContentIds.Sunder)) sawSkillUse = true;
             if (!sawSkillUse)
-                throw new InvalidOperationException("The active-skill window did not emit Sunder use.");
+                throw new InvalidOperationException("Pre-swap active use did not emit Sunder use.");
+            var cooldown = ProgressionRules.FindCooldown(first.State.Player, ProgressionContentIds.Sunder);
+            if (cooldown == null || cooldown.RemainingTurns != 4)
+                throw new InvalidOperationException("A pre-swap active skill cooled down on its activation turn.");
             return first.StateHash;
         }
     }

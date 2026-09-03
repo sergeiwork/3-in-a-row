@@ -279,7 +279,7 @@ namespace ThreeInARow.Domain.Progression
             progressionCatalog = progressionCatalog ?? MvpProgressionContentCatalog.Instance;
             combatCatalog = combatCatalog ?? MvpCombatContentCatalog.Instance;
             InitializeRun(state, progressionCatalog);
-            if (!state.PendingCombatTurn.AwaitingEnemyResponse || state.Enemy == null || state.Enemy.Health <= 0)
+            if (state.Enemy == null || state.Enemy.Health <= 0)
                 return ActiveSkillResult.Reject(ActiveSkillRejectionReason.SkillWindowClosed);
 
             SkillDefinition definition;

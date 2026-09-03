@@ -1,6 +1,6 @@
 # Three in a Row: Roguelike Crystals
 
-**Status:** Stub asset implementation v0.5
+**Status:** Mobile presentation implementation v0.6
 **Engine / platform:** Unity, C#, portrait mobile  
 **Canonical format:** This Markdown file is the sole editable source of truth; focused Markdown documents may link back here when this file becomes too large.
 
@@ -73,10 +73,10 @@ A fresh player can complete a five-encounter run in **8–12 minutes**, understa
 ### Encounter loop
 
 1. Display enemy name, HP, next intent, player HP, resources, active-skill cooldowns, and the board.
-2. Player swaps two adjacent movable gems. Invalid swaps revert and consume no turn.
+2. Before swapping, the player may use any ready active skill. The player then swaps two adjacent movable gems. Invalid swaps revert and consume no turn.
 3. Resolve the board: detect matches → create specials → clear gems → emit clear events → gravity/refill → repeat until stable.
 4. Resolve player damage, resources, statuses, passives, and skill reactions from the ordered events.
-5. If the enemy survived, resolve its telegraphed intent: attack and/or apply board status.
+5. If the enemy survived, automatically resolve its telegraphed intent after the board animation: attack and/or apply board status. No confirmation input is required.
 6. On victory, grant XP; if an XP threshold was reached, offer an upgrade choice; then start the next encounter.
 
 ### Run loop
@@ -87,7 +87,7 @@ Defeat ends the run and returns to the title screen. The MVP has no persistent r
 
 ### Turn invariant
 
-A valid player swap causes exactly one complete board-resolution phase and, unless it kills the enemy, exactly one enemy-response phase. This invariant must hold in simulation, UI lock state, animations, saves, and tests.
+A valid player swap causes exactly one complete board-resolution phase and, unless it kills the enemy, exactly one automatic enemy-response phase. This invariant must hold in simulation, UI lock state, animations, saves, and tests. Presentation keeps input locked across both phases and does not expose an enemy-response confirmation button.
 
 ---
 
@@ -213,11 +213,11 @@ Each victory grants 1 XP. The run starts at level 1 and grants level-up choices 
 
 | Skill | Cooldown | Effect | Timing / targeting |
 | --- | --- | --- | --- |
-| Sunder | 4 player turns | Deal 14 direct damage | Usable once after board stabilization and before enemy response; does not consume a swap |
+| Sunder | 4 player turns | Deal 14 direct damage | Usable before the player's swap; does not consume a swap |
 | Cleanse | 5 player turns | Remove Frozen, Cracked, or Anchored from up to three selected gems | Selection is cancelable before confirmation; remove all if fewer than three exist |
 | Catalyze | 5 player turns | Convert up to 4 Focus to damage at 3 each and up to 4 Toxic to Poison at 1:2 | Uses current resources to turn near-threshold states into tactical burst |
 
-Run start learns and equips Sunder in the left slot and Cleanse in the right slot. Catalyze is unlockable from a level-up choice but is not equipped automatically; the player may replace either active between encounters. Learned-active cooldowns persist when a skill is unequipped, and only equipped active cooldowns tick or receive generic left/both-slot reductions. An active used in the post-cascade window begins at its full listed cooldown and does not tick down on its activation turn. Active-skill UI must be generated from generic timing and targeting policies rather than per-skill UI code.
+Run start learns and equips Sunder in the left slot and Cleanse in the right slot. Catalyze is unlockable from a level-up choice but is not equipped automatically; the player may replace either active between encounters. Learned-active cooldowns persist when a skill is unequipped, and only equipped active cooldowns tick or receive generic left/both-slot reductions. An active used before a swap begins at its full listed cooldown and does not tick down when that swap completes. Active-skill UI must be generated from generic timing and targeting policies rather than per-skill UI code.
 
 Cleanse confirmation accepts one to three unique status-bearing cells; if three or fewer eligible cells exist, an empty target list means “cleanse all.” Catalyze spends up to 4 Focus for 3 damage each, then spends Toxic in pairs up to 4 total for 1 Poison per 2 Toxic without consuming resources that cannot produce an effect because Poison is capped.
 
@@ -316,7 +316,7 @@ SkillUsed, SkillEquipped
 
 Board events use `cell` as an origin/location and optional `targetCell` for a destination, serialized with explicit `hasCell` / `hasTargetCell` flags. `relatedId` carries the secondary content identity (for example, a gem's special ID). `GemCleared.statusIds` snapshots the statuses present immediately before the gem left the board; this lets Cracked suppression remain deterministic after the board snapshot has already refilled. Clearing a status-bearing gem emits `StatusRemoved` before its `GemCleared` event. A rejected swap returns a typed rejection and an empty event batch, changes neither board nor RNG state, and does not advance `ResolvedTurnCount`. The combat turn resolver advances `ResolvedTurnCount` exactly once after each accepted swap.
 
-For active-skill timing, `BeginSwap` resolves the board and player effects and opens the post-cascade skill window when the enemy survives. Zero or more valid `UseSkillCommand`s may resolve before `ContinueCommand` maps to `CompleteTurn` and executes the single enemy response. The convenience `ResolveSwap` API performs `BeginSwap` plus immediate `CompleteTurn` for callers that use no active. A skill defeat closes the turn without an enemy response. No checkpoint is written while this command window is open.
+For active-skill timing, zero or more valid `UseSkillCommand`s may resolve while the encounter is awaiting the player's swap. `BeginSwap` resolves the board and player effects, then opens the internal pending-response state when the enemy survives. Presentation immediately maps that state to `CompleteTurn` after board animation, executing exactly one enemy response without another player command. The convenience `ResolveSwap` API still performs both simulation phases for non-presentational callers. A pre-swap skill defeat closes the turn without an enemy response. A stable checkpoint may be written after a pre-swap skill, but never while the internal pending-response state is open.
 
 **Integration invariant:** the simulation owns truth. A view can animate a predicted swap but must reconcile to the event batch and resulting snapshot. Never calculate final damage from animation callbacks.
 
@@ -380,6 +380,33 @@ Prepare only the temporary assets needed to make the vertical slice readable and
 
 The temporary asset selection, stable content/UI-role mappings, generation prompts, licenses, and required attribution are recorded in [ASSET_LEDGER.md](ASSET_LEDGER.md). E0 uses a CC0 match-3 gem set, CC0 Kenney UI/audio/VFX packs, CC-BY Lorc icons from Game-icons.net, and five project-generated enemy portraits. Session E must preserve the ledger mappings and expose the recorded Lorc credit from an accessible Settings or Credits view.
 
+### Session E — Mobile presentation and save-resume
+
+The MVP uses a single portrait UI Toolkit scene generated by `SectionEBuilder`. The scene references a serialized `PortraitPanelSettings` asset and the project-owned `PortraitRuntimeTheme.tss`, so Unity packages its runtime text/ICU dependencies and default control styles; panel settings must not be created only at runtime. `ThreeInARowApp` creates the responsive safe-area layout and derives every screen from the application-owned `RunDirector`; scene views never calculate damage, status outcomes, rewards, or enemy actions.
+
+#### Screen and input flow
+
+- Title exposes Start Run, Resume when a compatible stable checkpoint exists, Settings, the reduced-motion toggle, build version, and required asset credits.
+- Encounter displays the enemy portrait, live HP, Poison, next-intent icon and exact effects, the 7×7 board, player resources, equipped active skills, cooldowns, and current command-window guidance.
+- Board input supports tap-then-tap and directional swipe. The presentation sends only adjacent-cell `SwapCommand` data; rejected swaps retain the current state, explain the rejection, and play invalid feedback.
+- Ready active skills are available before a swap. A successful swap locks board input while swap, clear, gravity, and refill movement is animated from the ordered board events; if the enemy survives, presentation dispatches `CompleteTurn` automatically and keeps input locked through the enemy response.
+- Cleanse enters a cancelable target mode. Status-bearing cells can be selected or deselected, confirmation accepts one to three unique targets, and an empty selection means cleanse all only when no more than three eligible cells exist.
+- Level-up options and between-encounter loadout controls are generated from the generic skill definitions. A newly learned Catalyze can replace either active while preserving every learned active's cooldown.
+- Victory and defeat summaries display encounters cleared, largest cascade, resolved turns, total damage, damage by source, and chosen upgrades. Development builds also display the run seed.
+
+#### Responsive and accessible presentation
+
+- The canvas scales from a 1080×1920 reference and applies the device safe area. The square board is capped independently of screen height so both 16:9 and 20:9 portrait layouts retain the enemy intent, resources, active controls, and generous cell hit regions.
+- Gem and special identity is carried by both distinct artwork and descriptive focus/tool-tip text. Every board-status overlay is an independent tappable control with its full rule; timed status counters remain live text.
+- Enemy intents, health, resources, cooldowns, reward effects, prerequisites, and summary values are live text rather than baked art. Buttons expose descriptive tooltips and visible action labels.
+- Reduced Motion removes nonessential event pacing and board shake while preserving state cues, ordered feedback text, and input locks.
+
+#### Checkpoint boundary
+
+The local checkpoint is a versioned JSON envelope at `Application.persistentDataPath/run-checkpoint.json`. It stores the complete domain `RunState` plus run-summary statistics through explicit primitive DTOs, preserving stable content IDs and unsigned RNG values without relying on Unity serialization of readonly structs.
+
+Checkpoints are replaced after run start, encounter start, a fully resolved player/enemy turn, victory, reward selection, and loadout change. No checkpoint is written while `PendingCombatTurn.AwaitingEnemyResponse` is true. Resume validates both the envelope schema and domain schema, requires a complete 49-cell board, restores generic progression invariants, and derives the correct encounter, reward, between-encounter, victory, or defeat screen from authoritative state.
+
 ---
 
 ## 12. Test plan and acceptance criteria
@@ -405,7 +432,7 @@ The temporary asset selection, stable content/UI-role mappings, generation promp
 
 ## 13. Open decisions & current blockers
 
-There is **no design blocker** for Session E0. The unresolved items below should be settled through the earliest vertical-slice playtests rather than speculative design.
+There is **no design blocker** for Session E. The unresolved items below should be settled during Session F playtests rather than speculative design.
 
 | Decision | Why it matters | Recommended validation |
 | --- | --- | --- |
@@ -416,7 +443,7 @@ There is **no design blocker** for Session E0. The unresolved items below should
 
 ## Next session
 
-Begin **Session E0 — Stub assets**: source or generate the readable temporary board, enemy, intent, status, HUD, progression, and feedback assets listed above, and record every sourced asset in the asset ledger.
+Begin **Session F — Balance/QA**: exercise the finished portrait run on 16:9 and 20:9 targets, capture telemetry from seeded runs, tune combat pacing, and complete the ten-run acceptance pass.
 
 ## Changed contracts — Session A
 
@@ -448,7 +475,7 @@ Begin **Session E0 — Stub assets**: source or generate the readable temporary 
 - Run initialization learns and equips Sunder and Cleanse. Catalyze participates in the deterministic level-up reward pool, becomes learned when selected, and may replace either equipped active only between encounters through `EquipSkillCommand`; an unequipped active retains its cooldown.
 - Level-up thresholds are cumulative XP 2, 3, and 4. Eligible unowned rewards include passive nodes with satisfied prerequisites and active definitions flagged for level-up. Three options are sampled without replacement through `RewardSampling` and persisted until a valid `SelectRewardCommand` resolves them.
 - The six passive nodes are generic content modifiers consumed by combat: Ember clear damage, Spark Shield, Focus-conversion damage and left cooldown reduction, Poison damage per stack, and Volt clear threshold. The resolver contains no passive-skill ID branches.
-- `BeginSwap` opens a post-cascade active-skill window and `CompleteTurn` resolves the one enemy response; the existing `ResolveSwap` remains a no-active convenience path. Sunder, Cleanse, and Catalyze resolve through generic target-policy/effect definitions. A newly used skill does not tick on its activation turn.
+- Session D originally introduced a post-cascade active-skill window between `BeginSwap` and `CompleteTurn`; the later automatic-response contract moves player-facing active use before the swap while retaining the same internal simulation boundary. Sunder, Cleanse, and Catalyze resolve through generic target-policy/effect definitions. A newly used skill does not tick on its activation turn.
 - Session D adds `SkillUsed` and `SkillEquipped`. `SkillChosen` records the resolved reward and its choice ID; active effects continue to express outcomes through `DamageApplied`, `StatusRemoved`, `StatusAdded`, `ResourceChanged`, and `CooldownChanged`.
 
 ## Changed contracts — Session E0
@@ -457,3 +484,18 @@ Begin **Session E0 — Stub assets**: source or generate the readable temporary 
 - Composite intents reuse multiple mapped effect icons, and all values, cooldowns, durations, and stack counts remain live text rather than baked artwork.
 - Session E must include the ledger's Lorc/Game-icons.net CC-BY 3.0 credit in an accessible Settings or Credits view. All other sourced E0 packs are CC0; generated enemy portraits have recorded prompt provenance.
 - E0 texture and audio import defaults are enforced by `E0AssetImportSettings`; runtime presentation code should reference imported sprites and clips through content IDs or explicit UI roles, never raw filename conventions.
+
+## Changed contracts — Session E
+
+- `RunDirector` is the presentation-facing command boundary. It owns run/encounter transitions, derives stable screens from `RunState`, records summary statistics from immutable event batches, and is the only layer that requests checkpoints.
+- The local save adds envelope schema `1`, containing domain schema `4` state and run statistics. Content IDs and `ulong` seed/RNG values are serialized through explicit primitive DTOs; incompatible, corrupt, incomplete-board, and mid-command-window checkpoints are rejected instead of partially restored.
+- Stable checkpoints are written after run start, encounter start, pre-swap active-skill use, fully completed turns, victories, reward choices, and loadout changes. The internal pending enemy-response state remains deliberately unsaved, preserving the no-half-turn checkpoint invariant.
+- The E0 asset ledger mappings are compiled into `E0PresentationCatalog`, keyed only by stable content ID or explicit UI/feedback role. Presentation code never selects an asset by filename.
+- Session E introduces one generated build scene, `PortraitGame`, and one runtime UI Toolkit root. It supports portrait safe areas, tap/swipe board commands, generic active targeting, event-paced input locks, reduced motion, status rule controls, and the required Lorc attribution links without changing simulation event ordering.
+
+## Changed contracts — automatic response, board motion, and Russian UI
+
+- Active skills are selected before the player's swap. A used skill remains marked for that turn so its cooldown does not tick when the following swap and automatic enemy response complete.
+- The presentation automatically completes the pending enemy response after the player-resolution animation. The former Enemy Response button and player-facing post-cascade skill window are removed.
+- `SwapAccepted`, `GemCleared`, `GemMoved`, and `GemSpawned` events drive visible swap, disappearance, gravity, and refill animations. Reduced-motion mode applies the same event reconciliation without travel animation.
+- All player-facing runtime labels, descriptions, status rules, errors, tooltips, credits, and combat feedback are Russian. Stable content IDs, save fields, and simulation event details remain language-neutral.

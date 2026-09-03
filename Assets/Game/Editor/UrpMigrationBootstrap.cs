@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.IO;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
@@ -11,6 +12,7 @@ namespace ThreeInARow.Editor
     internal static class UrpMigrationBootstrap
     {
         private const string PipelineAssetPath = "Assets/Game/Rendering/ThreeInARowURP.asset";
+        private const string RenderingFolder = "Assets/Game/Rendering";
 
         static UrpMigrationBootstrap()
         {
@@ -22,6 +24,12 @@ namespace ThreeInARow.Editor
             var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(PipelineAssetPath);
             if (pipeline == null)
             {
+                if (!Directory.Exists(RenderingFolder))
+                {
+                    Directory.CreateDirectory(RenderingFolder);
+                    AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                }
+
                 var createRenderer = typeof(UniversalRenderPipelineAsset).GetMethod(
                     "CreateRendererAsset",
                     BindingFlags.Static | BindingFlags.NonPublic);

@@ -1,0 +1,154 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 434892c6bc0a63c45956ad122cbf1417, type: 3}
+  m_Name: E0PresentationCatalog
+  m_EditorClassIdentifier: ThreeInARow.Presentation::ThreeInARow.Presentation.PresentationCatalog
+  sprites:
+  - Key: gem.ember
+    Sprite: {fileID: 21300000, guid: e30cfd7a136c8414eaccf2b6b7240cef, type: 3}
+  - Key: gem.tide
+    Sprite: {fileID: 21300000, guid: 0ec31de8a73b9464bab35ff83304765d, type: 3}
+  - Key: gem.venom
+    Sprite: {fileID: 21300000, guid: 3a8127d4961b5514f8466cf46a0839d5, type: 3}
+  - Key: gem.volt
+    Sprite: {fileID: 21300000, guid: e7179e9561283c044a3ae462e483f03f, type: 3}
+  - Key: gem.prism
+    Sprite: {fileID: 21300000, guid: 32b285f7d3f764343b0221d82041edf3, type: 3}
+  - Key: special.prism
+    Sprite: {fileID: 21300000, guid: 32b285f7d3f764343b0221d82041edf3, type: 3}
+  - Key: special.spark
+    Sprite: {fileID: 21300000, guid: 4e576869f594f1f4fb07feef48381298, type: 3}
+  - Key: special.current
+    Sprite: {fileID: 21300000, guid: 081b948c1fae2c349ae89f74a6268c4f, type: 3}
+  - Key: special.spore
+    Sprite: {fileID: 21300000, guid: cfa545a685efaec4d89a9a1d9f6a2ae3, type: 3}
+  - Key: special.charge
+    Sprite: {fileID: 21300000, guid: 276f05778a68fe145ab7c22f568a59bd, type: 3}
+  - Key: status.frozen
+    Sprite: {fileID: 21300000, guid: e64887d0339578d46b946a67726f0226, type: 3}
+  - Key: status.cracked
+    Sprite: {fileID: 21300000, guid: cd667f39515f7884885f145db958ba67, type: 3}
+  - Key: status.anchored
+    Sprite: {fileID: 21300000, guid: 0b3a2a64696250f4dbbd59508da75568, type: 3}
+  - Key: status.poison
+    Sprite: {fileID: 21300000, guid: eaa56007797659d4c914702d70cab9e9, type: 3}
+  - Key: enemy.geode_mite
+    Sprite: {fileID: 21300000, guid: 93a8f310154650b42baef6af48f89390, type: 3}
+  - Key: enemy.frost_oracle
+    Sprite: {fileID: 21300000, guid: 9f15d581e5dde8e41bdacfdd3609849a, type: 3}
+  - Key: enemy.geode_mite_elite
+    Sprite: {fileID: 21300000, guid: 2d7521da39d6d4749bfc0ee22da294c1, type: 3}
+  - Key: enemy.prism_stalker
+    Sprite: {fileID: 21300000, guid: 3d46088f74e5e1c4d915d2ec11d7e487, type: 3}
+  - Key: enemy.crystal_warden
+    Sprite: {fileID: 21300000, guid: e11046179296f6e45a818ab427b82d39, type: 3}
+  - Key: intent.chip
+    Sprite: {fileID: 21300000, guid: c48cf887b36110b4781eece0131c41b0, type: 3}
+  - Key: intent.crack
+    Sprite: {fileID: 21300000, guid: cd667f39515f7884885f145db958ba67, type: 3}
+  - Key: intent.chill
+    Sprite: {fileID: 21300000, guid: bfe31e1731d291040b2363de2e5d3384, type: 3}
+  - Key: intent.needle
+    Sprite: {fileID: 21300000, guid: 622e8e45f92895c488e1334c7efc644c, type: 3}
+  - Key: intent.crush
+    Sprite: {fileID: 21300000, guid: c9ee44f8ae0d72d46934995750cc5143, type: 3}
+  - Key: intent.bolt
+    Sprite: {fileID: 21300000, guid: d6de1991ef8419d43b5d347ac3901bbf, type: 3}
+  - Key: intent.drain
+    Sprite: {fileID: 21300000, guid: f9dff0cb3fd3b524ba2bb33d593d8474, type: 3}
+  - Key: intent.seal
+    Sprite: {fileID: 21300000, guid: 0b3a2a64696250f4dbbd59508da75568, type: 3}
+  - Key: intent.shardstorm
+    Sprite: {fileID: 21300000, guid: fea87270ed1902946ab87c94855b5eaa, type: 3}
+  - Key: intent.freeze_anchor
+    Sprite: {fileID: 21300000, guid: bfe31e1731d291040b2363de2e5d3384, type: 3}
+  - Key: ui.player_health
+    Sprite: {fileID: 21300000, guid: cb30631d89e44e04f8b0bdc3983e88f8, type: 3}
+  - Key: ui.enemy_health
+    Sprite: {fileID: 21300000, guid: cb30631d89e44e04f8b0bdc3983e88f8, type: 3}
+  - Key: ui.focus
+    Sprite: {fileID: 21300000, guid: 5183de26e3a8f814ea09e364203fd9c9, type: 3}
+  - Key: ui.toxic
+    Sprite: {fileID: 21300000, guid: 09b11c044c583894d9cdcb924a4875bf, type: 3}
+  - Key: ui.shield
+    Sprite: {fileID: 21300000, guid: 3fb045dab2fad24478ade2c9c0205d96, type: 3}
+  - Key: ui.experience
+    Sprite: {fileID: 21300000, guid: 25527e23a07a00e4aa19082fdf933e87, type: 3}
+  - Key: ui.level_up
+    Sprite: {fileID: 21300000, guid: 25527e23a07a00e4aa19082fdf933e87, type: 3}
+  - Key: ui.victory
+    Sprite: {fileID: 21300000, guid: 5d21581d073046e4f8283151c0e97525, type: 3}
+  - Key: ui.defeat
+    Sprite: {fileID: 21300000, guid: 73f71d8db5e64b04b904608331877659, type: 3}
+  - Key: ui.status_feedback
+    Sprite: {fileID: 21300000, guid: 2be72cbd36aef834481c1d76353f9cd3, type: 3}
+  - Key: ui.clear_feedback
+    Sprite: {fileID: 21300000, guid: 2be72cbd36aef834481c1d76353f9cd3, type: 3}
+  - Key: skill.kindling
+    Sprite: {fileID: 21300000, guid: dbf98c5e327b47343bf53369f31f5e24, type: 3}
+  - Key: skill.backdraft
+    Sprite: {fileID: 21300000, guid: 90fe8c7c145bddd4cb58cf58f7971b99, type: 3}
+  - Key: skill.flow_state
+    Sprite: {fileID: 21300000, guid: c890d678982fa6146bb8d189d92edec0, type: 3}
+  - Key: skill.undertow
+    Sprite: {fileID: 21300000, guid: 8c27d76a8814cb246aeae55bd0045ab0, type: 3}
+  - Key: skill.corrosive
+    Sprite: {fileID: 21300000, guid: eaa56007797659d4c914702d70cab9e9, type: 3}
+  - Key: skill.overcharge
+    Sprite: {fileID: 21300000, guid: f6f69ca163e9e7a41887b9e788e0fd55, type: 3}
+  - Key: skill.sunder
+    Sprite: {fileID: 21300000, guid: 704dc4dec463bef4b9d9f7214420bca3, type: 3}
+  - Key: skill.cleanse
+    Sprite: {fileID: 21300000, guid: f5d31dd6d689af24998a736c2d08ddd4, type: 3}
+  - Key: skill.catalyze
+    Sprite: {fileID: 21300000, guid: 2c204b60ab78e954493c7c994ecf0cca, type: 3}
+  - Key: ui.button.primary
+    Sprite: {fileID: 21300000, guid: 7508fcd43dd91b945a2933f036378d15, type: 3}
+  - Key: ui.button.secondary
+    Sprite: {fileID: 21300000, guid: 018f0235a4158ff4c97640d1ca6e49fc, type: 3}
+  - Key: ui.button.disabled
+    Sprite: {fileID: 21300000, guid: 0c614e9b05c09ed4fb5ed5f17c9596c7, type: 3}
+  - Key: feedback.clear
+    Sprite: {fileID: 21300000, guid: 1a1392b9533bd094d967a8ab705b4735, type: 3}
+  - Key: feedback.special
+    Sprite: {fileID: 21300000, guid: 0e8a4d95b9fcd8f4fb291bde8fefcd95, type: 3}
+  - Key: feedback.hit
+    Sprite: {fileID: 21300000, guid: db117b9050e61ff48bfb5b7c09a62e09, type: 3}
+  - Key: feedback.status_added
+    Sprite: {fileID: 21300000, guid: 39d604a8d92c584458b605bd24e5598c, type: 3}
+  audioClips:
+  - Key: feedback.swap
+    Clip: {fileID: 8300000, guid: f2ade82d16d4e9844876e7ce13e751f6, type: 3}
+  - Key: feedback.invalid_swap
+    Clip: {fileID: 8300000, guid: 0a5166c4d77f763459d1cfb5a2b2b6ec, type: 3}
+  - Key: feedback.clear
+    Clip: {fileID: 8300000, guid: f37ed1511ff3a224ca3911ce4b641c5d, type: 3}
+  - Key: feedback.special
+    Clip: {fileID: 8300000, guid: 93f690afb03f19543b60c3732b734688, type: 3}
+  - Key: feedback.hit
+    Clip: {fileID: 8300000, guid: 3075ab7cf60529f409be6bae7e7b7260, type: 3}
+  - Key: feedback.sunder
+    Clip: {fileID: 8300000, guid: a6cde2cff799fe248819321fc6a08ee6, type: 3}
+  - Key: feedback.shield
+    Clip: {fileID: 8300000, guid: 5fa0fa3b4a1970d4b9d3b2d50f8b505f, type: 3}
+  - Key: feedback.status_added
+    Clip: {fileID: 8300000, guid: 18e2f755852131542a53b026ebea3e44, type: 3}
+  - Key: feedback.status_removed
+    Clip: {fileID: 8300000, guid: abf1fc63250ede143abc4f2d53b8eaa3, type: 3}
+  - Key: feedback.victory
+    Clip: {fileID: 8300000, guid: c39fc6ac13b4dd44ca3333bc1f811bec, type: 3}
+  - Key: feedback.defeat
+    Clip: {fileID: 8300000, guid: 7e0a7c170dbb80346b90d2d89b2bd9f4, type: 3}
+  - Key: feedback.ui_select
+    Clip: {fileID: 8300000, guid: 055477f9ba0fc66468b99b4639b65651, type: 3}
+  - Key: feedback.reward_confirmed
+    Clip: {fileID: 8300000, guid: 3e4ac87ea0fda1a49bd7bd15b590ecbf, type: 3}

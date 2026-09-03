@@ -1,0 +1,17 @@
+{
+  "name": "ThreeInARow.Infrastructure",
+  "rootNamespace": "ThreeInARow.Infrastructure",
+  "references": [
+    "ThreeInARow.Domain",
+    "ThreeInARow.Application"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

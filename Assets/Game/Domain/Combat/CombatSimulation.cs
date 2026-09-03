@@ -175,7 +175,6 @@ namespace ThreeInARow.Domain.Combat
 
             state.PendingCombatTurn.AwaitingEnemyResponse = true;
             state.PendingCombatTurn.CascadeCount = boardResult.CascadeCount;
-            state.PendingCombatTurn.SkillIdsUsed.Clear();
             return EncounterTurnResult.Accept(events, boardResult.CascadeCount, false, false);
         }
 

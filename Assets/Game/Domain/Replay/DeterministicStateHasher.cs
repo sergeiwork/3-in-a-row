@@ -18,8 +18,10 @@ namespace ThreeInARow.Domain.Replay
             text.Append(state.SchemaVersion).Append('|').Append(state.ContentVersion).Append('|')
                 .Append(state.Seed).Append('|').Append(state.EncounterIndex).Append('|').Append(state.ResolvedTurnCount).Append('|')
                 .Append(state.Player.Health).Append('|').Append(state.Player.Shield).Append('|').Append(state.Player.Focus).Append('|')
-                .Append(state.Player.Toxic).Append('|').Append(state.Player.PoisonStacks).Append('|')
-                .Append(state.Enemy.DefinitionId).Append('|').Append(state.Enemy.Health).Append('|').Append(state.Enemy.IntentIndex).Append('|');
+                .Append(state.Player.Toxic).Append('|')
+                .Append(state.Player.VoltClearProgress).Append('|')
+                .Append(state.Enemy.DefinitionId).Append('|').Append(state.Enemy.Health).Append('|')
+                .Append(state.Enemy.IntentIndex).Append('|').Append(state.Enemy.PoisonStacks).Append('|');
 
             foreach (var stream in state.RandomStreams)
                 text.Append(stream.Stream).Append(':').Append(stream.State).Append('|');
@@ -28,14 +30,25 @@ namespace ThreeInARow.Domain.Replay
             foreach (var gem in state.Board.Gems)
             {
                 text.Append(gem.Cell).Append(':').Append(gem.GemId).Append(':').Append(gem.SpecialId).Append('[');
-                foreach (var statusId in gem.StatusIds) text.Append(statusId).Append(',');
-                text.Append("]|");
+                if (gem.StatusIds != null)
+                    foreach (var statusId in gem.StatusIds) text.Append(statusId).Append(',');
+                text.Append("]{");
+                if (gem.StatusDurations != null)
+                    foreach (var duration in gem.StatusDurations)
+                        if (duration != null)
+                            text.Append(duration.StatusId).Append(':').Append(duration.RemainingPlayerTurns).Append(',');
+                text.Append("}|");
             }
             foreach (var item in events.Events)
+            {
                 text.Append(item.Sequence).Append(':').Append(item.Type).Append(':').Append(item.SourceId).Append(':')
                     .Append(item.RelatedId).Append(':').Append(item.Detail).Append(':').Append(item.Amount).Append(':')
                     .Append(item.HasCell ? item.Cell.ToString() : "-").Append(':')
-                    .Append(item.HasTargetCell ? item.TargetCell.ToString() : "-").Append('|');
+                    .Append(item.HasTargetCell ? item.TargetCell.ToString() : "-").Append('[');
+                if (item.StatusIds != null)
+                    foreach (var statusId in item.StatusIds) text.Append(statusId).Append(',');
+                text.Append("]|");
+            }
 
             using (var sha = SHA256.Create())
             {

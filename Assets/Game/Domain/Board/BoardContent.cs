@@ -20,6 +20,7 @@ namespace ThreeInARow.Domain.Board
         public static readonly ContentId Prism = "special.prism";
 
         public static readonly ContentId Frozen = "status.frozen";
+        public static readonly ContentId Cracked = "status.cracked";
         public static readonly ContentId Anchored = "status.anchored";
     }
 

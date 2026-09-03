@@ -196,6 +196,29 @@ namespace ThreeInARow.Domain.Board
             return FindLegalSwaps(BoardMatrix.FromState(state), catalog);
         }
 
+        /// <summary>
+        /// Re-establishes the stable-board playability invariant after an external system changes
+        /// movement statuses. It consumes BoardSpawn only when a reshuffle is actually required.
+        /// </summary>
+        public static EventBatch EnsurePlayable(RunState state, IBoardContentCatalog catalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            catalog = catalog ?? MvpBoardContentCatalog.Instance;
+            ValidateCatalog(catalog);
+            var events = new EventBatch();
+            if (state.Board == null || state.Board.Gems == null ||
+                state.Board.Gems.Count != BoardState.Width * BoardState.Height)
+                return events;
+
+            var board = BoardMatrix.FromState(state.Board);
+            if (HasAnyLegalSwap(board, catalog)) return events;
+            var random = RandomStreams.Restore(RandomStream.BoardSpawn, state.RandomStreams);
+            Reshuffle(board, random, catalog, events, "status_application_no_legal_swap");
+            board.CommitTo(state.Board);
+            RandomStreams.Store(RandomStream.BoardSpawn, random, state.RandomStreams);
+            return events;
+        }
+
         private static void ResolvePrismSwap(
             BoardMatrix board,
             GridCell cellA,
@@ -289,6 +312,7 @@ namespace ThreeInARow.Domain.Board
             {
                 clearCells.Remove(creation.Cell);
                 var existingStatuses = board[creation.Cell].StatusIds;
+                var existingDurations = board[creation.Cell].StatusDurations;
                 board[creation.Cell] = new BoardGemState
                 {
                     Cell = creation.Cell,
@@ -296,7 +320,8 @@ namespace ThreeInARow.Domain.Board
                     SpecialId = creation.SpecialId,
                     StatusIds = existingStatuses == null
                         ? new List<ContentId>()
-                        : new List<ContentId>(existingStatuses)
+                        : new List<ContentId>(existingStatuses),
+                    StatusDurations = CloneStatusDurations(existingDurations)
                 };
                 events.Add(
                     SimulationEventType.SpecialCreated,
@@ -372,6 +397,21 @@ namespace ThreeInARow.Domain.Board
                 var gem = board[cell];
                 if (gem == null) continue;
 
+                var statuses = gem.StatusIds == null
+                    ? new List<ContentId>()
+                    : new List<ContentId>(gem.StatusIds);
+                foreach (var statusId in statuses)
+                {
+                    events.Add(
+                        SimulationEventType.StatusRemoved,
+                        statusId,
+                        "cleared",
+                        1,
+                        cell,
+                        null,
+                        gem.GemId);
+                }
+
                 events.Add(
                     SimulationEventType.GemCleared,
                     gem.GemId,
@@ -379,7 +419,8 @@ namespace ThreeInARow.Domain.Board
                     1,
                     cell,
                     null,
-                    NormalizeSpecialId(gem.SpecialId));
+                    NormalizeSpecialId(gem.SpecialId),
+                    statuses);
 
                 if (HasSpecial(gem) && (!prismActivationCell.HasValue || !cell.Equals(prismActivationCell.Value)))
                 {
@@ -527,6 +568,7 @@ namespace ThreeInARow.Domain.Board
                 foreach (var cell in movableCells)
                 {
                     var existingStatuses = board[cell].StatusIds;
+                    var existingDurations = board[cell].StatusDurations;
                     ContentId gemId;
                     if (!TrySelectNonMatchingGem(board, cell, random, catalog, out gemId))
                     {
@@ -538,7 +580,8 @@ namespace ThreeInARow.Domain.Board
                         Cell = cell,
                         GemId = gemId,
                         SpecialId = BoardContentIds.NoSpecial,
-                        StatusIds = new List<ContentId>(existingStatuses)
+                        StatusIds = existingStatuses == null ? new List<ContentId>() : new List<ContentId>(existingStatuses),
+                        StatusDurations = CloneStatusDurations(existingDurations)
                     };
                 }
 
@@ -626,8 +669,25 @@ namespace ThreeInARow.Domain.Board
                 Cell = cell,
                 GemId = gemId,
                 SpecialId = BoardContentIds.NoSpecial,
-                StatusIds = new List<ContentId>()
+                StatusIds = new List<ContentId>(),
+                StatusDurations = new List<BoardStatusDurationState>()
             };
+        }
+
+        private static List<BoardStatusDurationState> CloneStatusDurations(List<BoardStatusDurationState> source)
+        {
+            var result = new List<BoardStatusDurationState>();
+            if (source == null) return result;
+            foreach (var item in source)
+            {
+                if (item == null) continue;
+                result.Add(new BoardStatusDurationState
+                {
+                    StatusId = item.StatusId,
+                    RemainingPlayerTurns = item.RemainingPlayerTurns
+                });
+            }
+            return result;
         }
 
         private static IReadOnlyList<LegalSwap> FindLegalSwaps(BoardMatrix board, IBoardContentCatalog catalog)
@@ -888,7 +948,8 @@ namespace ThreeInARow.Domain.Board
                     Cell = source.Cell,
                     GemId = source.GemId,
                     SpecialId = NormalizeSpecialId(source.SpecialId),
-                    StatusIds = source.StatusIds == null ? new List<ContentId>() : new List<ContentId>(source.StatusIds)
+                    StatusIds = source.StatusIds == null ? new List<ContentId>() : new List<ContentId>(source.StatusIds),
+                    StatusDurations = BoardSimulation.CloneStatusDurations(source.StatusDurations)
                 };
             }
         }

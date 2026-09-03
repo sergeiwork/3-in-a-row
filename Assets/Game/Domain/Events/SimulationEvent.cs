@@ -23,7 +23,11 @@ namespace ThreeInARow.Domain.Events
         SpecialActivated,
         GemMoved,
         GemSpawned,
-        BoardReshuffled
+        BoardReshuffled,
+        StatusRemoved,
+        ResourceChanged,
+        CooldownChanged,
+        EnemyIntentTelegraphed
     }
 
     [Serializable]
@@ -39,6 +43,9 @@ namespace ThreeInARow.Domain.Events
         public bool HasTargetCell;
         public GridCell TargetCell;
         public ContentId RelatedId = "content.none";
+        // A clear carries the board statuses that existed immediately before removal.
+        // This lets combat resolve Cracked without reading a post-resolution board snapshot.
+        public List<ContentId> StatusIds = new List<ContentId>();
     }
 
     [Serializable]
@@ -55,7 +62,8 @@ namespace ThreeInARow.Domain.Events
             int amount = 0,
             GridCell? cell = null,
             GridCell? targetCell = null,
-            ContentId? relatedId = null)
+            ContentId? relatedId = null,
+            IEnumerable<ContentId> statusIds = null)
         {
             _events.Add(new SimulationEvent
             {
@@ -68,8 +76,32 @@ namespace ThreeInARow.Domain.Events
                 Cell = cell.GetValueOrDefault(),
                 HasTargetCell = targetCell.HasValue,
                 TargetCell = targetCell.GetValueOrDefault(),
-                RelatedId = relatedId ?? (ContentId)"content.none"
+                RelatedId = relatedId ?? (ContentId)"content.none",
+                StatusIds = statusIds == null ? new List<ContentId>() : new List<ContentId>(statusIds)
             });
+        }
+
+        public void Append(EventBatch source)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            foreach (var item in source.Events)
+            {
+                Add(item.Type, item.SourceId, item.Detail, item.Amount,
+                    item.HasCell ? item.Cell : (GridCell?)null,
+                    item.HasTargetCell ? item.TargetCell : (GridCell?)null,
+                    item.RelatedId,
+                    item.StatusIds);
+            }
+        }
+
+        public void Add(SimulationEvent item)
+        {
+            if (item == null) throw new ArgumentNullException(nameof(item));
+            Add(item.Type, item.SourceId, item.Detail, item.Amount,
+                item.HasCell ? item.Cell : (GridCell?)null,
+                item.HasTargetCell ? item.TargetCell : (GridCell?)null,
+                item.RelatedId,
+                item.StatusIds);
         }
     }
 }

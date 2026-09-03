@@ -12,10 +12,10 @@ namespace ThreeInARow.Domain.State
     [Serializable]
     public sealed class RunState
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         public int SchemaVersion = CurrentSchemaVersion;
-        public string ContentVersion = "0.2.0";
+        public string ContentVersion = "0.3.0";
         public ulong Seed;
         public int EncounterIndex;
         public int ResolvedTurnCount;
@@ -36,7 +36,8 @@ namespace ThreeInARow.Domain.State
         public int Shield;
         public int Focus;
         public int Toxic;
-        public int PoisonStacks;
+        // Counts cleared Volt gems toward the next deterministic cooldown reduction.
+        public int VoltClearProgress;
         public List<SkillCooldownState> SkillCooldowns = new List<SkillCooldownState>();
     }
 
@@ -46,6 +47,7 @@ namespace ThreeInARow.Domain.State
         public ContentId DefinitionId = "enemy.unset";
         public int Health;
         public int IntentIndex;
+        public int PoisonStacks;
     }
 
     [Serializable]
@@ -65,6 +67,16 @@ namespace ThreeInARow.Domain.State
         public ContentId GemId = "gem.unset";
         public ContentId SpecialId = "special.none";
         public List<ContentId> StatusIds = new List<ContentId>();
+        // Kept separate from status IDs so existing content IDs remain stable in saves.
+        // A duration of zero means the status has no automatic expiry.
+        public List<BoardStatusDurationState> StatusDurations = new List<BoardStatusDurationState>();
+    }
+
+    [Serializable]
+    public sealed class BoardStatusDurationState
+    {
+        public ContentId StatusId = "status.unset";
+        public int RemainingPlayerTurns;
     }
 
     [Serializable]

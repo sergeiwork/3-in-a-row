@@ -1,6 +1,6 @@
 # Three in a Row: Roguelike Crystals
 
-**Status:** Board implementation v0.2  
+**Status:** Combat/enemy implementation v0.3
 **Engine / platform:** Unity, C#, portrait mobile  
 **Canonical format:** This Markdown file is the sole editable source of truth; focused Markdown documents may link back here when this file becomes too large.
 
@@ -59,7 +59,7 @@ A portrait-mobile match-3 roguelike where every cleared crystal becomes a weapon
 | Board | 7×7 board, match-3+, cascades, four normal gem types and one Prism special | Terrain, hex grid, extra blockers |
 | Combat | Player HP, enemy HP/intent, one enemy response per valid player turn, typed effects and statuses | Multiple enemies and allied units |
 | Progression | Run XP, three upgrade picks, six-node skill tree, two equipped active skills | Persistent account levels and a large trait pool |
-| Content | Four enemy definitions, four gem definitions, six passive skills, three active skills, three board statuses | Full launch content volume |
+| Content | Five encounter enemy definitions, four gem definitions, six passive skills, three active skills, three board statuses | Full launch content volume |
 | Technology | ScriptableObject content, deterministic simulation, local run checkpoint | Backend, remote config, production analytics |
 
 ### Vertical-slice pass condition
@@ -148,7 +148,7 @@ Initial numbers should result in a normal enemy defeat in **5–7 valid turns** 
 | Player HP | Start at 40. No full healing between fights; victory restores 4 HP, up to max. |
 | Focus | 0–9. Every three Focus deals 6 damage; leftover Focus remains during the player turn. |
 | Toxic | 0–9. At five, deal 12 and apply one Poison. Can trigger multiple times during a cascade. |
-| Poison | At the start of each enemy response, deal 3 per stack then reduce stacks by 1. Cap at 3 stacks. |
+| Poison | Stored on the enemy. At the start of each enemy response, deal 3 per stack then reduce stacks by 1. Cap at 3 stacks. |
 | Shield | Absorbs damage before HP; expires at start of the player's next valid swap. |
 | Enemy intent | Always visible before player input. Intent may be attack-only, status-only, or both. |
 
@@ -168,11 +168,15 @@ Initial numbers should result in a normal enemy defeat in **5–7 valid turns** 
 
 Every status requires a distinct icon, a tap-tooltipped rule, a duration counter when relevant, and a distinct removal animation. A status must never silently change a gem color or invalidate a legal match.
 
+Enemy status targeting samples unique eligible board cells through the named `IntentVariation` RNG stream. A cell already carrying the requested status is ineligible; if fewer eligible cells remain than requested, the intent affects every eligible cell. Frozen and Cracked persist until cleared or cleansed. Anchored stores `RemainingPlayerTurns = 1`, remains active through the next accepted swap and its cascades, then expires before that turn's enemy response. After status application, the board rechecks legal swaps and deterministically reshuffles through `BoardSpawn` if the new locks caused a dead board.
+
 ---
 
 ## 6. Enemy roster and encounters
 
 Enemy behavior uses a deterministic intent cycle/deck. No adaptive AI is required for the MVP. The encounter seed and current intent index are saved.
+
+Intent effects execute in definition order. The current intent advances only after its full effect list resolves; the next intent is then telegraphed. Player damage consumes Shield before HP. Poison resolves before `EnemyIntentStarted`, so a Poison defeat prevents the intent and its board statuses entirely.
 
 | Encounter | Enemy / HP | Intent cycle | Teaching goal |
 | --- | --- | --- | --- |
@@ -302,10 +306,11 @@ The application layer validates timing, asks the simulation to resolve, records 
 BoardInitialized, SwapAccepted, GemsMatched, GemCleared, SpecialCreated,
 SpecialActivated, GemMoved, GemSpawned, BoardReshuffled,
 DamageApplied, StatusAdded, EnemyIntentStarted, EnemyDefeated,
-XPGranted, LevelUpOffered, SkillChosen, RunEnded
+XPGranted, LevelUpOffered, SkillChosen, RunEnded, StatusRemoved,
+ResourceChanged, CooldownChanged, EnemyIntentTelegraphed
 ```
 
-Board events use `cell` as an origin/location and optional `targetCell` for a destination, serialized with explicit `hasCell` / `hasTargetCell` flags. `relatedId` carries the secondary content identity (for example, a gem's special ID). A rejected swap returns a typed rejection and an empty event batch, changes neither board nor RNG state, and does not advance `ResolvedTurnCount`. Full turn advancement remains an application/combat responsibility in Session C.
+Board events use `cell` as an origin/location and optional `targetCell` for a destination, serialized with explicit `hasCell` / `hasTargetCell` flags. `relatedId` carries the secondary content identity (for example, a gem's special ID). `GemCleared.statusIds` snapshots the statuses present immediately before the gem left the board; this lets Cracked suppression remain deterministic after the board snapshot has already refilled. Clearing a status-bearing gem emits `StatusRemoved` before its `GemCleared` event. A rejected swap returns a typed rejection and an empty event batch, changes neither board nor RNG state, and does not advance `ResolvedTurnCount`. The combat turn resolver advances `ResolvedTurnCount` exactly once after each accepted swap.
 
 **Integration invariant:** the simulation owns truth. A view can animate a predicted swap but must reconcile to the event batch and resulting snapshot. Never calculate final damage from animation callbacks.
 
@@ -401,7 +406,7 @@ There is **no design blocker** for Session C. The unresolved items below should 
 
 ## Next session
 
-Begin **Session C — Combat/enemies**: consume the authoritative board event batch through effect definitions, implement damage/status ordering and deterministic intent cycles, and keep turn advancement outside the board resolver.
+Begin **Session D — Progression**: persist XP and level state, sample eligible upgrade choices without duplicates, implement the six passive nodes and three active skills, and connect their behavior through the Session C effect/event contracts.
 
 ## Changed contracts — Session A
 
@@ -417,3 +422,12 @@ Begin **Session C — Combat/enemies**: consume the authoritative board event ba
 - Board initialization and accepted swaps consume only the named `BoardSpawn` RNG stream. Swap resolution is transactional: validation failures return a typed rejection with no events and do not mutate the board or RNG state.
 - Board event payloads now include optional `targetCell` and `relatedId`; cell presence uses Unity-serializable `hasCell` / `hasTargetCell` flags rather than nullable fields. Session B adds `BoardInitialized`, `SpecialActivated`, `GemMoved`, `GemSpawned`, and `BoardReshuffled` to the event contract; `GemCleared.amount` is the cleared-cell count (`1` per event), not damage.
 - Match groups, special origin, clear order, gravity/refill events, legal-swap enumeration, and reshuffle attempts all use deterministic row-major ordering. The Session B handoff scenario initializes from a seed, resolves the first legal row-major swap, and hashes the resulting board, RNG state, and event batch.
+
+## Changed contracts — Session C
+
+- The combat resolver consumes the board event batch and emits one combined deterministic batch. Each board event is copied in order and its resulting gem, special, resource, cooldown, or damage events are inserted immediately after it. An accepted swap advances `ResolvedTurnCount` once; a rejected swap still changes no state and emits nothing.
+- `GemCleared` now snapshots its pre-clear `statusIds`, and board clears emit `StatusRemoved` before `GemCleared`. Cracked suppresses the cleared gem's normal effect through that snapshot; Frozen still resolves the gem normally. Board status applications select unique eligible cells using `IntentVariation`, then call the board's deterministic `EnsurePlayable` boundary so new locks cannot create a soft-lock.
+- `EnemyState` owns Poison stacks. `PlayerState` now persists `VoltClearProgress`. Timed board statuses persist `(statusId, remainingPlayerTurns)` alongside stable status IDs; Anchored uses one player turn while Frozen and Cracked use duration zero for no automatic expiry.
+- The save schema advances to version `3` and default content version to `0.3.0` for enemy Poison ownership, Volt progress, and board-status durations. The state hash includes all three fields plus event status snapshots.
+- Five immutable encounter/enemy definitions provide HP, reward XP, and ordered intent cycles. Generic intent effects cover player damage, unique-cell board-status application, and Focus/Toxic drain; the resolver contains no per-enemy execution branches.
+- Session C adds `StatusRemoved`, `ResourceChanged`, `CooldownChanged`, and `EnemyIntentTelegraphed`. Poison checks before `EnemyIntentStarted`; Shield absorbs before HP; an enemy killed by player resolution or Poison emits `EnemyDefeated` and `XPGranted` and never executes an intent.

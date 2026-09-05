@@ -18,6 +18,11 @@ namespace ThreeInARow.Presentation
     public sealed class ThreeInARowApp : MonoBehaviour
     {
         private const string ReducedMotionKey = "three_in_a_row.reduced_motion";
+        private const float SwapDuration = 0.20f;
+        private const float ClearDuration = 0.14f;
+        private const float MinimumDropDuration = 0.18f;
+        private const float MaximumDropDuration = 0.36f;
+        private const float MaximumAnimationFrameDelta = 1f / 30f;
         private static readonly Color Background = Hex("#111827");
         private static readonly Color Panel = Hex("#253247");
         private static readonly Color PanelLight = Hex("#34445E");
@@ -169,6 +174,7 @@ namespace ThreeInARow.Presentation
                 resume.tooltip = "Продолжить с последней сохранённой контрольной точки.";
                 _safeArea.Add(resume);
             }
+            _safeArea.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildTitle), false));
             _safeArea.Add(ActionButton("НАСТРОЙКИ И АВТОРЫ", BuildSettings, false));
 
             var version = LabelText("Вертикальный срез · v0.6", 18, Muted, TextAnchor.MiddleCenter);
@@ -192,6 +198,8 @@ namespace ThreeInARow.Presentation
             motion.tooltip = "Включить или выключить необязательные движения и задержки анимации.";
             _safeArea.Add(motion);
 
+            _safeArea.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildSettings), false));
+
             _safeArea.Add(SectionHeading("ОБЯЗАТЕЛЬНОЕ УКАЗАНИЕ АВТОРСТВА"));
             _safeArea.Add(Paragraph("Автор значков — Lorc. Опубликованы на game-icons.net по лицензии CC BY 3.0."));
             _safeArea.Add(ActionButton("ОТКРЫТЬ GAME-ICONS.NET", () => UnityEngine.Application.OpenURL("https://game-icons.net/"), false));
@@ -202,6 +210,50 @@ namespace ThreeInARow.Presentation
             spacer.style.flexGrow = 1;
             _safeArea.Add(spacer);
             _safeArea.Add(ActionButton("НАЗАД", BuildTitle, false));
+        }
+
+        private void BuildHelp(Action back)
+        {
+            BeginScreen();
+            _safeArea.Add(Title("КАК ИГРАТЬ", 42, Gold));
+
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.flexGrow = 1;
+            scroll.style.marginTop = 8;
+            scroll.style.marginBottom = 8;
+            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+
+            scroll.Add(SectionHeading("ХОД БОЯ"));
+            scroll.Add(Paragraph("1. До перестановки можно применить готовый активный навык.\n2. Поменяйте местами два соседних подвижных кристалла так, чтобы собрать ряд из трёх или больше. Неверная перестановка не расходует ход.\n3. Все совпадения и каскады срабатывают автоматически.\n4. Если враг выжил, он выполняет действие из панели «Далее»."));
+            scroll.Add(Paragraph("Совпадение из четырёх создаёт особый кристалл того же цвета. Совпадение из пяти создаёт Призму. Нажмите на значок состояния прямо на поле, чтобы прочитать его правило."));
+
+            scroll.Add(SectionHeading("КРИСТАЛЛЫ И РЕСУРСЫ"));
+            scroll.Add(HelpRow("gem.ember", "ПЛАМЯ", "Каждый убранный кристалл наносит 4 прямого урона. Особая Искра наносит 16 урона."));
+            scroll.Add(HelpRow("gem.tide", "ПРИЛИВ И КОНЦЕНТРАЦИЯ", "Каждый кристалл даёт 1 ед. концентрации. Каждые 3 ед. автоматически превращаются в 6 урона. Особый Поток даёт 5 ед."));
+            scroll.Add(HelpRow("gem.venom", "ЯД И ТОКСИН", "Каждый кристалл даёт 1 ед. токсина. Каждые 5 ед. наносят 12 урона и дают врагу заряд отравления. Особая Спора даёт 5 ед."));
+            scroll.Add(HelpRow("gem.volt", "РАЗРЯД", "Каждый кристалл наносит 2 урона. Каждые 3 убранных Разряда сокращают перезарядку обоих активных навыков на 1. Особый Заряд наносит 8 урона и тоже ускоряет оба навыка."));
+            scroll.Add(HelpRow("gem.prism", "ПРИЗМА", "Поменяйте её с обычным кристаллом, чтобы убрать с поля все кристаллы этого цвета и получить их обычные эффекты."));
+            scroll.Add(HelpRow("ui.shield", "ЩИТ", "Поглощает входящий урон раньше здоровья. Он защищает от ближайшего ответа врага и исчезает в начале следующей успешной перестановки."));
+
+            scroll.Add(SectionHeading("АКТИВНЫЕ НАВЫКИ"));
+            foreach (var skill in MvpProgressionContentCatalog.Instance.Skills)
+                if (skill.SlotType == SkillSlotType.Active)
+                    scroll.Add(HelpRow(skill.Id.Value, PresentationText.Name(skill.Id).ToUpperInvariant(), PresentationText.SkillDetails(skill)));
+
+            scroll.Add(SectionHeading("ПАССИВНЫЕ УЛУЧШЕНИЯ"));
+            scroll.Add(Paragraph("Пассивные улучшения начинают работать сразу после выбора и не требуют нажатия."));
+            foreach (var skill in MvpProgressionContentCatalog.Instance.Skills)
+                if (skill.SlotType == SkillSlotType.Passive)
+                    scroll.Add(HelpRow(skill.Id.Value, PresentationText.Name(skill.Id).ToUpperInvariant(), PresentationText.SkillDetails(skill)));
+
+            scroll.Add(SectionHeading("СОСТОЯНИЯ ПОЛЯ"));
+            scroll.Add(HelpRow("status.frozen", "ЗАМОРОЗКА", PresentationText.StatusDescription("status.frozen")));
+            scroll.Add(HelpRow("status.cracked", "ТРЕЩИНА", PresentationText.StatusDescription("status.cracked")));
+            scroll.Add(HelpRow("status.anchored", "ЯКОРЬ", PresentationText.StatusDescription("status.anchored")));
+            scroll.Add(HelpRow("status.poison", "ОТРАВЛЕНИЕ", PresentationText.StatusDescription("status.poison")));
+
+            _safeArea.Add(scroll);
+            _safeArea.Add(ActionButton("НАЗАД", back, false));
         }
 
         private void StartRun()
@@ -237,6 +289,12 @@ namespace ThreeInARow.Presentation
             var settings = SmallButton("⚙", BuildSettingsFromRun);
             settings.tooltip = "Настройки и авторы";
             top.Add(settings);
+            var help = SmallButton("?", () =>
+            {
+                if (!_inputLocked) BuildHelp(BuildForCurrentScreen);
+            });
+            help.tooltip = "Как играть и что делают навыки";
+            top.Add(help);
             _safeArea.Add(top);
 
             var enemyPanel = Card();
@@ -299,6 +357,7 @@ namespace ThreeInARow.Presentation
                     PlayerPrefs.Save();
                     BuildForCurrentScreen();
                 }, true));
+                modal.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildForCurrentScreen), false));
                 modal.Add(Paragraph("Автор значков — Lorc. Опубликованы на game-icons.net по лицензии CC BY 3.0."));
                 modal.Add(ActionButton("GAME-ICONS.NET", () => UnityEngine.Application.OpenURL("https://game-icons.net/"), false));
                 modal.Add(ActionButton("CC BY 3.0", () => UnityEngine.Application.OpenURL("https://creativecommons.org/licenses/by/3.0/"), false));
@@ -562,11 +621,13 @@ namespace ThreeInARow.Presentation
                     var cooldown = FindCooldown(state.Player, skillId);
                     var ready = (_director.Screen == RunScreen.Encounter || _director.Screen == RunScreen.SkillWindow) &&
                                 cooldown == 0 && SkillHasEffect(state, definition);
+                    var skillPanel = new VisualElement();
+                    skillPanel.style.flexGrow = 1;
+                    skillPanel.style.marginLeft = 3;
+                    skillPanel.style.marginRight = 3;
                     var button = new Button(() => SkillPressed(definition));
-                    button.style.flexGrow = 1;
+                    button.style.width = Length.Percent(100);
                     button.style.height = 70;
-                    button.style.marginLeft = 3;
-                    button.style.marginRight = 3;
                     button.style.flexDirection = FlexDirection.Row;
                     button.style.alignItems = Align.Center;
                     button.style.justifyContent = Justify.Center;
@@ -577,7 +638,17 @@ namespace ThreeInARow.Presentation
                     var label = LabelText(PresentationText.Name(skillId) + (cooldown > 0 ? " · " + cooldown : " · ГОТОВО"), 19, TextColor);
                     label.style.marginLeft = 8;
                     button.Add(label);
-                    row.Add(button);
+                    skillPanel.Add(button);
+                    var info = SmallButton("О НАВЫКЕ", () => ShowSkillDetails(definition));
+                    info.style.width = Length.Percent(100);
+                    info.style.height = 34;
+                    info.style.marginLeft = 0;
+                    info.style.marginRight = 0;
+                    info.style.marginTop = 3;
+                    info.style.fontSize = 14;
+                    info.tooltip = "Открыть полное описание навыка";
+                    skillPanel.Add(info);
+                    row.Add(skillPanel);
                 }
             }
             _safeArea.Add(row);
@@ -594,6 +665,52 @@ namespace ThreeInARow.Presentation
                 return;
             }
             ExecuteSkill(definition.Id, null);
+        }
+
+        private void ShowSkillDetails(SkillDefinition skill)
+        {
+            ShowModal(PresentationText.Name(skill.Id), null, modal =>
+            {
+                var category = skill.SlotType == SkillSlotType.Active
+                    ? "АКТИВНЫЙ НАВЫК · ПЕРЕЗАРЯДКА " + skill.Cooldown + " ХОДОВ"
+                    : "ПАССИВНОЕ УЛУЧШЕНИЕ · РАБОТАЕТ АВТОМАТИЧЕСКИ";
+                var categoryLabel = LabelText(category, 17, Cyan, TextAnchor.MiddleCenter);
+                categoryLabel.style.whiteSpace = WhiteSpace.Normal;
+                categoryLabel.style.marginBottom = 8;
+                modal.Add(categoryLabel);
+
+                var icon = Icon(skill.Id.Value, 84);
+                icon.style.alignSelf = Align.Center;
+                modal.Add(icon);
+                modal.Add(Paragraph(PresentationText.SkillDetails(skill)));
+
+                if (skill.HasPrerequisite)
+                    modal.Add(LabelText("Требуется: " + PresentationText.Name(skill.PrerequisiteId), 17, Success));
+
+                if (skill.SlotType == SkillSlotType.Active && _director.State != null)
+                {
+                    var state = _director.State;
+                    string current;
+                    if (!ProgressionRules.IsEquipped(state.Player, skill.Id))
+                        current = "Сейчас не экипирован. Поставить навык в левую или правую ячейку можно между боями.";
+                    else
+                    {
+                        var cooldown = FindCooldown(state.Player, skill.Id);
+                        if (cooldown > 0)
+                            current = "Сейчас перезаряжается: осталось " + cooldown + " " + RussianTurns(cooldown) + ".";
+                        else if (_director.Screen != RunScreen.Encounter && _director.Screen != RunScreen.SkillWindow)
+                            current = "Экипирован и будет готов к применению перед перестановкой.";
+                        else if (!SkillHasEffect(state, skill))
+                            current = "Сейчас применять рано: нет подходящей цели или ресурса для эффекта.";
+                        else
+                            current = "Сейчас готов к применению перед перестановкой.";
+                    }
+                    var stateLabel = LabelText(current, 17, Gold);
+                    stateLabel.style.whiteSpace = WhiteSpace.Normal;
+                    stateLabel.style.marginTop = 8;
+                    modal.Add(stateLabel);
+                }
+            });
         }
 
         private void ShowCleanseTargeting(SkillDefinition definition)
@@ -660,7 +777,7 @@ namespace ThreeInARow.Presentation
             var state = _director.State;
             _safeArea.Add(Icon("ui.level_up", 100));
             _safeArea.Add(Title("УРОВЕНЬ " + state.PendingChoice.Level, 46, Gold));
-            _safeArea.Add(LabelText("Выберите одно улучшение. Все требования уже выполнены.", 20, Muted, TextAnchor.MiddleCenter));
+            _safeArea.Add(LabelText("Нажмите карточку, прочитайте полное описание и выберите одно улучшение.", 20, Muted, TextAnchor.MiddleCenter));
 
             var cards = new VisualElement();
             cards.style.flexGrow = 1;
@@ -668,8 +785,8 @@ namespace ThreeInARow.Presentation
             foreach (var optionId in state.PendingChoice.OptionIds)
             {
                 var skill = MvpProgressionContentCatalog.Instance.GetSkill(optionId);
-                var captured = optionId;
-                var card = new Button(() => SelectReward(captured));
+                var capturedSkill = skill;
+                var card = new Button(() => ShowRewardDetails(capturedSkill));
                 card.style.minHeight = 170;
                 card.style.marginTop = 8;
                 card.style.marginBottom = 8;
@@ -680,13 +797,15 @@ namespace ThreeInARow.Presentation
                 card.style.flexDirection = FlexDirection.Row;
                 card.style.alignItems = Align.Center;
                 card.style.backgroundColor = Panel;
-                card.tooltip = PresentationText.SkillDescription(skill);
+                card.tooltip = "Открыть полное описание и выбрать улучшение";
                 card.Add(Icon(optionId.Value, 100));
                 var text = new VisualElement();
                 text.style.flexGrow = 1;
                 text.style.marginLeft = 20;
                 text.Add(Title(PresentationText.Name(optionId), 30, Gold));
-                text.Add(LabelText(PresentationText.SkillDescription(skill), 20, TextColor));
+                var description = LabelText(PresentationText.SkillDescription(skill), 20, TextColor);
+                description.style.whiteSpace = WhiteSpace.Normal;
+                text.Add(description);
                 if (skill.HasPrerequisite)
                     text.Add(LabelText("Требуется: " + PresentationText.Name(skill.PrerequisiteId) + " ✓", 17, Success));
                 card.Add(text);
@@ -706,6 +825,30 @@ namespace ThreeInARow.Presentation
                 return;
             }
             PlayBatch(result.Events, BuildForCurrentScreen);
+        }
+
+        private void ShowRewardDetails(SkillDefinition skill)
+        {
+            ShowModal(PresentationText.Name(skill.Id), null, modal =>
+            {
+                var category = skill.SlotType == SkillSlotType.Active
+                    ? "НОВЫЙ АКТИВНЫЙ НАВЫК"
+                    : "ПАССИВНОЕ УЛУЧШЕНИЕ";
+                modal.Add(LabelText(category, 18, Cyan, TextAnchor.MiddleCenter));
+                var icon = Icon(skill.Id.Value, 92);
+                icon.style.alignSelf = Align.Center;
+                modal.Add(icon);
+                modal.Add(Paragraph(PresentationText.SkillDetails(skill)));
+                if (skill.HasPrerequisite)
+                    modal.Add(LabelText("Требование выполнено: " + PresentationText.Name(skill.PrerequisiteId) + " ✓", 17, Success));
+                var choose = ActionButton("ВЫБРАТЬ «" + PresentationText.Name(skill.Id).ToUpperInvariant() + "»", () =>
+                {
+                    if (modal.parent != null) modal.parent.RemoveFromHierarchy();
+                    SelectReward(skill.Id);
+                }, true);
+                choose.tooltip = "Подтвердить это улучшение";
+                modal.Add(choose);
+            });
         }
 
         private void BuildBetweenEncounters()
@@ -740,6 +883,9 @@ namespace ThreeInARow.Presentation
                     button.SetEnabled(!isCurrent);
                     line.Add(button);
                 }
+                var info = SmallButton("?", () => ShowSkillDetails(skill));
+                info.tooltip = "Полное описание навыка";
+                line.Add(info);
                 _safeArea.Add(line);
             }
             var spacer = new VisualElement();
@@ -889,17 +1035,29 @@ namespace ThreeInARow.Presentation
             if (!_gemVisuals.TryGetValue(item.Cell, out first) ||
                 !_gemVisuals.TryGetValue(item.TargetCell, out second)) yield break;
 
-            var firstDelta = CellCenter(item.TargetCell) - CellCenter(item.Cell);
+            // Move both gems into the shared foreground layer before animating. Leaving translated
+            // gems parented to their old cells accumulates offsets over later swaps and can produce
+            // a one-frame jump when gravity reparents them.
+            if (_gemMotionLayer == null) yield break;
+            var firstBounds = first.worldBound;
+            var secondBounds = second.worldBound;
+            PlaceGemOnMotionLayer(first, firstBounds);
+            PlaceGemOnMotionLayer(second, secondBounds);
+
+            var firstDelta = secondBounds.center - firstBounds.center;
             var secondDelta = -firstDelta;
-            if (!_reducedMotion)
+            var motions = new List<GemMotion>
             {
-                var motions = new List<GemMotion>
-                {
-                    new GemMotion(first, Translation(first), Translation(first) + (Vector3)firstDelta),
-                    new GemMotion(second, Translation(second), Translation(second) + (Vector3)secondDelta)
-                };
-                yield return AnimateMotions(motions, 0.16f);
-            }
+                new GemMotion(first, Vector3.zero, (Vector3)firstDelta, SwapDuration),
+                new GemMotion(second, Vector3.zero, (Vector3)secondDelta, SwapDuration)
+            };
+            if (!_reducedMotion)
+                yield return AnimateMotions(motions, MotionCurve.Smooth);
+            else
+                foreach (var motion in motions) SetTranslation(motion.Visual, motion.End);
+
+            DockGemVisual(first, item.TargetCell);
+            DockGemVisual(second, item.Cell);
 
             _gemVisuals[item.Cell] = second;
             _gemVisuals[item.TargetCell] = first;
@@ -929,16 +1087,16 @@ namespace ThreeInARow.Presentation
             if (!_reducedMotion && visuals.Count > 0)
             {
                 var elapsed = 0f;
-                const float duration = 0.10f;
-                while (elapsed < duration)
+                while (elapsed < ClearDuration)
                 {
-                    elapsed += Time.unscaledDeltaTime;
-                    var progress = Mathf.Clamp01(elapsed / duration);
-                    var scale = Mathf.Lerp(1f, 0.18f, EaseOutCubic(progress));
+                    elapsed += AnimationDeltaTime();
+                    var progress = Mathf.Clamp01(elapsed / ClearDuration);
+                    var eased = SmootherStep(progress);
+                    var scale = Mathf.Lerp(1f, 0.12f, eased);
                     foreach (var visual in visuals)
                     {
                         visual.style.scale = new Scale(new Vector3(scale, scale, 1f));
-                        visual.style.opacity = 1f - progress;
+                        visual.style.opacity = 1f - eased;
                     }
                     yield return null;
                 }
@@ -960,7 +1118,6 @@ namespace ThreeInARow.Presentation
             var spawnedItems = new List<SimulationEvent>();
             var spawnedVisuals = new List<VisualElement>();
             var spawnOrdinals = new Dictionary<int, int>();
-            var maximumTravelRows = 1;
 
             foreach (var item in items)
             {
@@ -979,11 +1136,14 @@ namespace ThreeInARow.Presentation
                     var startCenter = (Vector2)visual.worldBound.center;
                     if (!LiftGemVisual(visual)) continue;
                     var delta = CellCenter(item.TargetCell) - startCenter;
-                    motions.Add(new GemMotion(visual, Vector3.zero, (Vector3)delta));
+                    var travelRows = Mathf.Abs(item.TargetCell.Row - item.Cell.Row);
+                    motions.Add(new GemMotion(
+                        visual,
+                        Vector3.zero,
+                        (Vector3)delta,
+                        DropDuration(travelRows)));
                     movedItems.Add(item);
                     movedVisuals.Add(visual);
-                    maximumTravelRows = Mathf.Max(maximumTravelRows,
-                        Mathf.Abs(item.TargetCell.Row - item.Cell.Row));
                     continue;
                 }
 
@@ -1001,19 +1161,21 @@ namespace ThreeInARow.Presentation
                 // Virtual rows begin immediately above the board and continue upward. This keeps
                 // refill gems in a column stacked instead of drawing all of them on one another.
                 var dropRows = BoardState.Height + ordinal - item.TargetCell.Row;
-                maximumTravelRows = Mathf.Max(maximumTravelRows, dropRows);
                 var start = new Vector3(0f, -targetCell.worldBound.height * dropRows, 0f);
                 SetTranslation(spawnVisual, start);
                 spawnVisual.style.opacity = 0.35f;
-                motions.Add(new GemMotion(spawnVisual, start, Vector3.zero, true));
+                motions.Add(new GemMotion(
+                    spawnVisual,
+                    start,
+                    Vector3.zero,
+                    DropDuration(dropRows),
+                    true));
                 spawnedItems.Add(item);
                 spawnedVisuals.Add(spawnVisual);
             }
 
             if (!_reducedMotion && motions.Count > 0)
-                yield return AnimateMotions(
-                    motions,
-                    Mathf.Clamp(0.14f + maximumTravelRows * 0.025f, 0.16f, 0.34f));
+                yield return AnimateMotions(motions, MotionCurve.Drop);
             else
                 foreach (var motion in motions) SetTranslation(motion.Visual, motion.End);
 
@@ -1124,18 +1286,22 @@ namespace ThreeInARow.Presentation
             return visual;
         }
 
-        private IEnumerator AnimateMotions(List<GemMotion> motions, float duration)
+        private IEnumerator AnimateMotions(List<GemMotion> motions, MotionCurve curve)
         {
             var elapsed = 0f;
+            var duration = 0f;
+            foreach (var motion in motions) duration = Mathf.Max(duration, motion.Duration);
             while (elapsed < duration)
             {
-                elapsed += Time.unscaledDeltaTime;
-                var progress = Mathf.Clamp01(elapsed / duration);
-                var eased = EaseOutCubic(progress);
+                elapsed += AnimationDeltaTime();
                 foreach (var motion in motions)
                 {
+                    var progress = Mathf.Clamp01(elapsed / motion.Duration);
+                    var eased = curve == MotionCurve.Drop
+                        ? EaseInOutCubic(progress)
+                        : SmootherStep(progress);
                     SetTranslation(motion.Visual, Vector3.LerpUnclamped(motion.Start, motion.End, eased));
-                    if (motion.FadeIn) motion.Visual.style.opacity = Mathf.Lerp(0.35f, 1f, progress);
+                    if (motion.FadeIn) motion.Visual.style.opacity = Mathf.Lerp(0.35f, 1f, SmootherStep(progress));
                 }
                 yield return null;
             }
@@ -1144,6 +1310,15 @@ namespace ThreeInARow.Presentation
                 SetTranslation(motion.Visual, motion.End);
                 if (motion.FadeIn) motion.Visual.style.opacity = 1f;
             }
+        }
+
+        private static float DropDuration(int travelRows)
+        {
+            // Square-root scaling keeps long falls readable without making large cascades drag.
+            return Mathf.Clamp(
+                0.12f + Mathf.Sqrt(Mathf.Max(1, travelRows)) * 0.075f,
+                MinimumDropDuration,
+                MaximumDropDuration);
         }
 
         private void ApplySpecialVisual(SimulationEvent item)
@@ -1177,6 +1352,26 @@ namespace ThreeInARow.Presentation
             return 1f - inverse * inverse * inverse;
         }
 
+        private static float EaseInOutCubic(float value)
+        {
+            value = Mathf.Clamp01(value);
+            return value < 0.5f
+                ? 4f * value * value * value
+                : 1f - Mathf.Pow(-2f * value + 2f, 3f) * 0.5f;
+        }
+
+        private static float SmootherStep(float value)
+        {
+            value = Mathf.Clamp01(value);
+            return value * value * value * (value * (value * 6f - 15f) + 10f);
+        }
+
+        private static float AnimationDeltaTime()
+        {
+            // A single slow frame should not skip most of a short board animation.
+            return Mathf.Min(Time.unscaledDeltaTime, MaximumAnimationFrameDelta);
+        }
+
         private static Vector3 Translation(VisualElement visual)
         {
             var translate = visual.resolvedStyle.translate;
@@ -1193,15 +1388,28 @@ namespace ThreeInARow.Presentation
             public readonly VisualElement Visual;
             public readonly Vector3 Start;
             public readonly Vector3 End;
+            public readonly float Duration;
             public readonly bool FadeIn;
 
-            public GemMotion(VisualElement visual, Vector3 start, Vector3 end, bool fadeIn = false)
+            public GemMotion(
+                VisualElement visual,
+                Vector3 start,
+                Vector3 end,
+                float duration,
+                bool fadeIn = false)
             {
                 Visual = visual;
                 Start = start;
                 End = end;
+                Duration = Mathf.Max(0.001f, duration);
                 FadeIn = fadeIn;
             }
+        }
+
+        private enum MotionCurve
+        {
+            Smooth,
+            Drop
         }
 
         private readonly struct GemVisualIdentity
@@ -1390,6 +1598,28 @@ namespace ThreeInARow.Presentation
             element.style.borderBottomLeftRadius = 14;
             element.style.borderBottomRightRadius = 14;
             return element;
+        }
+
+        private VisualElement HelpRow(string iconKey, string heading, string body)
+        {
+            var card = Card();
+            card.style.flexDirection = FlexDirection.Row;
+            card.style.alignItems = Align.Center;
+            var icon = Icon(iconKey, 58);
+            icon.style.marginRight = 12;
+            card.Add(icon);
+            var copy = new VisualElement();
+            copy.style.flexGrow = 1;
+            var title = LabelText(heading, 19, Gold);
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.whiteSpace = WhiteSpace.Normal;
+            copy.Add(title);
+            var description = LabelText(body, 17, TextColor);
+            description.style.whiteSpace = WhiteSpace.Normal;
+            description.style.marginTop = 3;
+            copy.Add(description);
+            card.Add(copy);
+            return card;
         }
 
         private static VisualElement Row()
@@ -1620,6 +1850,15 @@ namespace ThreeInARow.Presentation
             if (ids == null) return false;
             foreach (var id in ids) if (id.Equals(wanted)) return true;
             return false;
+        }
+
+        private static string RussianTurns(int value)
+        {
+            var lastTwo = value % 100;
+            if (lastTwo >= 11 && lastTwo <= 14) return "ходов";
+            var last = value % 10;
+            if (last == 1) return "ход";
+            return last >= 2 && last <= 4 ? "хода" : "ходов";
         }
 
         private static string RejectionText(string rejection)

@@ -196,6 +196,20 @@ namespace ThreeInARow.Domain.Board
             return FindLegalSwaps(BoardMatrix.FromState(state), catalog);
         }
 
+        /// <summary>Returns whether a persisted or externally supplied board contains a normal-gem match.</summary>
+        public static bool HasPreExistingMatch(
+            BoardState state,
+            IBoardContentCatalog catalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            catalog = catalog ?? MvpBoardContentCatalog.Instance;
+            ValidateCatalog(catalog);
+            if (state.Gems == null || state.Gems.Count != BoardState.Width * BoardState.Height)
+                return false;
+
+            return FindMatchGroups(BoardMatrix.FromState(state), catalog).Count > 0;
+        }
+
         /// <summary>
         /// Re-establishes the stable-board playability invariant after an external system changes
         /// movement statuses. It consumes BoardSpawn only when a reshuffle is actually required.
@@ -211,9 +225,15 @@ namespace ThreeInARow.Domain.Board
                 return events;
 
             var board = BoardMatrix.FromState(state.Board);
-            if (HasAnyLegalSwap(board, catalog)) return events;
+            var hasPreExistingMatch = FindMatchGroups(board, catalog).Count > 0;
+            if (!hasPreExistingMatch && HasAnyLegalSwap(board, catalog)) return events;
             var random = RandomStreams.Restore(RandomStream.BoardSpawn, state.RandomStreams);
-            Reshuffle(board, random, catalog, events, "status_application_no_legal_swap");
+            Reshuffle(
+                board,
+                random,
+                catalog,
+                events,
+                hasPreExistingMatch ? "preexisting_match" : "status_application_no_legal_swap");
             board.CommitTo(state.Board);
             RandomStreams.Store(RandomStream.BoardSpawn, random, state.RandomStreams);
             return events;

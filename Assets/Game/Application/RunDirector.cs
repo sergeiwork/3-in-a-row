@@ -130,7 +130,9 @@ namespace ThreeInARow.Application
             State = snapshot.State;
             Statistics = snapshot.Statistics;
             ProgressionSimulation.InitializeRun(State);
+            BoardSimulation.EnsurePlayable(State);
             Screen = DeriveStableScreen();
+            SaveStableCheckpoint();
             return true;
         }
 

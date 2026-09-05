@@ -41,6 +41,8 @@ namespace ThreeInARow.Presentation
         private VisualElement _safeArea;
         private VisualElement _board;
         private VisualElement _gemMotionLayer;
+        private VisualElement _enemyFeedbackAnchor;
+        private VisualElement _playerFeedbackAnchor;
         private Label _message;
         private readonly Dictionary<GridCell, VisualElement> _boardCells = new Dictionary<GridCell, VisualElement>();
         private readonly Dictionary<GridCell, VisualElement> _gemVisuals = new Dictionary<GridCell, VisualElement>();
@@ -121,6 +123,8 @@ namespace ThreeInARow.Presentation
             _visualGemStates.Clear();
             _board = null;
             _gemMotionLayer = null;
+            _enemyFeedbackAnchor = null;
+            _playerFeedbackAnchor = null;
             _message = null;
             _inputLocked = false;
 
@@ -232,7 +236,7 @@ namespace ThreeInARow.Presentation
             scroll.Add(HelpRow("gem.tide", "ПРИЛИВ И КОНЦЕНТРАЦИЯ", "Каждый кристалл даёт 1 ед. концентрации. Каждые 3 ед. автоматически превращаются в 6 урона. Особый Поток даёт 5 ед."));
             scroll.Add(HelpRow("gem.venom", "ЯД И ТОКСИН", "Каждый кристалл даёт 1 ед. токсина. Каждые 5 ед. наносят 12 урона и дают врагу заряд отравления. Особая Спора даёт 5 ед."));
             scroll.Add(HelpRow("gem.volt", "РАЗРЯД", "Каждый кристалл наносит 2 урона. Каждые 3 убранных Разряда сокращают перезарядку обоих активных навыков на 1. Особый Заряд наносит 8 урона и тоже ускоряет оба навыка."));
-            scroll.Add(HelpRow("gem.prism", "ПРИЗМА", "Поменяйте её с обычным кристаллом, чтобы убрать с поля все кристаллы этого цвета и получить их обычные эффекты."));
+            scroll.Add(HelpRow("gem.prism", "ПРИЗМА", "Поменяйте её с обычным кристаллом, чтобы убрать с поля все кристаллы этого цвета и получить их обычные эффекты. Призмы — особые кристаллы: даже три Призмы в ряд не образуют совпадение."));
             scroll.Add(HelpRow("ui.shield", "ЩИТ", "Поглощает входящий урон раньше здоровья. Он защищает от ближайшего ответа врага и исчезает в начале следующей успешной перестановки."));
 
             scroll.Add(SectionHeading("АКТИВНЫЕ НАВЫКИ"));
@@ -305,6 +309,7 @@ namespace ThreeInARow.Presentation
             var portrait = Icon(enemy.Id.Value, 150);
             portrait.style.marginRight = 18;
             enemyPanel.Add(portrait);
+            _enemyFeedbackAnchor = portrait;
             var enemyInfo = new VisualElement();
             enemyInfo.style.flexGrow = 1;
             enemyInfo.Add(Title(PresentationText.Name(enemy.Id), 31, TextColor));
@@ -606,6 +611,7 @@ namespace ThreeInARow.Presentation
             resources.Add(ResourceChip("ui.toxic", "ТОКСИН", state.Player.Toxic, 9, Success));
             resources.Add(ResourceChip("ui.shield", "ЩИТ", state.Player.Shield, -1, Gold));
             _safeArea.Add(resources);
+            _playerFeedbackAnchor = resources;
         }
 
         private void BuildSkills(RunState state)
@@ -1484,6 +1490,22 @@ namespace ThreeInARow.Presentation
             {
                 center = cell.worldBound.center;
                 size = Mathf.Clamp(Mathf.Min(cell.worldBound.width, cell.worldBound.height) * 1.2f, 46f, 110f);
+            }
+            else if (item.Type == SimulationEventType.DamageApplied)
+            {
+                var damageAnchor = item.Detail.IndexOf("target=enemy", StringComparison.Ordinal) >= 0
+                    ? _enemyFeedbackAnchor
+                    : item.Detail.IndexOf("target=player", StringComparison.Ordinal) >= 0
+                        ? _playerFeedbackAnchor
+                        : null;
+                if (damageAnchor != null && damageAnchor.parent != null)
+                {
+                    center = damageAnchor.worldBound.center;
+                    size = Mathf.Clamp(
+                        Mathf.Min(damageAnchor.worldBound.width, damageAnchor.worldBound.height) * 0.8f,
+                        64f,
+                        defaultSize);
+                }
             }
 
             var image = Icon(key, size);

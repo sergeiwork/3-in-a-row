@@ -32,7 +32,14 @@ Never commit the `.ulf` file or Unity credentials. GameCI's current activation i
 
 The Android artifact is an installable APK containing ARMv7 and ARM64 native players and supporting Android 6.0 / API 23 or newer. CI verifies that the APK is a valid ZIP and contains the ARM64 Unity player before publishing it.
 
-The APK is currently signed using Unity's default debug keystore. Before distributing through Google Play or treating Android builds as production-signed releases, configure a persistent private Android keystore through GitHub Actions secrets and switch the workflow to a signed Android App Bundle (`.aab`). Because independently generated debug keys have different signatures, uninstall an older local or CI build before installing a debug-signed APK with the same application ID:
+Android packages are signed with the persistent `threerow-release` key. The workflow requires these repository secrets and stops before building when any is absent:
+
+- `ANDROID_KEYSTORE_BASE64`: the complete keystore encoded as base64
+- `ANDROID_KEYSTORE_PASS`: the keystore password
+- `ANDROID_KEYALIAS_NAME`: `threerow-release`
+- `ANDROID_KEYALIAS_PASS`: the key password
+
+Keep an offline backup of the keystore and both passwords. They are required to publish updates that install over an existing version. APKs from `v0.0.2` and earlier used a different debug certificate, so uninstall those once before installing the first persistently signed release:
 
 ```powershell
 adb uninstall ru.sergeiwork.threerow

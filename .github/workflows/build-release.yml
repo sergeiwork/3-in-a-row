@@ -53,7 +53,27 @@ jobs:
           restore-keys: |
             Library-${{ runner.os }}-${{ matrix.target_platform }}-
 
-      - name: Build with Unity
+      - name: Validate Android signing secrets
+        if: matrix.target_platform == 'Android'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEYALIAS_NAME: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          ANDROID_KEYALIAS_PASS: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for secret_name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASS ANDROID_KEYALIAS_NAME ANDROID_KEYALIAS_PASS; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Missing required GitHub Actions secret: $secret_name"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Build Windows with Unity
+        if: matrix.target_platform == 'StandaloneWindows64'
         uses: game-ci/unity-builder@v4.8.1
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -65,7 +85,26 @@ jobs:
           buildName: ThreeInARow
           buildsPath: build
           versioning: ${{ startsWith(github.ref, 'refs/tags/') && 'Tag' || 'Semantic' }}
+
+      - name: Build Android with Unity
+        if: matrix.target_platform == 'Android'
+        uses: game-ci/unity-builder@v4.8.1
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: auto
+          targetPlatform: Android
+          buildName: ThreeInARow
+          buildsPath: build
+          versioning: ${{ startsWith(github.ref, 'refs/tags/') && 'Tag' || 'Semantic' }}
           androidExportType: androidPackage
+          androidKeystoreName: three-in-a-row-release.keystore
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
 
       - name: Package Windows build
         if: matrix.target_platform == 'StandaloneWindows64'

@@ -32,6 +32,8 @@ Never commit the `.ulf` file or Unity credentials. GameCI's current activation i
 
 The Android artifact is an installable APK signed using Unity's default debug keystore. Before distributing through Google Play or treating Android builds as production-signed releases, configure a private Android keystore through GitHub Actions secrets and switch the workflow to a signed Android App Bundle (`.aab`).
 
+The Android application ID is `ru.sergeiwork.threerow`. It is explicit in Unity Player settings so local and CI builds produce the same package identity.
+
 ## Create a release
 
 After the workflow file and Unity secrets are present on GitHub, create and push an annotated semantic-version tag:

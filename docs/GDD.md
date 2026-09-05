@@ -545,3 +545,7 @@ Balance the R1/R2 content on seeded routes, verify portrait map readability on 1
 - Six events and rest resolve through generic choice/effect definitions. Pending next-encounter Cracked/Shield effects persist as `(modifierId, amount)` entries and are consumed only when the next combat begins. Event choice state is authoritative and persisted.
 - Fracture Golem and Stormglass Roc are elite encounters; Facet Engine is the alternate boss. An elite sets a queued keystone reward after XP processing. Elite keystones are tagged passive skill definitions rather than a separate relic inventory, and only the single elite node can award one in the initial map.
 - `RunDirector` derives `Map`, `Event`, and `Rest` screens from authoritative state. Route node IDs and event choices join run statistics. A combat node completes on enemy defeat; event/rest completes after its choice; the boss node ends the run.
+
+## Changed contracts — build distribution
+
+- The stable Android application ID is `ru.sergeiwork.threerow`. CI and local Android builds must use this exact identifier; changing it creates a different installed application and a different Google Play identity.

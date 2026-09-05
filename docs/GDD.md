@@ -549,3 +549,4 @@ Balance the R1/R2 content on seeded routes, verify portrait map readability on 1
 ## Changed contracts — build distribution
 
 - The stable Android application ID is `ru.sergeiwork.threerow`. CI and local Android builds must use this exact identifier; changing it creates a different installed application and a different Google Play identity.
+- Android distribution builds use IL2CPP and include both ARMv7 and ARM64 native libraries in one APK. The minimum supported OS is Android 6.0 / API 23, matching the Unity 6 player baseline.

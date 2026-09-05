@@ -85,6 +85,9 @@ jobs:
           set -euo pipefail
           apk="$(find build -type f -name '*.apk' -print -quit)"
           test -n "$apk"
+          unzip -tq "$apk"
+          apk_entries="$(unzip -Z1 "$apk")"
+          grep -qx 'lib/arm64-v8a/libunity\.so' <<< "$apk_entries"
           mkdir -p release-assets
           cp "$apk" release-assets/ThreeInARow-Android.apk
 

@@ -68,6 +68,7 @@ ExportedObj/
 # Packages contents. Unity projects must version both to preserve asset GUIDs
 # and reproducible package resolution.
 !*.meta
+!*.tss
 !/[Pp]ackages/
 !/[Pp]ackages/manifest.json
 !/[Pp]ackages/packages-lock.json

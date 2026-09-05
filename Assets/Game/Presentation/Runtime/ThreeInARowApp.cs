@@ -308,6 +308,7 @@ namespace ThreeInARow.Presentation
                     var captured = node;
                     var label = NodeLabel(node);
                     var button = new Button(() => SelectMapNode(captured.Id)) { text = label };
+                    button.style.unityTextAlign = TextAnchor.MiddleCenter;
                     button.style.minHeight = 68;
                     button.style.flexGrow = 1;
                     button.style.maxWidth = node.Row == 3 ? 310 : 430;
@@ -1870,6 +1871,7 @@ namespace ThreeInARow.Presentation
         private Button ActionButton(string text, Action action, bool primary)
         {
             var button = new Button(action) { text = text };
+            button.style.unityTextAlign = TextAnchor.MiddleCenter;
             button.style.height = 68;
             button.style.width = Length.Percent(100);
             button.style.maxWidth = 720;
@@ -1888,6 +1890,7 @@ namespace ThreeInARow.Presentation
         private Button SmallButton(string text, Action action)
         {
             var button = new Button(action) { text = text };
+            button.style.unityTextAlign = TextAnchor.MiddleCenter;
             button.style.minWidth = 72;
             button.style.height = 46;
             button.style.marginLeft = 4;

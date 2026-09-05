@@ -7,6 +7,7 @@ using ThreeInARow.Domain.Combat;
 using ThreeInARow.Domain.Events;
 using ThreeInARow.Domain.Ids;
 using ThreeInARow.Domain.Progression;
+using ThreeInARow.Domain.Map;
 using ThreeInARow.Domain.State;
 using ThreeInARow.Infrastructure;
 using UnityEngine;
@@ -149,6 +150,9 @@ namespace ThreeInARow.Presentation
                 case RunScreen.SkillWindow: BuildEncounter(); break;
                 case RunScreen.Reward: BuildReward(); break;
                 case RunScreen.BetweenEncounters: BuildBetweenEncounters(); break;
+                case RunScreen.Map: BuildMap(); break;
+                case RunScreen.Event: BuildEvent(false); break;
+                case RunScreen.Rest: BuildEvent(true); break;
                 case RunScreen.Victory: BuildSummary(true); break;
                 case RunScreen.Defeat: BuildSummary(false); break;
             }
@@ -170,7 +174,7 @@ namespace ThreeInARow.Presentation
             _safeArea.Add(subtitle);
 
             var start = ActionButton("НАЧАТЬ ЗАБЕГ", StartRun, true);
-            start.tooltip = "Начать новый забег из пяти боёв.";
+            start.tooltip = "Начать новый забег по карте из семи этапов.";
             _safeArea.Add(start);
             if (_director.CanResume)
             {
@@ -181,7 +185,7 @@ namespace ThreeInARow.Presentation
             _safeArea.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildTitle), false));
             _safeArea.Add(ActionButton("НАСТРОЙКИ И АВТОРЫ", BuildSettings, false));
 
-            var version = LabelText("Вертикальный срез · v0.6", 18, Muted, TextAnchor.MiddleCenter);
+            var version = LabelText("Контент R1–R2 · v0.6", 18, Muted, TextAnchor.MiddleCenter);
             version.style.marginTop = 36;
             _safeArea.Add(version);
         }
@@ -278,16 +282,170 @@ namespace ThreeInARow.Presentation
             }
         }
 
+        private void BuildMap()
+        {
+            BeginScreen();
+            var state = _director.State;
+            var top = Row();
+            var heading = Title("КАРТА РЕГИОНА", 38, Gold);
+            heading.style.flexGrow = 1;
+            top.Add(heading);
+            top.Add(SmallButton("?", () => BuildHelp(BuildForCurrentScreen)));
+            _safeArea.Add(top);
+            _safeArea.Add(LabelText("Финал: " + PresentationText.Name(state.Map.BossEnemyId) +
+                " · выберите подсвеченный узел", 18, Muted, TextAnchor.MiddleCenter));
+
+            var mapPanel = new VisualElement();
+            mapPanel.style.flexGrow = 1;
+            mapPanel.style.justifyContent = Justify.SpaceAround;
+            for (var rowIndex = 6; rowIndex >= 0; rowIndex--)
+            {
+                var row = Row();
+                row.style.justifyContent = Justify.Center;
+                foreach (var node in state.Map.Nodes)
+                {
+                    if (node.Row != rowIndex) continue;
+                    var captured = node;
+                    var label = NodeLabel(node);
+                    var button = new Button(() => SelectMapNode(captured.Id)) { text = label };
+                    button.style.minHeight = 68;
+                    button.style.flexGrow = 1;
+                    button.style.maxWidth = node.Row == 3 ? 310 : 430;
+                    button.style.marginLeft = 5;
+                    button.style.marginRight = 5;
+                    button.style.fontSize = 16;
+                    button.style.whiteSpace = WhiteSpace.Normal;
+                    button.style.color = TextColor;
+                    var reachable = MapSimulation.IsReachable(state.Map, node);
+                    button.SetEnabled(reachable);
+                    button.style.backgroundColor = node.Completed ? Hex("#285A45")
+                        : reachable ? Hex("#28738A") : Panel;
+                    button.tooltip = MapNodeTooltip(node);
+                    row.Add(button);
+                }
+                mapPanel.Add(row);
+                if (rowIndex > 0)
+                {
+                    var connections = LabelText("↑   ↑   ↑", 17, Muted, TextAnchor.MiddleCenter);
+                    connections.tooltip = "Каждый узел ряда соединён со всеми показанными узлами следующего ряда.";
+                    mapPanel.Add(connections);
+                }
+            }
+            _safeArea.Add(mapPanel);
+            _safeArea.Add(LabelText("Здоровье " + state.Player.Health + "/" + PlayerState.MaxHealth +
+                " · Щит " + state.Player.Shield + " · Уровень " + state.Level, 18, TextColor, TextAnchor.MiddleCenter));
+            _safeArea.Add(ActionButton("НАСТРОИТЬ АКТИВНЫЕ НАВЫКИ", BuildLoadoutModal, false));
+        }
+
+        private string NodeLabel(MapNodeState node)
+        {
+            var prefix = node.Completed ? "✓ " : node.Visited ? "• " : string.Empty;
+            if (node.Type == MapNodeType.NormalCombat || node.Type == MapNodeType.EliteCombat || node.Type == MapNodeType.Boss)
+            {
+                var encounter = MvpCombatContentCatalog.Instance.GetEncounter(node.ContentId);
+                return prefix + PresentationText.NodeTypeName(node.Type).ToUpperInvariant() + "\n" +
+                       PresentationText.Name(encounter.Enemy.Id) + " · " + PresentationText.Name(node.PressureId);
+            }
+            return prefix + PresentationText.NodeTypeName(node.Type).ToUpperInvariant() + "\n" +
+                   PresentationText.Name(node.ContentId);
+        }
+
+        private string MapNodeTooltip(MapNodeState node)
+        {
+            if (node.Type == MapNodeType.NormalCombat || node.Type == MapNodeType.EliteCombat || node.Type == MapNodeType.Boss)
+                return "Семейство врага и главное давление показаны заранее: " + PresentationText.Name(node.PressureId) + ".";
+            return node.Type == MapNodeType.Rest ? "Безопасное восстановление." : PresentationText.EventDescription(node.ContentId);
+        }
+
+        private void SelectMapNode(ContentId nodeId)
+        {
+            if (_inputLocked) return;
+            _inputLocked = true;
+            var result = _director.SelectMapNode(nodeId);
+            if (!result.Accepted)
+            {
+                _inputLocked = false;
+                return;
+            }
+            PlayBatch(result.Events, BuildForCurrentScreen);
+        }
+
+        private void BuildEvent(bool rest)
+        {
+            BeginScreen();
+            var pending = _director.State.PendingEvent;
+            _safeArea.style.justifyContent = Justify.Center;
+            _safeArea.Add(Title(rest ? "ПРИВАЛ" : PresentationText.Name(pending.EventId).ToUpperInvariant(), 42, Gold));
+            _safeArea.Add(Paragraph(PresentationText.EventDescription(pending.EventId)));
+            foreach (var choiceId in pending.ChoiceIds)
+            {
+                var captured = choiceId;
+                var button = ActionButton(PresentationText.ChoiceDescription(choiceId), () => SelectEventChoice(captured), true);
+                button.style.height = StyleKeyword.Auto;
+                button.style.minHeight = 82;
+                button.style.whiteSpace = WhiteSpace.Normal;
+                button.style.paddingLeft = 18;
+                button.style.paddingRight = 18;
+                _safeArea.Add(button);
+            }
+        }
+
+        private void SelectEventChoice(ContentId choiceId)
+        {
+            if (_inputLocked) return;
+            _inputLocked = true;
+            var result = _director.SelectEventChoice(choiceId);
+            if (!result.Accepted)
+            {
+                _inputLocked = false;
+                return;
+            }
+            PlayBatch(result.Events, BuildForCurrentScreen);
+        }
+
+        private void BuildLoadoutModal()
+        {
+            ShowModal("АКТИВНЫЕ НАВЫКИ", "Изученные навыки сохраняют перезарядку при смене ячейки.", modal =>
+            {
+                var state = _director.State;
+                foreach (var skill in MvpProgressionContentCatalog.Instance.Skills)
+                {
+                    if (skill.SlotType != SkillSlotType.Active || !Contains(state.SelectedSkillIds, skill.Id)) continue;
+                    var line = Row();
+                    line.style.alignItems = Align.Center;
+                    var name = LabelText(PresentationText.Name(skill.Id), 18, TextColor);
+                    name.style.flexGrow = 1;
+                    line.Add(name);
+                    for (var slot = 0; slot < 2; slot++)
+                    {
+                        var capturedSlot = slot;
+                        var isCurrent = state.Player.EquippedActiveSkillIds.Count > slot &&
+                                        state.Player.EquippedActiveSkillIds[slot].Equals(skill.Id);
+                        var button = SmallButton(isCurrent ? (slot == 0 ? "Л ✓" : "П ✓") : (slot == 0 ? "Л" : "П"),
+                            () =>
+                            {
+                                var result = _director.EquipSkill(skill.Id, capturedSlot);
+                                if (result.Accepted) BuildMap();
+                            });
+                        button.SetEnabled(!isCurrent);
+                        line.Add(button);
+                    }
+                    modal.Add(line);
+                }
+            });
+        }
+
         private void BuildEncounter()
         {
             BeginScreen();
             var state = _director.State;
-            var encounter = MvpCombatContentCatalog.Instance.GetEncounter(state.EncounterIndex);
+            var encounter = MvpCombatContentCatalog.Instance.GetEncounter(state.CurrentEncounterId);
             var enemy = encounter.Enemy;
 
             var top = Row();
             top.style.alignItems = Align.Center;
-            var encounterLabel = LabelText("БОЙ " + (state.EncounterIndex + 1) + " / " + RunDirector.EncounterCount, 19, Muted);
+            var currentNode = MapSimulation.GetCurrentNode(state);
+            var encounterLabel = LabelText("ЭТАП " + (currentNode == null ? 1 : currentNode.Row + 1) + " / 7", 19, Muted);
             encounterLabel.style.flexGrow = 1;
             top.Add(encounterLabel);
             var settings = SmallButton("⚙", BuildSettingsFromRun);
@@ -545,6 +703,24 @@ namespace ThreeInARow.Presentation
         {
             if (_targetingSkill.HasValue)
             {
+                var targetDefinition = MvpProgressionContentCatalog.Instance.GetSkill(_targetingSkill.Value);
+                if (targetDefinition.TargetPolicy == SkillTargetPolicy.OneNormalGem)
+                {
+                    var valid = MvpBoardContentCatalog.Instance.IsNormalGem(gem.GemId) &&
+                                gem.SpecialId.Equals(BoardContentIds.NoSpecial) &&
+                                !Contains(gem.StatusIds, BoardContentIds.Anchored) &&
+                                !Contains(gem.StatusIds, BoardContentIds.Frozen);
+                    if (!valid)
+                    {
+                        SetMessage("Выберите подвижный обычный кристалл без особого свойства.", Danger);
+                        return;
+                    }
+                    _skillTargets.Clear();
+                    _skillTargets.Add(cell);
+                    RefreshCellSelections();
+                    SetMessage("Цель выбрана. Подтвердите Насыщение.", Gold);
+                    return;
+                }
                 if (gem.StatusIds == null || gem.StatusIds.Count == 0)
                 {
                     SetMessage("Выберите кристалл с заморозкой, трещиной или якорем.", Danger);
@@ -670,6 +846,13 @@ namespace ThreeInARow.Presentation
                 ShowCleanseTargeting(definition);
                 return;
             }
+            if (definition.TargetPolicy == SkillTargetPolicy.OneNormalGem)
+            {
+                _targetingSkill = definition.Id;
+                _skillTargets.Clear();
+                ShowInfuseTargeting(definition);
+                return;
+            }
             ExecuteSkill(definition.Id, null);
         }
 
@@ -750,6 +933,33 @@ namespace ThreeInARow.Presentation
             _safeArea.Add(controls);
         }
 
+        private void ShowInfuseTargeting(SkillDefinition definition)
+        {
+            SetMessage("Выберите один подвижный обычный кристалл без особого свойства.", Gold);
+            var controls = Row();
+            controls.name = "targeting-controls";
+            var confirm = ActionButton("ПОДТВЕРДИТЬ НАСЫЩЕНИЕ", () =>
+            {
+                if (_skillTargets.Count != 1)
+                {
+                    SetMessage("Сначала выберите один подходящий кристалл.", Danger);
+                    return;
+                }
+                ExecuteSkill(definition.Id, _skillTargets);
+            }, true);
+            confirm.style.flexGrow = 1;
+            var cancel = ActionButton("ОТМЕНА", () =>
+            {
+                _targetingSkill = null;
+                _skillTargets.Clear();
+                BuildEncounter();
+            }, false);
+            cancel.style.flexGrow = 1;
+            controls.Add(confirm);
+            controls.Add(cancel);
+            _safeArea.Add(controls);
+        }
+
         private void ExecuteSkill(ContentId skillId, IEnumerable<GridCell> targets)
         {
             _inputLocked = true;
@@ -782,7 +992,10 @@ namespace ThreeInARow.Presentation
             BeginScreen();
             var state = _director.State;
             _safeArea.Add(Icon("ui.level_up", 100));
-            _safeArea.Add(Title("УРОВЕНЬ " + state.PendingChoice.Level, 46, Gold));
+            var rewardTitle = state.PendingChoice.ChoiceId.Value == "choice.elite_keystone"
+                ? "ЭЛИТНОЕ УЛУЧШЕНИЕ"
+                : state.PendingChoice.Level > 0 ? "УРОВЕНЬ " + state.PendingChoice.Level : "НАГРАДА";
+            _safeArea.Add(Title(rewardTitle, 46, Gold));
             _safeArea.Add(LabelText("Нажмите карточку, прочитайте полное описание и выберите одно улучшение.", 20, Muted, TextAnchor.MiddleCenter));
 
             var cards = new VisualElement();
@@ -814,6 +1027,8 @@ namespace ThreeInARow.Presentation
                 text.Add(description);
                 if (skill.HasPrerequisite)
                     text.Add(LabelText("Требуется: " + PresentationText.Name(skill.PrerequisiteId) + " ✓", 17, Success));
+                if (skill.SynergyTags != null && skill.SynergyTags.Count > 0)
+                    text.Add(LabelText(string.Join(" · ", new List<string>(skill.SynergyTags).ToArray()), 16, Cyan));
                 card.Add(text);
                 cards.Add(card);
             }
@@ -918,7 +1133,7 @@ namespace ThreeInARow.Presentation
             var statistics = _director.Statistics ?? new RunStatistics();
             _safeArea.Add(Icon(victory ? "ui.victory" : "ui.defeat", 145));
             _safeArea.Add(Title(victory ? "ЗАБЕГ ЗАВЕРШЁН" : "ЗАБЕГ ОКОНЧЕН", 46, victory ? Gold : Danger));
-            _safeArea.Add(LabelText(victory ? "Кристальный страж повержен." : "Кристаллы запомнят эту попытку.",
+            _safeArea.Add(LabelText(victory ? PresentationText.Name(_director.State.Map.BossEnemyId) + " повержен." : "Кристаллы запомнят эту попытку.",
                 22, TextColor, TextAnchor.MiddleCenter));
 
             var summary = Card();
@@ -926,6 +1141,7 @@ namespace ThreeInARow.Presentation
             summary.Add(StatLine("Самая длинная цепочка", statistics.BiggestCascade.ToString()));
             summary.Add(StatLine("Общий урон", statistics.TotalDamage.ToString()));
             summary.Add(StatLine("Завершено ходов", _director.State.ResolvedTurnCount.ToString()));
+            summary.Add(StatLine("Посещено узлов", statistics.RouteNodeIds == null ? "0" : statistics.RouteNodeIds.Count.ToString()));
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             summary.Add(StatLine("Отладочное зерно", _director.State.Seed.ToString()));
 #endif
@@ -1864,6 +2080,15 @@ namespace ThreeInARow.Presentation
             if (skill.Id.Value == "skill.cleanse") return CountStatusGems(state.Board) > 0;
             if (skill.Id.Value == "skill.catalyze")
                 return state.Player.Focus > 0 || (state.Player.Toxic >= 2 && state.Enemy.PoisonStacks < 3);
+            if (skill.Id.Value == "skill.infuse")
+            {
+                foreach (var gem in state.Board.Gems)
+                    if (gem != null && MvpBoardContentCatalog.Instance.IsNormalGem(gem.GemId) &&
+                        gem.SpecialId.Equals(BoardContentIds.NoSpecial) &&
+                        !Contains(gem.StatusIds, BoardContentIds.Anchored) &&
+                        !Contains(gem.StatusIds, BoardContentIds.Frozen)) return true;
+                return false;
+            }
             return true;
         }
 

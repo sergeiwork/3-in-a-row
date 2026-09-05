@@ -67,6 +67,13 @@ Status images remain separate UI layers so a gem can display multiple statuses w
 | `enemy.geode_mite_elite` | `Enemies/Generated/enemy_geode_mite_elite.png` |
 | `enemy.prism_stalker` | `Enemies/Generated/enemy_prism_stalker.png` |
 | `enemy.crystal_warden` | `Enemies/Generated/enemy_crystal_warden.png` |
+| `enemy.crystal_tick` | Temporary reuse: `Enemies/Generated/enemy_geode_mite.png` |
+| `enemy.rime_moth` | Temporary reuse: `Enemies/Generated/enemy_frost_oracle.png` |
+| `enemy.anchor_crab` | Temporary reuse: `Enemies/Generated/enemy_geode_mite_elite.png` |
+| `enemy.hollow_idol` | Temporary reuse: `Enemies/Generated/enemy_prism_stalker.png` |
+| `enemy.fracture_golem` | Temporary reuse: `Enemies/Generated/enemy_geode_mite_elite.png` |
+| `enemy.stormglass_roc` | Temporary reuse: `Enemies/Generated/enemy_frost_oracle.png` |
+| `enemy.facet_engine` | Temporary reuse: `Enemies/Generated/enemy_crystal_warden.png` |
 
 ### Intent telegraphs
 
@@ -84,6 +91,8 @@ Intent damage/status amounts are live text. Composite intents display multiple i
 | `intent.seal` | `Icons/GameIconsLorc/anchor.png` |
 | `intent.shardstorm` | `Icons/GameIconsLorc/crystal-shine.png` |
 | `intent.freeze_anchor` | `Icons/GameIconsLorc/snowflake-1.png` + `anchor.png` |
+| `intent.bite`, `intent.claw` | `Icons/GameIconsLorc/shattered-sword.png` |
+| `intent.freeze_hit` | `Icons/GameIconsLorc/snowflake-1.png` |
 
 ### HUD and progression
 
@@ -105,6 +114,18 @@ Intent damage/status amounts are live text. Composite intents display multiple i
 | `skill.sunder` | `Icons/GameIconsLorc/shattered-sword.png` |
 | `skill.cleanse` | `Icons/GameIconsLorc/magic-palm.png` |
 | `skill.catalyze` | `Icons/GameIconsLorc/bubbling-flask.png` |
+| `skill.cinderwake` | `Icons/GameIconsLorc/small-fire.png` |
+| `skill.reservoir` | `Icons/GameIconsLorc/bordered-shield.png` |
+| `skill.concentrate` | `Icons/GameIconsLorc/poison-bottle.png` |
+| `skill.contagion` | `Icons/GameIconsLorc/poison-gas.png` |
+| `skill.static_guard` | `Icons/GameIconsLorc/lightning-frequency.png` |
+| `skill.live_wire` | `Icons/GameIconsLorc/power-lightning.png` |
+| `skill.aegis` | `Icons/GameIconsLorc/bordered-shield.png` |
+| `skill.infuse` | `Icons/GameIconsLorc/crystal-shine.png` |
+| `skill.keystone.tempered_core` | `Icons/GameIconsLorc/glass-heart.png` |
+| `skill.keystone.prismatic_start` | `Icons/GameIconsLorc/crystal-shine.png` |
+| `skill.keystone.rapid_casting` | `Icons/GameIconsLorc/magic-swirl.png` |
+| `skill.keystone.hard_light` | `Icons/GameIconsLorc/fire-shield.png` |
 | `ui.status_feedback`, `ui.clear_feedback` | `Icons/GameIconsLorc/circle-sparks.png` |
 
 The four level-up branch icons reuse `gem.ember`, `gem.tide`, `gem.venom`, and `gem.volt`. Reward cards reuse the selected skill icon. Cooldown, duration, HP, resource, and reward values are rendered as text.

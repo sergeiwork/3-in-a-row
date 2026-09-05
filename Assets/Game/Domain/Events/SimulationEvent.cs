@@ -29,7 +29,12 @@ namespace ThreeInARow.Domain.Events
         CooldownChanged,
         EnemyIntentTelegraphed,
         SkillUsed,
-        SkillEquipped
+        SkillEquipped,
+        MapGenerated,
+        MapNodeSelected,
+        MapNodeCompleted,
+        EventChoiceSelected,
+        PendingModifierAdded
     }
 
     [Serializable]

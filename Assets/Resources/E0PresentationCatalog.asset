@@ -51,6 +51,20 @@ MonoBehaviour:
     Sprite: {fileID: 21300000, guid: 3d46088f74e5e1c4d915d2ec11d7e487, type: 3}
   - Key: enemy.crystal_warden
     Sprite: {fileID: 21300000, guid: e11046179296f6e45a818ab427b82d39, type: 3}
+  - Key: enemy.crystal_tick
+    Sprite: {fileID: 21300000, guid: 93a8f310154650b42baef6af48f89390, type: 3}
+  - Key: enemy.rime_moth
+    Sprite: {fileID: 21300000, guid: 9f15d581e5dde8e41bdacfdd3609849a, type: 3}
+  - Key: enemy.anchor_crab
+    Sprite: {fileID: 21300000, guid: 2d7521da39d6d4749bfc0ee22da294c1, type: 3}
+  - Key: enemy.hollow_idol
+    Sprite: {fileID: 21300000, guid: 3d46088f74e5e1c4d915d2ec11d7e487, type: 3}
+  - Key: enemy.fracture_golem
+    Sprite: {fileID: 21300000, guid: 2d7521da39d6d4749bfc0ee22da294c1, type: 3}
+  - Key: enemy.stormglass_roc
+    Sprite: {fileID: 21300000, guid: 9f15d581e5dde8e41bdacfdd3609849a, type: 3}
+  - Key: enemy.facet_engine
+    Sprite: {fileID: 21300000, guid: e11046179296f6e45a818ab427b82d39, type: 3}
   - Key: intent.chip
     Sprite: {fileID: 21300000, guid: c48cf887b36110b4781eece0131c41b0, type: 3}
   - Key: intent.crack
@@ -71,6 +85,12 @@ MonoBehaviour:
     Sprite: {fileID: 21300000, guid: fea87270ed1902946ab87c94855b5eaa, type: 3}
   - Key: intent.freeze_anchor
     Sprite: {fileID: 21300000, guid: bfe31e1731d291040b2363de2e5d3384, type: 3}
+  - Key: intent.bite
+    Sprite: {fileID: 21300000, guid: 704dc4dec463bef4b9d9f7214420bca3, type: 3}
+  - Key: intent.freeze_hit
+    Sprite: {fileID: 21300000, guid: bfe31e1731d291040b2363de2e5d3384, type: 3}
+  - Key: intent.claw
+    Sprite: {fileID: 21300000, guid: 704dc4dec463bef4b9d9f7214420bca3, type: 3}
   - Key: ui.player_health
     Sprite: {fileID: 21300000, guid: cb30631d89e44e04f8b0bdc3983e88f8, type: 3}
   - Key: ui.enemy_health
@@ -111,6 +131,30 @@ MonoBehaviour:
     Sprite: {fileID: 21300000, guid: f5d31dd6d689af24998a736c2d08ddd4, type: 3}
   - Key: skill.catalyze
     Sprite: {fileID: 21300000, guid: 2c204b60ab78e954493c7c994ecf0cca, type: 3}
+  - Key: skill.cinderwake
+    Sprite: {fileID: 21300000, guid: dbf98c5e327b47343bf53369f31f5e24, type: 3}
+  - Key: skill.reservoir
+    Sprite: {fileID: 21300000, guid: 3fb045dab2fad24478ade2c9c0205d96, type: 3}
+  - Key: skill.concentrate
+    Sprite: {fileID: 21300000, guid: 09b11c044c583894d9cdcb924a4875bf, type: 3}
+  - Key: skill.contagion
+    Sprite: {fileID: 21300000, guid: eaa56007797659d4c914702d70cab9e9, type: 3}
+  - Key: skill.static_guard
+    Sprite: {fileID: 21300000, guid: d6de1991ef8419d43b5d347ac3901bbf, type: 3}
+  - Key: skill.live_wire
+    Sprite: {fileID: 21300000, guid: f6f69ca163e9e7a41887b9e788e0fd55, type: 3}
+  - Key: skill.aegis
+    Sprite: {fileID: 21300000, guid: 3fb045dab2fad24478ade2c9c0205d96, type: 3}
+  - Key: skill.infuse
+    Sprite: {fileID: 21300000, guid: fea87270ed1902946ab87c94855b5eaa, type: 3}
+  - Key: skill.keystone.tempered_core
+    Sprite: {fileID: 21300000, guid: cb30631d89e44e04f8b0bdc3983e88f8, type: 3}
+  - Key: skill.keystone.prismatic_start
+    Sprite: {fileID: 21300000, guid: fea87270ed1902946ab87c94855b5eaa, type: 3}
+  - Key: skill.keystone.rapid_casting
+    Sprite: {fileID: 21300000, guid: 5183de26e3a8f814ea09e364203fd9c9, type: 3}
+  - Key: skill.keystone.hard_light
+    Sprite: {fileID: 21300000, guid: 90fe8c7c145bddd4cb58cf58f7971b99, type: 3}
   - Key: ui.button.primary
     Sprite: {fileID: 21300000, guid: 7508fcd43dd91b945a2933f036378d15, type: 3}
   - Key: ui.button.secondary

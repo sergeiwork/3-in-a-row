@@ -21,8 +21,13 @@ namespace ThreeInARow.Editor
         private const string ThemePath = "Assets/Game/Presentation/Runtime/PortraitRuntimeTheme.tss";
         private const string ScenePath = "Assets/Game/Scenes/PortraitGame.unity";
 
-        [MenuItem("Three in a Row/Prepare Session E Runtime")]
-        public static void PrepareRuntime()
+        [MenuItem("Three in a Row/Build Windows Player")]
+        public static void BuildWindowsFromMenu()
+        {
+            BuildWindows();
+        }
+
+        private static void PrepareRuntime()
         {
             EnsureFolder("Assets/Resources");
             EnsureFolder("Assets/Game/Scenes");
@@ -56,6 +61,13 @@ namespace ThreeInARow.Editor
             AddSprite(sprites, "enemy.geode_mite_elite", "Enemies/Generated/enemy_geode_mite_elite.png");
             AddSprite(sprites, "enemy.prism_stalker", "Enemies/Generated/enemy_prism_stalker.png");
             AddSprite(sprites, "enemy.crystal_warden", "Enemies/Generated/enemy_crystal_warden.png");
+            AddSprite(sprites, "enemy.crystal_tick", "Enemies/Generated/enemy_geode_mite.png");
+            AddSprite(sprites, "enemy.rime_moth", "Enemies/Generated/enemy_frost_oracle.png");
+            AddSprite(sprites, "enemy.anchor_crab", "Enemies/Generated/enemy_geode_mite_elite.png");
+            AddSprite(sprites, "enemy.hollow_idol", "Enemies/Generated/enemy_prism_stalker.png");
+            AddSprite(sprites, "enemy.fracture_golem", "Enemies/Generated/enemy_geode_mite_elite.png");
+            AddSprite(sprites, "enemy.stormglass_roc", "Enemies/Generated/enemy_frost_oracle.png");
+            AddSprite(sprites, "enemy.facet_engine", "Enemies/Generated/enemy_crystal_warden.png");
 
             AddIcon(sprites, "intent.chip", "rock.png");
             AddIcon(sprites, "intent.crack", "cracked-glass.png");
@@ -67,6 +79,9 @@ namespace ThreeInARow.Editor
             AddIcon(sprites, "intent.seal", "anchor.png");
             AddIcon(sprites, "intent.shardstorm", "crystal-shine.png");
             AddIcon(sprites, "intent.freeze_anchor", "snowflake-1.png");
+            AddIcon(sprites, "intent.bite", "shattered-sword.png");
+            AddIcon(sprites, "intent.freeze_hit", "snowflake-1.png");
+            AddIcon(sprites, "intent.claw", "shattered-sword.png");
 
             AddIcon(sprites, "ui.player_health", "glass-heart.png");
             AddIcon(sprites, "ui.enemy_health", "glass-heart.png");
@@ -89,6 +104,18 @@ namespace ThreeInARow.Editor
             AddIcon(sprites, "skill.sunder", "shattered-sword.png");
             AddIcon(sprites, "skill.cleanse", "magic-palm.png");
             AddIcon(sprites, "skill.catalyze", "bubbling-flask.png");
+            AddIcon(sprites, "skill.cinderwake", "small-fire.png");
+            AddIcon(sprites, "skill.reservoir", "bordered-shield.png");
+            AddIcon(sprites, "skill.concentrate", "poison-bottle.png");
+            AddIcon(sprites, "skill.contagion", "poison-gas.png");
+            AddIcon(sprites, "skill.static_guard", "lightning-frequency.png");
+            AddIcon(sprites, "skill.live_wire", "power-lightning.png");
+            AddIcon(sprites, "skill.aegis", "bordered-shield.png");
+            AddIcon(sprites, "skill.infuse", "crystal-shine.png");
+            AddIcon(sprites, "skill.keystone.tempered_core", "glass-heart.png");
+            AddIcon(sprites, "skill.keystone.prismatic_start", "crystal-shine.png");
+            AddIcon(sprites, "skill.keystone.rapid_casting", "magic-swirl.png");
+            AddIcon(sprites, "skill.keystone.hard_light", "fire-shield.png");
 
             AddSprite(sprites, "ui.button.primary", "UI/KenneyRpg/buttonLong_blue.png");
             AddSprite(sprites, "ui.button.secondary", "UI/KenneyRpg/buttonLong_brown.png");

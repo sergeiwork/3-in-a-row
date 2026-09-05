@@ -6,6 +6,7 @@ using ThreeInARow.Domain.Commands;
 using ThreeInARow.Domain.Events;
 using ThreeInARow.Domain.Ids;
 using ThreeInARow.Domain.Progression;
+using ThreeInARow.Domain.Map;
 using ThreeInARow.Domain.Random;
 using ThreeInARow.Domain.State;
 
@@ -18,6 +19,9 @@ namespace ThreeInARow.Application
         SkillWindow,
         Reward,
         BetweenEncounters,
+        Map,
+        Event,
+        Rest,
         Victory,
         Defeat
     }
@@ -29,6 +33,8 @@ namespace ThreeInARow.Application
         public int BiggestCascade;
         public int TotalDamage;
         public List<DamageStatistic> DamageBySource = new List<DamageStatistic>();
+        public List<string> RouteNodeIds = new List<string>();
+        public List<string> EventChoiceIds = new List<string>();
     }
 
     [Serializable]
@@ -88,7 +94,7 @@ namespace ThreeInARow.Application
     /// </summary>
     public sealed class RunDirector
     {
-        public const int EncounterCount = 5;
+        public const int EncounterCount = 7;
 
         private readonly ICheckpointStore _checkpoints;
 
@@ -116,8 +122,8 @@ namespace ThreeInARow.Application
 
             var events = new EventBatch();
             events.Append(BoardSimulation.InitializeBoard(State));
-            events.Append(CombatSimulation.StartEncounter(State, 0));
-            Screen = RunScreen.Encounter;
+            events.Append(MapSimulation.Generate(State));
+            Screen = RunScreen.Map;
             Record(events, 0);
             SaveStableCheckpoint();
             return RunActionResult.Accept(events);
@@ -145,7 +151,7 @@ namespace ThreeInARow.Application
             Record(result.Events, result.CascadeCount);
             if (result.EncounterWon)
             {
-                ResolvePostActionScreen();
+                ResolvePostActionScreen(result.Events);
                 SaveStableCheckpoint();
             }
             else
@@ -167,7 +173,7 @@ namespace ThreeInARow.Application
             Record(result.Events, 0);
             if (result.EncounterWon)
             {
-                ResolvePostActionScreen();
+                ResolvePostActionScreen(result.Events);
                 SaveStableCheckpoint();
             }
             else if (Screen == RunScreen.Encounter)
@@ -182,7 +188,7 @@ namespace ThreeInARow.Application
             if (Screen != RunScreen.SkillWindow) return RunActionResult.Reject("NoPendingEnemyResponse");
             var result = CombatSimulation.CompleteTurn(State);
             Record(result.Events, result.CascadeCount);
-            ResolvePostActionScreen();
+            ResolvePostActionScreen(result.Events);
             SaveStableCheckpoint();
             return RunActionResult.Accept(result.Events);
         }
@@ -193,14 +199,15 @@ namespace ThreeInARow.Application
             var result = ProgressionSimulation.SelectReward(State, new SelectRewardCommand { RewardId = rewardId });
             if (!result.Accepted) return RunActionResult.Reject(result.RejectionReason);
             Record(result.Events, 0);
-            ResolvePostActionScreen();
+            ResolvePostActionScreen(result.Events);
             SaveStableCheckpoint();
             return RunActionResult.Accept(result.Events);
         }
 
         public RunActionResult EquipSkill(ContentId skillId, int slotIndex)
         {
-            if (Screen != RunScreen.BetweenEncounters) return RunActionResult.Reject("LoadoutLocked");
+            if (Screen != RunScreen.Map && Screen != RunScreen.BetweenEncounters)
+                return RunActionResult.Reject("LoadoutLocked");
             var result = ProgressionSimulation.EquipActiveSkill(
                 State,
                 new EquipSkillCommand { SkillId = skillId, SlotIndex = slotIndex });
@@ -212,14 +219,50 @@ namespace ThreeInARow.Application
 
         public RunActionResult StartNextEncounter()
         {
-            if (Screen != RunScreen.BetweenEncounters) return RunActionResult.Reject("EncounterAdvanceLocked");
-            var next = State.EncounterIndex + 1;
-            if (next >= EncounterCount) return RunActionResult.Reject("RunComplete");
-            var events = CombatSimulation.StartEncounter(State, next);
-            Screen = RunScreen.Encounter;
-            Record(events, 0);
+            return RunActionResult.Reject("SelectMapNode");
+        }
+
+        public RunActionResult SelectMapNode(ContentId nodeId)
+        {
+            if (Screen != RunScreen.Map) return RunActionResult.Reject("MapSelectionLocked");
+            var selection = MapSimulation.SelectNode(State, new SelectMapNodeCommand { NodeId = nodeId });
+            if (!selection.Accepted) return RunActionResult.Reject(selection.Rejection);
+
+            Record(selection.Events, 0);
+            SaveStableCheckpoint();
+            var events = new EventBatch();
+            events.Append(selection.Events);
+            var node = MapSimulation.GetCurrentNode(State);
+            if (node.Type == MapNodeType.NormalCombat || node.Type == MapNodeType.EliteCombat || node.Type == MapNodeType.Boss)
+            {
+                var tuningDepth = Math.Max(0, Math.Min(4, node.Row));
+                var encounterEvents = CombatSimulation.StartEncounter(State, node.ContentId, tuningDepth);
+                events.Append(encounterEvents);
+                Screen = RunScreen.Encounter;
+                Record(encounterEvents, 0);
+            }
+            else
+            {
+                events.Append(MapSimulation.BeginNonCombatNode(State));
+                Screen = node.Type == MapNodeType.Rest ? RunScreen.Rest : RunScreen.Event;
+            }
             SaveStableCheckpoint();
             return RunActionResult.Accept(events);
+        }
+
+        public RunActionResult SelectEventChoice(ContentId choiceId)
+        {
+            if (Screen != RunScreen.Event && Screen != RunScreen.Rest)
+                return RunActionResult.Reject("NoPendingEvent");
+            var result = MapSimulation.SelectEventChoice(
+                State, new SelectEventChoiceCommand { ChoiceId = choiceId });
+            if (!result.Accepted) return RunActionResult.Reject(result.Rejection);
+            Record(result.Events, 0);
+            if (State.Player.Health <= 0) Screen = RunScreen.Defeat;
+            else if (State.PendingChoice != null && State.PendingChoice.IsPending) Screen = RunScreen.Reward;
+            else Screen = RunScreen.Map;
+            SaveStableCheckpoint();
+            return RunActionResult.Accept(result.Events);
         }
 
         public void ReturnToTitle(bool abandonRun)
@@ -230,23 +273,28 @@ namespace ThreeInARow.Application
             Screen = RunScreen.Title;
         }
 
-        private void ResolvePostActionScreen()
+        private void ResolvePostActionScreen(EventBatch events)
         {
             if (State.Player.Health <= 0)
             {
                 Screen = RunScreen.Defeat;
                 return;
             }
+            if (State.Enemy.Health <= 0)
+            {
+                var node = MapSimulation.GetCurrentNode(State);
+                MapSimulation.CompleteCurrentNode(State, events);
+                if (node != null && node.Type == MapNodeType.Boss)
+                    Screen = RunScreen.Victory;
+                else if (State.PendingChoice != null && State.PendingChoice.IsPending)
+                    Screen = RunScreen.Reward;
+                else
+                    Screen = RunScreen.Map;
+                return;
+            }
             if (State.PendingChoice != null && State.PendingChoice.IsPending)
             {
                 Screen = RunScreen.Reward;
-                return;
-            }
-            if (State.Enemy.Health <= 0)
-            {
-                Screen = State.EncounterIndex >= EncounterCount - 1
-                    ? RunScreen.Victory
-                    : RunScreen.BetweenEncounters;
                 return;
             }
             Screen = State.PendingCombatTurn != null && State.PendingCombatTurn.AwaitingEnemyResponse
@@ -258,11 +306,22 @@ namespace ThreeInARow.Application
         {
             if (State.Player.Health <= 0) return RunScreen.Defeat;
             if (State.PendingChoice != null && State.PendingChoice.IsPending) return RunScreen.Reward;
+            if (State.PendingEvent != null && State.PendingEvent.IsPending)
+            {
+                var pendingNode = MapSimulation.GetCurrentNode(State);
+                return pendingNode != null && pendingNode.Type == MapNodeType.Rest ? RunScreen.Rest : RunScreen.Event;
+            }
             if (State.Enemy != null && State.Enemy.Health <= 0)
-                return State.EncounterIndex >= EncounterCount - 1 ? RunScreen.Victory : RunScreen.BetweenEncounters;
+            {
+                var completedNode = MapSimulation.GetCurrentNode(State);
+                if (completedNode != null && completedNode.Type == MapNodeType.Boss) return RunScreen.Victory;
+                return RunScreen.Map;
+            }
             // Stable checkpoints are never written during this window. Completing it here protects older/debug saves.
             if (State.PendingCombatTurn != null && State.PendingCombatTurn.AwaitingEnemyResponse)
                 return RunScreen.SkillWindow;
+            var node = MapSimulation.GetCurrentNode(State);
+            if (node == null || node.Completed) return RunScreen.Map;
             return RunScreen.Encounter;
         }
 
@@ -274,6 +333,10 @@ namespace ThreeInARow.Application
             {
                 if (item.Type == SimulationEventType.EnemyDefeated)
                     Statistics.EncountersCleared++;
+                if (item.Type == SimulationEventType.MapNodeSelected)
+                    Statistics.RouteNodeIds.Add(item.SourceId.Value);
+                if (item.Type == SimulationEventType.EventChoiceSelected)
+                    Statistics.EventChoiceIds.Add(item.SourceId.Value);
                 if (item.Type != SimulationEventType.DamageApplied ||
                     item.Detail.IndexOf("target=enemy", StringComparison.Ordinal) < 0) continue;
                 Statistics.TotalDamage += item.Amount;

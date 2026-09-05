@@ -124,7 +124,7 @@ namespace ThreeInARow.Domain.Progression
     /// </summary>
     public static class ProgressionSimulation
     {
-        private static readonly int[] LevelThresholds = { 2, 3, 4 };
+        private static readonly int[] LevelThresholds = { 1, 2, 4 };
         private const int ActiveSlotCount = 2;
 
         public static void InitializeRun(RunState state, IProgressionContentCatalog catalog = null)
@@ -142,6 +142,11 @@ namespace ThreeInARow.Domain.Progression
             if (state.PendingCombatTurn == null) state.PendingCombatTurn = new PendingCombatTurnState();
             if (state.PendingCombatTurn.SkillIdsUsed == null)
                 state.PendingCombatTurn.SkillIdsUsed = new List<ContentId>();
+            if (state.SelectedEncounterIds == null) state.SelectedEncounterIds = new List<ContentId>();
+            if (state.Map == null) state.Map = new MapState();
+            if (state.PendingEvent == null) state.PendingEvent = new PendingEventState();
+            if (state.PendingEncounterModifiers == null)
+                state.PendingEncounterModifiers = new List<PendingEncounterModifierState>();
             if (state.RandomStreams == null || state.RandomStreams.Count == 0)
                 state.RandomStreams = RandomStreams.Create(state.Seed);
 
@@ -176,7 +181,7 @@ namespace ThreeInARow.Domain.Progression
                 sourceId,
                 "current=" + state.Experience,
                 amount);
-            OfferNextLevelIfEligible(state, events, catalog);
+            OfferNextChoiceIfEligible(state, events, catalog);
         }
 
         public static RewardSelectionResult SelectReward(
@@ -208,8 +213,9 @@ namespace ThreeInARow.Domain.Progression
                 null,
                 null,
                 choiceId);
+            if (definition.IsEliteKeystone) state.PendingEliteReward = false;
             ClearPendingChoice(state.PendingChoice);
-            OfferNextLevelIfEligible(state, events, catalog);
+            OfferNextChoiceIfEligible(state, events, catalog);
             return RewardSelectionResult.Accept(events);
         }
 
@@ -308,10 +314,12 @@ namespace ThreeInARow.Domain.Progression
             var events = new EventBatch();
             events.Add(SimulationEventType.SkillUsed, definition.Id,
                 "targetPolicy=" + definition.TargetPolicy, 1);
-            cooldown.RemainingTurns = definition.Cooldown;
+            var cooldownReduction = ProgressionRules.GetModifier(
+                state, PassiveModifierType.ActiveCooldownStartReduction, progressionCatalog);
+            cooldown.RemainingTurns = Math.Max(1, definition.Cooldown - cooldownReduction);
             events.Add(SimulationEventType.CooldownChanged, definition.Id,
                 "reason=skill_used;current=" + cooldown.RemainingTurns,
-                definition.Cooldown);
+                cooldown.RemainingTurns);
             state.PendingCombatTurn.SkillIdsUsed.Add(definition.Id);
 
             foreach (var effect in definition.ActiveEffects)
@@ -322,6 +330,10 @@ namespace ThreeInARow.Domain.Progression
                     RemoveBoardStatuses(cleanseTargets, definition.Id, events);
                 else if (effect.Type == ActiveEffectType.CatalyzeResources)
                     CatalyzeResources(state, definition.Id, effect.Amount, events);
+                else if (effect.Type == ActiveEffectType.GainShield)
+                    GainShield(state, definition.Id, effect.Amount, events);
+                else if (effect.Type == ActiveEffectType.InfuseNormalGem)
+                    InfuseNormalGem(cleanseTargets, definition.Id, events);
             }
 
             var won = state.Enemy.Health <= 0;
@@ -329,7 +341,7 @@ namespace ThreeInARow.Domain.Progression
             return ActiveSkillResult.Accept(events, won);
         }
 
-        private static void OfferNextLevelIfEligible(
+        private static void OfferNextChoiceIfEligible(
             RunState state,
             EventBatch events,
             IProgressionContentCatalog catalog)
@@ -338,11 +350,15 @@ namespace ThreeInARow.Domain.Progression
             var nextLevel = state.Level + 1;
             var thresholdIndex = nextLevel - 2;
             if (thresholdIndex < 0 || thresholdIndex >= LevelThresholds.Length ||
-                state.Experience < LevelThresholds[thresholdIndex]) return;
+                state.Experience < LevelThresholds[thresholdIndex])
+            {
+                OfferEliteChoiceIfEligible(state, events, catalog);
+                return;
+            }
 
             state.Level = nextLevel;
             var candidates = GetEligibleRewards(state, catalog);
-            var options = SampleWithoutReplacement(state, candidates, 3);
+            var options = SampleWithoutReplacement(state, candidates, 3, true, catalog);
             if (options.Count == 0) return;
 
             state.PendingChoice.ChoiceId = (ContentId)("choice.level_up." + state.Level);
@@ -355,6 +371,63 @@ namespace ThreeInARow.Domain.Progression
                 options.Count);
         }
 
+        public static void QueueEliteReward(
+            RunState state,
+            ContentId sourceId,
+            EventBatch events,
+            IProgressionContentCatalog catalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            catalog = catalog ?? MvpProgressionContentCatalog.Instance;
+            state.PendingEliteReward = true;
+            OfferNextChoiceIfEligible(state, events, catalog);
+        }
+
+        public static void OfferEventReward(
+            RunState state,
+            ContentId sourceId,
+            SkillSlotType? slotType,
+            int maximum,
+            EventBatch events,
+            IProgressionContentCatalog catalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (state.PendingChoice.IsPending) return;
+            catalog = catalog ?? MvpProgressionContentCatalog.Instance;
+            var candidates = GetEligibleRewards(state, catalog);
+            if (slotType.HasValue)
+                candidates.RemoveAll(skill => skill.SlotType != slotType.Value);
+            var options = SampleWithoutReplacement(state, candidates, maximum, false, catalog);
+            if (options.Count == 0) return;
+            state.PendingChoice.ChoiceId = (ContentId)("choice.event_reward." + sourceId.Value);
+            state.PendingChoice.Level = 0;
+            state.PendingChoice.OptionIds = options;
+            events.Add(SimulationEventType.LevelUpOffered, state.PendingChoice.ChoiceId,
+                "source=" + sourceId, options.Count, null, null, sourceId);
+        }
+
+        private static void OfferEliteChoiceIfEligible(
+            RunState state,
+            EventBatch events,
+            IProgressionContentCatalog catalog)
+        {
+            if (!state.PendingEliteReward || state.PendingChoice.IsPending) return;
+            var candidates = new List<SkillDefinition>();
+            foreach (var skill in catalog.Skills)
+                if (skill.IsEliteKeystone && !ProgressionRules.HasSkill(state, skill.Id)) candidates.Add(skill);
+            if (candidates.Count == 0)
+            {
+                state.PendingEliteReward = false;
+                return;
+            }
+            var options = SampleWithoutReplacement(state, candidates, 3, false, catalog);
+            state.PendingChoice.ChoiceId = "choice.elite_keystone";
+            state.PendingChoice.Level = 0;
+            state.PendingChoice.OptionIds = options;
+            events.Add(SimulationEventType.LevelUpOffered, state.PendingChoice.ChoiceId,
+                "elite_keystone", options.Count);
+        }
+
         private static List<SkillDefinition> GetEligibleRewards(
             RunState state,
             IProgressionContentCatalog catalog)
@@ -362,7 +435,7 @@ namespace ThreeInARow.Domain.Progression
             var result = new List<SkillDefinition>();
             foreach (var skill in catalog.Skills)
             {
-                if (!skill.CanBeLevelUpReward || ProgressionRules.HasSkill(state, skill.Id)) continue;
+                if (!skill.CanBeLevelUpReward || skill.IsEliteKeystone || ProgressionRules.HasSkill(state, skill.Id)) continue;
                 if (skill.HasPrerequisite && !ProgressionRules.HasSkill(state, skill.PrerequisiteId)) continue;
                 result.Add(skill);
             }
@@ -372,19 +445,66 @@ namespace ThreeInARow.Domain.Progression
         private static List<ContentId> SampleWithoutReplacement(
             RunState state,
             List<SkillDefinition> candidates,
-            int maximum)
+            int maximum,
+            bool shapeOffers,
+            IProgressionContentCatalog catalog)
         {
             var result = new List<ContentId>();
             if (candidates.Count == 0) return result;
             var random = RandomStreams.Restore(RandomStream.RewardSampling, state.RandomStreams);
-            while (result.Count < maximum && candidates.Count > 0)
+            var ordered = new List<SkillDefinition>();
+            while (candidates.Count > 0)
             {
                 var index = random.NextInt(candidates.Count);
-                result.Add(candidates[index].Id);
+                ordered.Add(candidates[index]);
                 candidates.RemoveAt(index);
+            }
+            var learnedActives = 0;
+            foreach (var skillId in state.SelectedSkillIds)
+            {
+                try { if (catalog.GetSkill(skillId).SlotType == SkillSlotType.Active) learnedActives++; }
+                catch (KeyNotFoundException) { }
+            }
+            var activeLimit = shapeOffers && learnedActives >= 3 ? 1 : maximum;
+            while (result.Count < maximum && ordered.Count > 0)
+            {
+                var selectedIndex = -1;
+                for (var index = 0; index < ordered.Count; index++)
+                {
+                    var candidate = ordered[index];
+                    if (candidate.SlotType == SkillSlotType.Active && CountActives(result, catalog) >= activeLimit) continue;
+                    if (shapeOffers && result.Count == 1 && HasDifferentBranchAvailable(ordered, result[0], catalog))
+                    {
+                        var first = catalog.GetSkill(result[0]);
+                        if (string.Equals(first.BranchTag, candidate.BranchTag, StringComparison.Ordinal)) continue;
+                    }
+                    selectedIndex = index;
+                    break;
+                }
+                if (selectedIndex < 0) break;
+                result.Add(ordered[selectedIndex].Id);
+                ordered.RemoveAt(selectedIndex);
             }
             RandomStreams.Store(RandomStream.RewardSampling, random, state.RandomStreams);
             return result;
+        }
+
+        private static int CountActives(List<ContentId> ids, IProgressionContentCatalog catalog)
+        {
+            var count = 0;
+            foreach (var id in ids) if (catalog.GetSkill(id).SlotType == SkillSlotType.Active) count++;
+            return count;
+        }
+
+        private static bool HasDifferentBranchAvailable(
+            List<SkillDefinition> candidates,
+            ContentId firstId,
+            IProgressionContentCatalog catalog)
+        {
+            var first = catalog.GetSkill(firstId);
+            foreach (var candidate in candidates)
+                if (!string.Equals(candidate.BranchTag, first.BranchTag, StringComparison.Ordinal)) return true;
+            return false;
         }
 
         private static ActiveSkillRejectionReason ValidateTargets(
@@ -403,6 +523,24 @@ namespace ThreeInARow.Domain.Progression
                     state.Player.Focus <= 0 && (state.Player.Toxic < 2 || state.Enemy.PoisonStacks >= 3))
                     return ActiveSkillRejectionReason.NoEffectAvailable;
                 return ActiveSkillRejectionReason.None;
+            }
+
+            if (definition.TargetPolicy == SkillTargetPolicy.OneNormalGem)
+            {
+                if (command.Targets == null || command.Targets.Count != 1)
+                    return ActiveSkillRejectionReason.InvalidTargets;
+                foreach (var gem in state.Board.Gems)
+                {
+                    if (gem == null || !gem.Cell.Equals(command.Targets[0])) continue;
+                    if (!MvpBoardContentCatalog.Instance.IsNormalGem(gem.GemId) ||
+                        !gem.SpecialId.Equals(BoardContentIds.NoSpecial) ||
+                        ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Anchored) ||
+                        ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Frozen))
+                        return ActiveSkillRejectionReason.InvalidTargets;
+                    selected.Add(gem);
+                    return ActiveSkillRejectionReason.None;
+                }
+                return ActiveSkillRejectionReason.InvalidTargets;
             }
 
             var eligible = FindStatusGems(state.Board);
@@ -498,6 +636,23 @@ namespace ThreeInARow.Domain.Progression
             events.Add(SimulationEventType.ResourceChanged, sourceId,
                 "resource=toxic;reason=catalyze;current=" + state.Player.Toxic, -toxicSpent);
             CombatSimulation.AddEnemyPoison(state, sourceId, toxicSpent / 2, events);
+        }
+
+        private static void GainShield(RunState state, ContentId sourceId, int amount, EventBatch events)
+        {
+            if (amount <= 0) return;
+            state.Player.Shield += amount;
+            events.Add(SimulationEventType.ResourceChanged, sourceId,
+                "resource=shield;reason=active_skill;current=" + state.Player.Shield, amount);
+        }
+
+        private static void InfuseNormalGem(List<BoardGemState> targets, ContentId sourceId, EventBatch events)
+        {
+            if (targets == null || targets.Count != 1) return;
+            var gem = targets[0];
+            gem.SpecialId = MvpBoardContentCatalog.Instance.GetMatchFourSpecial(gem.GemId);
+            events.Add(SimulationEventType.SpecialCreated, gem.SpecialId,
+                "active_skill", 1, gem.Cell, null, sourceId);
         }
 
         private static void LearnStarter(RunState state, ContentId skillId)

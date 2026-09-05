@@ -7,7 +7,9 @@ namespace ThreeInARow.Domain.Random
     {
         BoardSpawn,
         RewardSampling,
-        IntentVariation
+        IntentVariation,
+        EncounterSelection,
+        MapGeneration
     }
 
     [Serializable]

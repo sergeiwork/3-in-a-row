@@ -61,6 +61,7 @@ namespace ThreeInARow.Infrastructure
                 if (state.SchemaVersion != RunState.CurrentSchemaVersion ||
                     state.Board == null || state.Board.Gems == null ||
                     state.Board.Gems.Count != BoardState.Width * BoardState.Height ||
+                    state.Map == null || state.Map.Nodes == null || state.Map.Nodes.Count == 0 ||
                     (state.PendingCombatTurn != null && state.PendingCombatTurn.AwaitingEnemyResponse))
                     return false;
                 snapshot = new CheckpointSnapshot(state, envelope.statistics ?? new RunStatistics());
@@ -106,6 +107,12 @@ namespace ThreeInARow.Infrastructure
             public List<RandomDto> randomStreams = new List<RandomDto>();
             public ChoiceDto pendingChoice;
             public CombatWindowDto pendingCombatTurn;
+            public List<string> selectedEncounters = new List<string>();
+            public string currentEncounterId;
+            public MapDto map;
+            public PendingEventDto pendingEvent;
+            public List<PendingModifierDto> pendingEncounterModifiers = new List<PendingModifierDto>();
+            public bool pendingEliteReward;
 
             public static RunDto FromDomain(RunState state)
             {
@@ -121,11 +128,20 @@ namespace ThreeInARow.Infrastructure
                     player = PlayerDto.FromDomain(state.Player),
                     enemy = EnemyDto.FromDomain(state.Enemy),
                     pendingChoice = ChoiceDto.FromDomain(state.PendingChoice),
-                    pendingCombatTurn = CombatWindowDto.FromDomain(state.PendingCombatTurn)
+                    pendingCombatTurn = CombatWindowDto.FromDomain(state.PendingCombatTurn),
+                    currentEncounterId = Id(state.CurrentEncounterId),
+                    map = MapDto.FromDomain(state.Map),
+                    pendingEvent = PendingEventDto.FromDomain(state.PendingEvent),
+                    pendingEliteReward = state.PendingEliteReward
                 };
                 if (state.Board != null && state.Board.Gems != null)
                     foreach (var gem in state.Board.Gems) dto.gems.Add(GemDto.FromDomain(gem));
                 AddIds(dto.selectedSkills, state.SelectedSkillIds);
+                AddIds(dto.selectedEncounters, state.SelectedEncounterIds);
+                if (state.PendingEncounterModifiers != null)
+                    foreach (var modifier in state.PendingEncounterModifiers)
+                        if (modifier != null) dto.pendingEncounterModifiers.Add(new PendingModifierDto
+                            { id = Id(modifier.Id), amount = modifier.Amount });
                 if (state.RandomStreams != null)
                 {
                     foreach (var stream in state.RandomStreams)
@@ -162,7 +178,13 @@ namespace ThreeInARow.Infrastructure
                     PendingChoice = pendingChoice == null ? new PendingChoiceState() : pendingChoice.ToDomain(),
                     PendingCombatTurn = pendingCombatTurn == null
                         ? new PendingCombatTurnState()
-                        : pendingCombatTurn.ToDomain()
+                        : pendingCombatTurn.ToDomain(),
+                    SelectedEncounterIds = ToIds(selectedEncounters),
+                    CurrentEncounterId = Content(currentEncounterId),
+                    Map = map == null ? new MapState() : map.ToDomain(),
+                    PendingEvent = pendingEvent == null ? new PendingEventState() : pendingEvent.ToDomain(),
+                    PendingEncounterModifiers = new List<PendingEncounterModifierState>(),
+                    PendingEliteReward = pendingEliteReward
                 };
                 if (gems != null)
                     foreach (var gem in gems) state.Board.Gems.Add(gem.ToDomain());
@@ -180,7 +202,103 @@ namespace ThreeInARow.Infrastructure
                         });
                     }
                 }
+                if (pendingEncounterModifiers != null)
+                    foreach (var modifier in pendingEncounterModifiers)
+                        state.PendingEncounterModifiers.Add(new PendingEncounterModifierState
+                            { Id = Content(modifier.id), Amount = modifier.amount });
                 return state;
+            }
+        }
+
+        [Serializable]
+        private sealed class MapDto
+        {
+            public List<MapNodeDto> nodes = new List<MapNodeDto>();
+            public string currentNodeId;
+            public string bossEnemyId;
+            public int furthestVisitedRow;
+
+            public static MapDto FromDomain(MapState map)
+            {
+                map = map ?? new MapState();
+                var dto = new MapDto
+                {
+                    currentNodeId = Id(map.CurrentNodeId),
+                    bossEnemyId = Id(map.BossEnemyId),
+                    furthestVisitedRow = map.FurthestVisitedRow
+                };
+                if (map.Nodes != null)
+                    foreach (var node in map.Nodes) if (node != null) dto.nodes.Add(MapNodeDto.FromDomain(node));
+                return dto;
+            }
+
+            public MapState ToDomain()
+            {
+                var result = new MapState
+                {
+                    CurrentNodeId = Content(currentNodeId),
+                    BossEnemyId = Content(bossEnemyId),
+                    FurthestVisitedRow = furthestVisitedRow,
+                    Nodes = new List<MapNodeState>()
+                };
+                if (nodes != null) foreach (var node in nodes) result.Nodes.Add(node.ToDomain());
+                return result;
+            }
+        }
+
+        [Serializable]
+        private sealed class MapNodeDto
+        {
+            public string id;
+            public int row;
+            public int column;
+            public int type;
+            public string contentId;
+            public string pressureId;
+            public List<string> connections = new List<string>();
+            public bool visited;
+            public bool completed;
+
+            public static MapNodeDto FromDomain(MapNodeState node)
+            {
+                var dto = new MapNodeDto
+                {
+                    id = Id(node.Id), row = node.Row, column = node.Column, type = (int)node.Type,
+                    contentId = Id(node.ContentId), pressureId = Id(node.PressureId),
+                    visited = node.Visited, completed = node.Completed
+                };
+                AddIds(dto.connections, node.ConnectionIds);
+                return dto;
+            }
+
+            public MapNodeState ToDomain()
+            {
+                return new MapNodeState
+                {
+                    Id = Content(id), Row = row, Column = column, Type = (MapNodeType)type,
+                    ContentId = Content(contentId), PressureId = Content(pressureId),
+                    ConnectionIds = ToIds(connections), Visited = visited, Completed = completed
+                };
+            }
+        }
+
+        [Serializable]
+        private sealed class PendingEventDto
+        {
+            public string eventId;
+            public List<string> choices = new List<string>();
+
+            public static PendingEventDto FromDomain(PendingEventState pending)
+            {
+                pending = pending ?? new PendingEventState();
+                var dto = new PendingEventDto { eventId = Id(pending.EventId) };
+                AddIds(dto.choices, pending.ChoiceIds);
+                return dto;
+            }
+
+            public PendingEventState ToDomain()
+            {
+                return new PendingEventState { EventId = Content(eventId), ChoiceIds = ToIds(choices) };
             }
         }
 
@@ -327,6 +445,7 @@ namespace ThreeInARow.Infrastructure
         [Serializable] private sealed class CooldownDto { public string skillId; public int remainingTurns; }
         [Serializable] private sealed class StatusDurationDto { public string statusId; public int remainingPlayerTurns; }
         [Serializable] private sealed class RandomDto { public int stream; public string state; }
+        [Serializable] private sealed class PendingModifierDto { public string id; public int amount; }
 
         [Serializable]
         private sealed class ChoiceDto

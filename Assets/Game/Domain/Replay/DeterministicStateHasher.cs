@@ -24,6 +24,38 @@ namespace ThreeInARow.Domain.Replay
                 .Append(state.Enemy.DefinitionId).Append('|').Append(state.Enemy.Health).Append('|')
                 .Append(state.Enemy.IntentIndex).Append('|').Append(state.Enemy.PoisonStacks).Append('|');
 
+            text.Append("encounter:").Append(state.CurrentEncounterId).Append('|')
+                .Append("eliteQueued:").Append(state.PendingEliteReward).Append('|');
+            if (state.SelectedEncounterIds != null)
+                foreach (var encounterId in state.SelectedEncounterIds)
+                    text.Append("planned:").Append(encounterId).Append('|');
+            if (state.Map != null)
+            {
+                text.Append("map:").Append(state.Map.CurrentNodeId).Append(':')
+                    .Append(state.Map.BossEnemyId).Append(':').Append(state.Map.FurthestVisitedRow).Append('|');
+                if (state.Map.Nodes != null)
+                    foreach (var node in state.Map.Nodes)
+                    {
+                        text.Append("node:").Append(node.Id).Append(':').Append(node.Row).Append(':')
+                            .Append(node.Column).Append(':').Append(node.Type).Append(':').Append(node.ContentId)
+                            .Append(':').Append(node.PressureId).Append(':').Append(node.Visited).Append(':')
+                            .Append(node.Completed).Append('[');
+                        if (node.ConnectionIds != null)
+                            foreach (var connection in node.ConnectionIds) text.Append(connection).Append(',');
+                        text.Append("]|");
+                    }
+            }
+            if (state.PendingEvent != null)
+            {
+                text.Append("event:").Append(state.PendingEvent.EventId).Append('[');
+                if (state.PendingEvent.ChoiceIds != null)
+                    foreach (var choice in state.PendingEvent.ChoiceIds) text.Append(choice).Append(',');
+                text.Append("]|");
+            }
+            if (state.PendingEncounterModifiers != null)
+                foreach (var modifier in state.PendingEncounterModifiers)
+                    if (modifier != null) text.Append("pending:").Append(modifier.Id).Append(':').Append(modifier.Amount).Append('|');
+
             foreach (var stream in state.RandomStreams)
                 text.Append(stream.Stream).Append(':').Append(stream.State).Append('|');
             foreach (var skill in state.SelectedSkillIds)

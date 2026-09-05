@@ -36,4 +36,16 @@ namespace ThreeInARow.Domain.Commands
 
     [Serializable]
     public sealed class ContinueCommand : ISimulationCommand { }
+
+    [Serializable]
+    public sealed class SelectMapNodeCommand : ISimulationCommand
+    {
+        public ContentId NodeId;
+    }
+
+    [Serializable]
+    public sealed class SelectEventChoiceCommand : ISimulationCommand
+    {
+        public ContentId ChoiceId;
+    }
 }

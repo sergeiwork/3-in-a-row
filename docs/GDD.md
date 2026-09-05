@@ -23,6 +23,7 @@ Define a small but complete, extensible MVP for a match-3 roguelike. Later work 
 11. [Session plan](#11-build-plan-for-separate-sessions)
 12. [Test plan](#12-test-plan-and-acceptance-criteria)
 13. [Open decisions](#13-open-decisions--current-blockers)
+14. [Post-MVP content expansion](#14-post-mvp-content-expansion)
 
 ---
 
@@ -46,7 +47,7 @@ A portrait-mobile match-3 roguelike where every cleared crystal becomes a weapon
 ### Non-goals for this MVP
 
 - No persistent/meta progression, economy, crafting, PvP, live ops, social features, ads, or real-money store.
-- No procedural map, shops, relic inventory, complex targeting UI, multiple simultaneous enemies, or positional combat.
+- The first procedural map is compact and portrait-sized. Shops, relic inventory, multiple simultaneous enemies, and positional combat remain out of scope.
 - No dependency on final art, audio, localization, cloud saves, or backend before validating the core run.
 
 ---
@@ -55,16 +56,16 @@ A portrait-mobile match-3 roguelike where every cleared crystal becomes a weapon
 
 | Area | MVP commitment | Explicitly out of scope |
 | --- | --- | --- |
-| Run structure | One linear run of five encounters: four normal/elite encounters and a final Warden | Branching map, shops, multiple acts |
+| Run structure | One seeded seven-row region with normal combat, events, rest, one optional elite, and one of two bosses | Shops, multiple acts |
 | Board | 7×7 board, match-3+, cascades, four normal gem types and one Prism special | Terrain, hex grid, extra blockers |
 | Combat | Player HP, enemy HP/intent, one enemy response per valid player turn, typed effects and statuses | Multiple enemies and allied units |
-| Progression | Run XP, three upgrade picks, six-node skill tree, two equipped active skills | Persistent account levels and a large trait pool |
-| Content | Five encounter enemy definitions, four gem definitions, six passive skills, three active skills, three board statuses | Full launch content volume |
+| Progression | Run XP, three standard upgrade picks, twelve-node skill tree, two equipped active skills, and at most one elite keystone | Persistent account levels and a relic inventory |
+| Content | Depth pools, eleven enemies, twelve branch passives, five active skills, four elite keystones, six events, rest, and three board statuses | Full launch content volume |
 | Technology | ScriptableObject content, deterministic simulation, local run checkpoint | Backend, remote config, production analytics |
 
 ### Vertical-slice pass condition
 
-A fresh player can complete a five-encounter run in **8–12 minutes**, understands why the enemy takes damage, makes at least **three meaningful build choices**, and experiences no progression-ending defect in ten consecutive test runs.
+A fresh player can complete a seven-row run in **10–15 minutes**, understands why the enemy takes damage, compares at least one route tradeoff, makes at least **three meaningful build choices**, and experiences no progression-ending defect in ten consecutive test runs.
 
 ---
 
@@ -77,11 +78,11 @@ A fresh player can complete a five-encounter run in **8–12 minutes**, understa
 3. Resolve the board: detect matches → create specials → clear gems → emit clear events → gravity/refill → repeat until stable.
 4. Resolve player damage, resources, statuses, passives, and skill reactions from the ordered events.
 5. If the enemy survived, automatically resolve its telegraphed intent after the board animation: attack and/or apply board status. No confirmation input is required.
-6. On victory, grant XP; if an XP threshold was reached, offer an upgrade choice; then start the next encounter.
+6. On victory, grant XP; if a threshold or elite reward was reached, offer an upgrade choice; then return to the map.
 
 ### Run loop
 
-`Start Run → Encounter 1 → XP / level-up when eligible → … → Encounter 5 boss → run summary`
+`Start Run → seeded map → selected node outcome → reward when eligible → map → row 7 boss → run summary`
 
 Defeat ends the run and returns to the title screen. The MVP has no persistent reward.
 
@@ -102,7 +103,7 @@ A valid player swap causes exactly one complete board-resolution phase and, unle
 - Input locks after an accepted swap and unlocks only after combat resolution is complete.
 - **Frozen** gems cannot be swapped but can be included in a match. Clearing one removes Frozen before resolving its normal gem effect.
 - If a stable board has no legal swap, reshuffle movable gems while preserving locked/frozen states where feasible. Log the reshuffle reason.
-- Initial fill cannot contain a pre-existing match and must expose at least one legal swap. A stable dead board first attempts a color/special permutation; a deterministic regeneration of movable normal gems is the fallback when no playable permutation is found.
+- Initial fill cannot contain a pre-existing normal-gem match and must expose at least one legal swap. Loading a stable checkpoint validates the same invariant and deterministically reshuffles a legacy or malformed board that already contains a match. A stable dead board first attempts a color/special permutation; a deterministic regeneration of movable normal gems is the fallback when no playable permutation is found.
 - Frozen and Anchored gems are immovable for swap validation. Anchored gems also divide a column into independent gravity/refill segments so they never move while the board remains full.
 
 ### Gem definitions
@@ -113,7 +114,7 @@ A valid player swap causes exactly one complete board-resolution phase and, unle
 | **Tide** (blue) | Gain 1 **Focus** per cleared gem; every 3 Focus deals 6 damage and spends 3 Focus | Create **Current**; clearing it grants 5 Focus | Prism may overcap Focus; at turn end, retained excess Focus becomes 1:1 Shield |
 | **Venom** (green) | Apply 1 **Toxic** per cleared gem; at 5 Toxic, consume 5, deal 12 damage, apply 1 Poison | Create **Spore**; clearing it adds 5 Toxic | Prism applies Toxic for each green gem cleared |
 | **Volt** (yellow) | Deal 2 damage; each three cleared Volt reduces one equipped active cooldown by 1 | Create **Charge**; clearing it deals 8 damage and reduces both active cooldowns by 1 | Prism counts every cleared Volt toward cooldown progress |
-| **Prism** (special) | Created only by 5+ match; swap with a normal gem to clear every gem of that color and resolve their normal effects | N/A | Prism + special triggers both special effects, then clears Prism |
+| **Prism** (special) | Created only by 5+ match; swap with a normal gem to clear every gem of that color and resolve their normal effects | N/A; Prisms do not form line matches with one another | Prism + special triggers both special effects, then clears Prism |
 
 ### Pattern specials
 
@@ -147,7 +148,7 @@ Initial numbers should result in a normal enemy defeat in **5–7 valid turns** 
 | --- | --- |
 | Player HP | Start at 40. No full healing between fights; victory restores 4 HP, up to max. |
 | Focus | 0–9. Every three Focus deals 6 damage; leftover Focus remains during the player turn. |
-| Toxic | 0–9. At five, deal 12 and apply one Poison. Can trigger multiple times during a cascade. |
+| Toxic | 0–9. At five, deal 12 and apply one Poison; Concentrate changes the threshold to four. Can trigger multiple times during a cascade. |
 | Poison | Stored on the enemy. At the start of each enemy response, deal 3 per stack then reduce stacks by 1. Cap at 3 stacks. |
 | Shield | Absorbs damage before HP; expires at start of the player's next valid swap. |
 | Enemy intent | Always visible before player input. Intent may be attack-only, status-only, or both. |
@@ -174,7 +175,7 @@ Enemy status targeting samples unique eligible board cells through the named `In
 
 ## 6. Enemy roster and encounters
 
-Enemy behavior uses a deterministic intent cycle/deck. No adaptive AI is required for the MVP. The encounter seed and current intent index are saved.
+Enemy behavior uses a deterministic intent cycle/deck. No adaptive AI is required. The selected encounter ID and current intent index are saved.
 
 Intent effects execute in definition order. The current intent advances only after its full effect list resolves; the next intent is then telegraphed. Player damage consumes Shield before HP. Poison resolves before `EnemyIntentStarted`, so a Poison defeat prevents the intent and its board statuses entirely.
 
@@ -186,6 +187,16 @@ Intent effects execute in definition order. The current intent advances only aft
 | 4 | Prism Stalker — 92 HP | Bolt 8 → Drain: -3 Focus/-3 Toxic (min. 0) → Bolt 10 | Direct damage remains useful when resources are disrupted |
 | 5 | Crystal Warden — 128 HP | Seal: 2 Anchored → Shardstorm 10 → Freeze 2 + Anchor 2 → Shardstorm 12 | Boss combines disruption with telegraphed pressure |
 
+R1 replaces fixed non-boss advancement with persisted depth pools selected through `EncounterSelection`: depth 1 uses Geode Mite/Crystal Tick; depth 2 uses Frost Oracle/Crystal Tick/Rime Moth; depth 3 uses Geode Mite Elite/Rime Moth/Anchor Crab; depth 4 uses Prism Stalker/Anchor Crab/Hollow Idol. Selection avoids duplicate enemies while possible and caps one dominant pressure family at two planned normal encounters while alternatives remain.
+
+R2 adds Fracture Golem (112 HP) and Stormglass Roc (108 HP) as elite definitions, plus Facet Engine (132 HP) as the alternate boss. Every definition composes the existing generic damage, drain, Frozen, Cracked, and Anchored intent effects; no enemy-specific resolver branch is allowed.
+
+### Seeded region map
+
+The complete seven-row topology, content assignments, pressure hints, connections, visit/completion state, current node, and boss are generated once through `MapGeneration` and persisted in `MapState`. Rows are: mandatory normal; normal/event; mandatory normal; normal/elite/rest; event/rest; mandatory normal; boss. All nodes connect to every node in the next row, the full map fits one portrait screen, and only connected next-row nodes are selectable. Combat nodes reveal enemy family and dominant pressure before selection.
+
+Event choices show exact outcomes and resolve through generic effect definitions. The initial set is Faceted Altar, Quiet Pool, Static Loom, Prism Echo, Frozen Reliquary, and Cracked Cache. Rest offers either 12 HP or a full board cleanse plus 2 cooldown reduction. “Next encounter” effects are stored in `PendingEncounterModifiers`, never presentation state. A node is checkpointed immediately after selection and again after its outcome begins.
+
 ### Tuning method
 
 Tune health from recorded median turns-to-kill with a no-upgrade baseline, then recheck every build path. Do not tune only from theoretical gem averages; cascades and Prism availability widen the real result distribution.
@@ -196,18 +207,24 @@ Tune health from recorded median turns-to-kill with a no-upgrade baseline, then 
 
 ### XP and upgrade picks
 
-Each victory grants 1 XP. The run starts at level 1 and grants level-up choices after **2, 3, and 4 XP**—three upgrade picks total. A level-up presents three unowned eligible rewards sampled without duplicates through the `RewardSampling` RNG stream. The pool contains skill-tree nodes whose prerequisites are met plus active skills marked as level-up rewards; for the MVP, Catalyze is the only such active reward. This keeps Catalyze reachable during the five-encounter run while preserving prerequisite rules.
+Each combat victory grants 1 XP. The run starts at level 1 and grants standard level-up choices after **1, 2, and 4 XP**. A standard reward presents three unowned eligible choices sampled through `RewardSampling`, contains at least two branch tags when eligible, and permits at most one generic active once the player knows three actives. Event and elite drafts use the same deterministic stream with their own filters and offer counts.
 
-### Six-node skill tree
+### Twelve-node skill tree
 
 | Branch | Node | Prerequisite | Effect |
 | --- | --- | --- | --- |
 | Ember | Kindling | None | Ember clear damage +1 |
 | Ember | Backdraft | Kindling | Whenever Spark clears, gain 6 Shield |
+| Ember | Cinderwake | Backdraft | The first Spark each player turn deals +8 damage |
 | Tide | Flow State | None | Focus thresholds deal 7 damage instead of 6 |
 | Tide | Undertow | Flow State | When Focus converts to damage, reduce the left active cooldown by 1 |
+| Tide | Reservoir | Flow State | Each Focus conversion grants 2 Shield |
 | Venom | Corrosive | None | Poison deals 4 per stack instead of 3 |
+| Venom | Concentrate | None | Toxic triggers at 4 instead of 5 |
+| Venom | Contagion | Concentrate | A Venom match of 4+ grants 2 additional Toxic when its match event resolves |
 | Volt | Overcharge | None | Volt cooldown progress needs two cleared Volt instead of three |
+| Volt | Static Guard | None | A non-turn-tick cooldown-reduction effect grants 2 Shield once, even if it changes both slots |
+| Volt | Live Wire | Static Guard | Charge reduces both equipped cooldowns by 1 additional turn |
 
 ### Active skills
 
@@ -216,8 +233,12 @@ Each victory grants 1 XP. The run starts at level 1 and grants level-up choices 
 | Sunder | 4 player turns | Deal 14 direct damage | Usable before the player's swap; does not consume a swap |
 | Cleanse | 5 player turns | Remove Frozen, Cracked, or Anchored from up to three selected gems | Selection is cancelable before confirmation; remove all if fewer than three exist |
 | Catalyze | 5 player turns | Convert up to 4 Focus to damage at 3 each and up to 4 Toxic to Poison at 1:2 | Uses current resources to turn near-threshold states into tactical burst |
+| Aegis | 4 player turns | Gain 10 Shield | No target |
+| Infuse | 6 player turns | Convert one movable normal gem into its color's match-4 special | Exactly one normal, non-special cell without Frozen or Anchored; Cracked is preserved |
 
-Run start learns and equips Sunder in the left slot and Cleanse in the right slot. Catalyze is unlockable from a level-up choice but is not equipped automatically; the player may replace either active between encounters. Learned-active cooldowns persist when a skill is unequipped, and only equipped active cooldowns tick or receive generic left/both-slot reductions. An active used before a swap begins at its full listed cooldown and does not tick down when that swap completes. Active-skill UI must be generated from generic timing and targeting policies rather than per-skill UI code.
+Run start learns and equips Sunder in the left slot and Cleanse in the right slot. Catalyze, Aegis, and Infuse are reward actives and are not equipped automatically; the player may replace either active on the map. Learned-active cooldowns persist when a skill is unequipped, and only equipped active cooldowns tick or receive generic left/both-slot reductions. An active used before a swap begins at its listed cooldown, modified by Rapid Casting, and does not tick down when that swap completes. Active-skill UI is generated from generic timing and targeting policies.
+
+An elite victory queues one three-option keystone draft after any standard level reward. Only one elite lies on the initial map. Tempered Core raises victory healing to 7; Prismatic Start deterministically converts one eligible cell to a Prism when combat begins; Rapid Casting reduces newly started active cooldowns by 1, minimum 1; Hard Light converts expiring Shield to enemy damage at 1 per 2 Shield, capped at 8.
 
 Cleanse confirmation accepts one to three unique status-bearing cells; if three or fewer eligible cells exist, an empty target list means “cleanse all.” Catalyze spends up to 4 Focus for 3 damage each, then spends Toxic in pairs up to 4 total for 1 Poison per 2 Toxic without consuming resources that cannot produce an effect because Poison is capped.
 
@@ -230,6 +251,8 @@ Cleanse confirmation accepts one to three unique status-bearing cells; if three 
 - **Title:** Start Run, How to Play, Settings, build/version label.
 - **Encounter:** Enemy panel and intent at top; board centered; player HP/resources and two active-skill buttons below.
 - **Level-up:** Three large cards showing branch icon, name, exact numeric effect, and prerequisite trail.
+- **Map:** Full seven-row topology, reachable/visited state, node type, enemy family/pressure, visible boss, and loadout access.
+- **Event / rest:** Exact outcome buttons with no hidden random consequence after confirmation.
 - **Run summary / defeat:** Encounters cleared, biggest cascade, damage by gem type, chosen upgrades, and Start New Run. Include the debug seed in development builds.
 
 ### Mobile guardrails
@@ -443,9 +466,15 @@ There is **no design blocker** for Session E. The unresolved items below should 
 | Gem status overlay visual language | Frozen/Cracked/Anchored must be distinguishable on a small screen | Contrast/readability review on device with placeholder art |
 | Portrait board cell size vs. HUD density | Touch comfort competes with intent readability for vertical space | Greybox at 16:9 and 20:9; test one-handed reach and accidental swaps |
 
+## 14. Post-MVP content expansion
+
+The staged proposal for additional skills, active effects, enemy pools, a branching run map, events, elites, alternate bosses, horizontal unlocks, and mastery modes is maintained in [CONTENT_EXPANSION_PLAN.md](CONTENT_EXPANSION_PLAN.md). It is ordered by retention impact: establish the baseline, create build and encounter variety, add meaningful paths, add return goals, then add mastery and breadth.
+
+Stages R1 and R2 are implemented contracts. R3–R5 remain proposals until separately approved. Their timing rules, IDs, RNG streams, commands/events, and save fields must be promoted here before implementation.
+
 ## Next session
 
-Begin **Session F — Balance/QA**: exercise the finished portrait run on 16:9 and 20:9 targets, capture telemetry from seeded runs, tune combat pacing, and complete the ten-run acceptance pass.
+Balance the R1/R2 content on seeded routes, verify portrait map readability on 16:9 and 20:9 targets, then evaluate the R1 and R2 exit gates before approving R3.
 
 ## Changed contracts — Session A
 
@@ -501,3 +530,18 @@ Begin **Session F — Balance/QA**: exercise the finished portrait run on 16:9 a
 - The presentation automatically completes the pending enemy response after the player-resolution animation. The former Enemy Response button and player-facing post-cascade skill window are removed.
 - `SwapAccepted`, `GemCleared`, `GemMoved`, and `GemSpawned` events drive visible swap, disappearance, gravity, and refill animations. Swaps use a zero-velocity start/end curve; gravity/refill timing scales sublinearly with travel distance and eases into its landing. Moving gems are temporarily hosted by the board foreground layer and docked into their destination cells when motion completes, preventing transform accumulation between cascades. Reduced-motion mode applies the same event reconciliation without travel animation.
 - All player-facing runtime labels, descriptions, status rules, errors, tooltips, credits, and combat feedback are Russian. Stable content IDs, save fields, and simulation event details remain language-neutral.
+
+## Changed contracts — R1 build identity and encounter variety
+
+- Standard XP thresholds are cumulative `1 / 2 / 4`. Reward sampling remains without replacement, now shapes standard offers toward two branch tags when eligible, and limits generic actives to one once the player knows at least three actives. Each skill definition carries stable branch/synergy tags used by reward presentation.
+- The progression catalog contains twelve branch passives and five actives. New generic modifiers cover first-Spark bonus damage, Focus-conversion Shield, Toxic threshold, large-Venom-match Toxic, one-per-reduction-step Shield, and Charge cooldown bonus. New generic active effects are `GainShield` and `InfuseNormalGem`; `OneNormalGem` accepts exactly one normal, non-special cell without Frozen or Anchored and preserves Cracked.
+- `EncounterSelection` chooses persisted combat assignments from depth pools while avoiding duplicate enemies and more than two occurrences of one dominant pressure when alternatives exist. Four normal enemies and their stable encounter/intent IDs are added without new intent effect types.
+- Domain save schema is `6`, content version is `0.6.0`, and earlier development checkpoints are rejected. (`5` was reserved during the combined R1/R2 implementation and was never shipped.) `SelectedEncounterIds`, `CurrentEncounterId`, and the new RNG stream states participate in checkpoints and hashes.
+
+## Changed contracts — R2 meaningful paths
+
+- `MapState` persists stable node IDs, seven rows, columns, node types, content/pressure assignments, forward connections, visit/completion state, current node, furthest row, and boss assignment. `MapGeneration` owns topology, event, boss, and deterministic map-side cell selection; combat selection remains isolated in `EncounterSelection`.
+- New commands are `SelectMapNodeCommand` and `SelectEventChoiceCommand`. New events are `MapGenerated`, `MapNodeSelected`, `MapNodeCompleted`, `EventChoiceSelected`, and `PendingModifierAdded`. A selected node is checkpointed before combat/event initialization, then checkpointed again at the stable outcome boundary.
+- Six events and rest resolve through generic choice/effect definitions. Pending next-encounter Cracked/Shield effects persist as `(modifierId, amount)` entries and are consumed only when the next combat begins. Event choice state is authoritative and persisted.
+- Fracture Golem and Stormglass Roc are elite encounters; Facet Engine is the alternate boss. An elite sets a queued keystone reward after XP processing. Elite keystones are tagged passive skill definitions rather than a separate relic inventory, and only the single elite node can award one in the initial map.
+- `RunDirector` derives `Map`, `Event`, and `Rest` screens from authoritative state. Route node IDs and event choices join run statistics. A combat node completes on enemy defeat; event/rest completes after its choice; the boss node ends the run.

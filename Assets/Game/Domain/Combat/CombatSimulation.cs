@@ -5,6 +5,7 @@ using ThreeInARow.Domain.Commands;
 using ThreeInARow.Domain.Events;
 using ThreeInARow.Domain.Ids;
 using ThreeInARow.Domain.Progression;
+using ThreeInARow.Domain.Map;
 using ThreeInARow.Domain.Random;
 using ThreeInARow.Domain.State;
 
@@ -77,7 +78,25 @@ namespace ThreeInARow.Domain.Combat
             if (state.PendingCombatTurn.AwaitingEnemyResponse)
                 throw new InvalidOperationException("Complete the pending combat turn before starting an encounter.");
             var encounter = catalog.GetEncounter(zeroBasedEncounterIndex);
-            state.EncounterIndex = zeroBasedEncounterIndex;
+            return StartEncounter(state, encounter.Id, zeroBasedEncounterIndex, catalog);
+        }
+
+        public static EventBatch StartEncounter(
+            RunState state,
+            ContentId encounterId,
+            int tuningDepth,
+            ICombatContentCatalog catalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            catalog = catalog ?? MvpCombatContentCatalog.Instance;
+            ProgressionSimulation.InitializeRun(state);
+            if (state.PendingChoice.IsPending)
+                throw new InvalidOperationException("Select the pending reward before starting an encounter.");
+            if (state.PendingCombatTurn.AwaitingEnemyResponse)
+                throw new InvalidOperationException("Complete the pending combat turn before starting an encounter.");
+            var encounter = catalog.GetEncounter(encounterId);
+            state.EncounterIndex = tuningDepth;
+            state.CurrentEncounterId = encounter.Id;
             state.Enemy = new EnemyState
             {
                 DefinitionId = encounter.Enemy.Id,
@@ -87,6 +106,7 @@ namespace ThreeInARow.Domain.Combat
             };
 
             var events = new EventBatch();
+            events.Append(MapSimulation.ApplyPendingEncounterModifiers(state));
             events.Add(
                 SimulationEventType.EnemyIntentTelegraphed,
                 encounter.Enemy.IntentCycle[0].Id,
@@ -154,6 +174,10 @@ namespace ThreeInARow.Domain.Combat
             if (state.Player.Shield > 0)
             {
                 var expiredShield = state.Player.Shield;
+                var hardLightCap = ProgressionRules.GetModifier(state, PassiveModifierType.ShieldExpiryDamage);
+                if (hardLightCap > 0)
+                    DamageEnemy(state, ProgressionContentIds.HardLight,
+                        Math.Min(hardLightCap, expiredShield / 2), "shield_expiry", events);
                 state.Player.Shield = 0;
                 events.Add(
                     SimulationEventType.ResourceChanged,
@@ -210,6 +234,12 @@ namespace ThreeInARow.Domain.Combat
                     ResolveGemClear(state, item, output);
                 else if (item.Type == SimulationEventType.SpecialActivated)
                     ResolveSpecial(state, item.SourceId, output);
+                else if (item.Type == SimulationEventType.GemsMatched &&
+                         item.SourceId.Equals(BoardContentIds.Venom) && item.Amount >= 4)
+                {
+                    var bonus = ProgressionRules.GetModifier(state, PassiveModifierType.LargeVenomMatchToxic);
+                    if (bonus > 0) AddToxic(state, bonus, ProgressionContentIds.Contagion, output);
+                }
             }
         }
 
@@ -243,7 +273,10 @@ namespace ThreeInARow.Domain.Combat
         {
             if (specialId.Equals(BoardContentIds.Spark))
             {
-                DamageEnemy(state, specialId, 16, "special", output);
+                var firstSparkBonus = CountEvents(output, SimulationEventType.SpecialActivated, BoardContentIds.Spark) <= 1
+                    ? ProgressionRules.GetModifier(state, PassiveModifierType.SparkFirstDamage)
+                    : 0;
+                DamageEnemy(state, specialId, 16 + firstSparkBonus, "special", output);
                 var shield = ProgressionRules.GetModifier(state, PassiveModifierType.SparkShield);
                 if (shield > 0)
                 {
@@ -263,7 +296,8 @@ namespace ThreeInARow.Domain.Combat
             else if (specialId.Equals(BoardContentIds.Charge))
             {
                 DamageEnemy(state, specialId, 8, "special", output);
-                ReduceAllCooldowns(state.Player, 1, "charge", output);
+                var reduction = 1 + ProgressionRules.GetModifier(state, PassiveModifierType.ChargeCooldownReduction);
+                ReduceAllCooldowns(state, reduction, "charge", output, true);
             }
             // Prism's effect is represented by the color GemCleared events that follow it.
         }
@@ -284,7 +318,14 @@ namespace ThreeInARow.Domain.Combat
                 var cooldownReduction = ProgressionRules.GetModifier(
                     state, PassiveModifierType.FocusConversionLeftCooldown);
                 if (cooldownReduction > 0)
-                    ReduceLeftCooldown(state.Player, cooldownReduction, "undertow", output);
+                    ReduceLeftCooldown(state, cooldownReduction, "undertow", output, true);
+                var shield = ProgressionRules.GetModifier(state, PassiveModifierType.FocusConversionShield);
+                if (shield > 0)
+                {
+                    state.Player.Shield += shield;
+                    output.Add(SimulationEventType.ResourceChanged, ProgressionContentIds.Reservoir,
+                        "resource=shield;reason=focus_conversion;current=" + state.Player.Shield, shield);
+                }
             }
         }
 
@@ -293,11 +334,13 @@ namespace ThreeInARow.Domain.Combat
             state.Player.Toxic += amount;
             output.Add(SimulationEventType.ResourceChanged, sourceId,
                 "resource=toxic;current=" + state.Player.Toxic, amount);
-            while (state.Player.Toxic >= ToxicThreshold)
+            var threshold = Math.Max(1, ToxicThreshold + ProgressionRules.GetModifier(
+                state, PassiveModifierType.ToxicThreshold));
+            while (state.Player.Toxic >= threshold)
             {
-                state.Player.Toxic -= ToxicThreshold;
+                state.Player.Toxic -= threshold;
                 output.Add(SimulationEventType.ResourceChanged, sourceId,
-                    "resource=toxic;reason=conversion;current=" + state.Player.Toxic, -ToxicThreshold);
+                    "resource=toxic;reason=conversion;current=" + state.Player.Toxic, -threshold);
                 DamageEnemy(state, sourceId, ToxicDamage, "toxic_conversion", output);
                 AddEnemyPoison(state, sourceId, 1, output);
             }
@@ -500,7 +543,10 @@ namespace ThreeInARow.Domain.Combat
             state.Enemy.Health = 0;
             events.Add(SimulationEventType.EnemyDefeated, enemy.Id, "victory", 1);
             ProgressionSimulation.GrantExperience(state, enemy.RewardXp, enemy.Id, events);
-            var restored = Math.Min(4, PlayerState.MaxHealth - state.Player.Health);
+            if (enemy.IsElite)
+                ProgressionSimulation.QueueEliteReward(state, enemy.Id, events);
+            var victoryHeal = 4 + ProgressionRules.GetModifier(state, PassiveModifierType.VictoryHeal);
+            var restored = Math.Min(victoryHeal, PlayerState.MaxHealth - state.Player.Health);
             state.Player.Health += restored;
             if (restored > 0)
                 events.Add(SimulationEventType.ResourceChanged, enemy.Id,
@@ -571,41 +617,57 @@ namespace ThreeInARow.Domain.Combat
                 player.VoltClearProgress -= threshold;
                 events.Add(SimulationEventType.ResourceChanged, BoardContentIds.Volt,
                     "resource=volt_progress;reason=conversion;current=" + player.VoltClearProgress, -threshold);
-                ReduceLeftCooldown(player, 1, "volt_progress", events);
+                ReduceLeftCooldown(state, 1, "volt_progress", events, true);
             }
         }
 
         private static void ReduceLeftCooldown(
-            PlayerState player,
+            RunState state,
             int amount,
             string reason,
-            EventBatch events)
+            EventBatch events,
+            bool grantStaticGuard)
         {
+            var player = state.Player;
             if (player.EquippedActiveSkillIds == null || player.EquippedActiveSkillIds.Count == 0) return;
             var cooldown = ProgressionRules.FindCooldown(player, player.EquippedActiveSkillIds[0]);
-            ReduceCooldown(cooldown, amount, reason, events);
+            if (ReduceCooldown(cooldown, amount, reason, events) && grantStaticGuard)
+                GrantStaticGuard(state, reason, events);
         }
 
-        private static void ReduceAllCooldowns(PlayerState player, int amount, string reason, EventBatch events)
+        private static void ReduceAllCooldowns(RunState state, int amount, string reason, EventBatch events, bool grantStaticGuard)
         {
+            var player = state.Player;
             if (player.EquippedActiveSkillIds == null) return;
+            var reduced = false;
             foreach (var skillId in player.EquippedActiveSkillIds)
-                ReduceCooldown(ProgressionRules.FindCooldown(player, skillId), amount, reason, events);
+                reduced |= ReduceCooldown(ProgressionRules.FindCooldown(player, skillId), amount, reason, events);
+            if (reduced && grantStaticGuard) GrantStaticGuard(state, reason, events);
         }
 
-        private static void ReduceCooldown(
+        private static bool ReduceCooldown(
             SkillCooldownState cooldown,
             int amount,
             string reason,
             EventBatch events)
         {
-            if (cooldown == null) return;
+            if (cooldown == null) return false;
             var before = cooldown.RemainingTurns;
             cooldown.RemainingTurns = Math.Max(0, before - amount);
             if (events != null && cooldown.RemainingTurns != before)
                 events.Add(SimulationEventType.CooldownChanged, cooldown.SkillId,
                     "reason=" + reason + ";current=" + cooldown.RemainingTurns,
                     cooldown.RemainingTurns - before);
+            return cooldown.RemainingTurns != before;
+        }
+
+        private static void GrantStaticGuard(RunState state, string reason, EventBatch events)
+        {
+            var shield = ProgressionRules.GetModifier(state, PassiveModifierType.CooldownReductionShield);
+            if (shield <= 0) return;
+            state.Player.Shield += shield;
+            events.Add(SimulationEventType.ResourceChanged, ProgressionContentIds.StaticGuard,
+                "resource=shield;reason=cooldown_reduction_" + reason + ";current=" + state.Player.Shield, shield);
         }
 
         private static void TickSkillCooldowns(
@@ -662,6 +724,14 @@ namespace ThreeInARow.Domain.Combat
         {
             var result = value % modulus;
             return result < 0 ? result + modulus : result;
+        }
+
+        private static int CountEvents(EventBatch events, SimulationEventType type, ContentId sourceId)
+        {
+            var count = 0;
+            foreach (var item in events.Events)
+                if (item.Type == type && item.SourceId.Equals(sourceId)) count++;
+            return count;
         }
     }
 }

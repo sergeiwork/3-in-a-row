@@ -12,10 +12,10 @@ namespace ThreeInARow.Domain.State
     [Serializable]
     public sealed class RunState
     {
-        public const int CurrentSchemaVersion = 4;
+        public const int CurrentSchemaVersion = 6;
 
         public int SchemaVersion = CurrentSchemaVersion;
-        public string ContentVersion = "0.4.0";
+        public string ContentVersion = "0.6.0";
         public ulong Seed;
         public int EncounterIndex;
         public int ResolvedTurnCount;
@@ -28,6 +28,12 @@ namespace ThreeInARow.Domain.State
         public List<RandomStreamState> RandomStreams = new List<RandomStreamState>();
         public PendingChoiceState PendingChoice = new PendingChoiceState();
         public PendingCombatTurnState PendingCombatTurn = new PendingCombatTurnState();
+        public List<ContentId> SelectedEncounterIds = new List<ContentId>();
+        public ContentId CurrentEncounterId = "encounter.none";
+        public MapState Map = new MapState();
+        public PendingEventState PendingEvent = new PendingEventState();
+        public List<PendingEncounterModifierState> PendingEncounterModifiers = new List<PendingEncounterModifierState>();
+        public bool PendingEliteReward;
     }
 
     [Serializable]
@@ -108,5 +114,53 @@ namespace ThreeInARow.Domain.State
         public bool AwaitingEnemyResponse;
         public int CascadeCount;
         public List<ContentId> SkillIdsUsed = new List<ContentId>();
+    }
+
+    public enum MapNodeType
+    {
+        NormalCombat,
+        EliteCombat,
+        Event,
+        Rest,
+        Boss
+    }
+
+    [Serializable]
+    public sealed class MapState
+    {
+        public List<MapNodeState> Nodes = new List<MapNodeState>();
+        public ContentId CurrentNodeId = "map.node.none";
+        public ContentId BossEnemyId = "enemy.unset";
+        public int FurthestVisitedRow = -1;
+    }
+
+    [Serializable]
+    public sealed class MapNodeState
+    {
+        public ContentId Id = "map.node.none";
+        public int Row;
+        public int Column;
+        public MapNodeType Type;
+        public ContentId ContentId = "content.none";
+        public ContentId PressureId = "pressure.none";
+        public List<ContentId> ConnectionIds = new List<ContentId>();
+        public bool Visited;
+        public bool Completed;
+    }
+
+    [Serializable]
+    public sealed class PendingEventState
+    {
+        public ContentId EventId = "event.none";
+        public List<ContentId> ChoiceIds = new List<ContentId>();
+
+        public bool IsPending => ChoiceIds != null && ChoiceIds.Count > 0;
+    }
+
+    [Serializable]
+    public sealed class PendingEncounterModifierState
+    {
+        public ContentId Id = "modifier.none";
+        public int Amount;
     }
 }

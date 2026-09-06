@@ -2,7 +2,7 @@
 
 This ledger is the source of truth for temporary vertical-slice assets selected for Session E0. The game design and asset requirements remain canonical in [GDD.md](GDD.md).
 
-**Acquisition date:** 2026-09-03  
+**Acquisition dates:** 2026-09-03 (visual/E0 placeholders); 2026-09-06 (sound-design pass)
 **Project asset root:** `Assets/Game/Presentation/Art/E0`
 
 ## Required attribution
@@ -25,6 +25,14 @@ The other sourced E0 packs are CC0 and require no attribution. Voluntary credit 
 | Smoke Particles | Kenney | CC0 1.0 | <https://kenney.nl/assets/smoke-particles> | `Vfx/KenneySmoke` | Not required; voluntary credit: Kenney |
 | Interface Sounds | Kenney | CC0 1.0 | <https://kenney.nl/assets/interface-sounds> | `Audio/KenneyInterface` | Not required; voluntary credit: Kenney |
 | RPG Audio | Kenney | CC0 1.0 | <https://kenney.nl/assets/rpg-audio> | `Audio/KenneyRpg` | Not required; voluntary credit: Kenney |
+| Impact Sounds | Kenney | CC0 1.0 | <https://kenney.nl/assets/impact-sounds> | `Audio/SoundDesign/KenneyImpact` | Not required; voluntary credit: Kenney |
+| 80 CC0 RPG SFX | rubberduck | CC0 1.0 | <https://opengameart.org/content/80-cc0-rpg-sfx> | `Audio/SoundDesign/RubberduckRpg` | Not required; voluntary credit: rubberduck |
+| 40 CC0 water / splash / slime SFX | rubberduck | CC0 1.0 | <https://opengameart.org/content/40-cc0-water-splash-slime-sfx> | `Audio/SoundDesign/RubberduckWater` | Not required; voluntary credit: rubberduck |
+| Electricity Sound Effects | Brian MacIntosh / BMacZero | CC0 1.0 | <https://opengameart.org/content/electricity-sound-effects-0> | `Audio/SoundDesign/BMacElectricity` | Not required; voluntary credit: Brian MacIntosh |
+| Ice breaking/shattering | IgnasD | CC0 1.0 | <https://opengameart.org/content/ice-breakingshattering> | `Audio/SoundDesign/IgnasIce` | Not required; voluntary credit: IgnasD |
+| Magic Spell SFX | JaggedStone | CC0 1.0 | <https://opengameart.org/content/magic-spell-sfx> | `Audio/SoundDesign/JaggedStoneMagic` | Not required; voluntary credit: JaggedStone |
+| Crystal Cave (song18) | The Cynic Project / cynicmusic | CC0 1.0 | <https://opengameart.org/content/crystal-cave-song18> | `Audio/Music/CynicMusic` | Not required by CC0; requested voluntary credit retained |
+| Battle RPG Theme, loop variation | Cleyton Kauffman | CC0 1.0 | <https://opengameart.org/content/boss-battle-theme> | `Audio/Music/CleytonKauffman` | Not required; voluntary credit: Cleyton Kauffman |
 | Enemy portraits | OpenAI ImageGen built-in tool | Project-generated placeholder | Prompt provenance below | `Enemies/Generated` | None |
 | Application icon | OpenAI ImageGen built-in tool | Project-generated original | Prompt provenance below | `../app_icon.png` | None |
 
@@ -138,10 +146,11 @@ All listed files come from Kenney's UI Pack: RPG Expansion.
 | UI role | Selected files |
 | --- | --- |
 | Enemy/HUD/reward panels | `UI/KenneyRpg/panel_*.png`, `panelInset_*.png` |
-| Primary/secondary/disabled buttons | `buttonLong_{blue,brown,grey}.png` and `_pressed` variants |
+| Primary/secondary/disabled buttons | `buttonLong_{blue,brown,grey}.png` and `_pressed` variants; all runtime states are mapped separately |
 | Active-skill buttons | `buttonSquare_{blue,brown,grey}.png` and `_pressed` variants |
 | HP/resource bars | `barBack_horizontal*.png`, `barRed_horizontal*.png`, `barBlue_horizontal*.png`, `barGreen_horizontal*.png`, `barYellow_horizontal*.png` |
 | Selected/available/unavailable marks | `iconCheck_*.png`, `iconCircle_*.png`, `iconCross_*.png` |
+| Menu, modal, card, and inset surfaces | `panel_*.png`, `panelInset_*.png` |
 
 ### Feedback and audio
 
@@ -149,17 +158,35 @@ All listed files come from Kenney's UI Pack: RPG Expansion.
 | --- | --- | --- |
 | `feedback.swap` | Board tween in Session E | `Audio/KenneyInterface/pluck_001.ogg` |
 | `feedback.invalid_swap` | Board shake in Session E | `Audio/KenneyInterface/error_003.ogg` |
-| `feedback.clear` | `Vfx/KenneySmoke/WhitePuff/whitePuff00.png` through `whitePuff24.png` | `Audio/KenneyInterface/glass_002.ogg` |
-| `feedback.special` | `Vfx/KenneySmoke/Explosion/explosion00.png` through `explosion08.png` | `Audio/KenneyInterface/maximize_006.ogg` |
-| `feedback.hit` | `Vfx/KenneySmoke/Flash/flash00.png` through `flash08.png` | `Audio/KenneyRpg/chop.ogg` |
+| `feedback.clear.crystal.1`–`.5` | `Vfx/KenneySmoke/WhitePuff/whitePuff00.png` through `whitePuff24.png` | `Audio/SoundDesign/KenneyImpact/impactGlass_light_000.ogg` through `_004.ogg` |
+| `feedback.clear.ember` | Clear feedback tinted red | `Audio/SoundDesign/RubberduckRpg/spell_fire_07.ogg` |
+| `feedback.clear.tide.1`–`.2` | Clear feedback tinted blue | `Audio/SoundDesign/RubberduckWater/splash_02.ogg`, `splash_03.ogg` |
+| `feedback.clear.venom.1`–`.3` | Clear feedback tinted green | `Audio/SoundDesign/RubberduckWater/slime_01.ogg` through `slime_03.ogg` |
+| `feedback.clear.volt` | Clear feedback tinted yellow | `Audio/SoundDesign/BMacElectricity/spark.wav` |
+| `feedback.special.crystal.1`–`.3` | `Vfx/KenneySmoke/Explosion/explosion00.png` through `explosion08.png` | `Audio/SoundDesign/KenneyImpact/impactGlass_medium_000.ogg` through `_002.ogg` |
+| `feedback.special.magic.1`–`.2` | Special explosion sequence | `Audio/SoundDesign/JaggedStoneMagic/magical_1.ogg`, `magical_4.ogg` |
+| `feedback.hit.stone.1`–`.3` | `Vfx/KenneySmoke/Flash/flash00.png` through `flash08.png` | `Audio/SoundDesign/KenneyImpact/impactMining_000.ogg` through `_002.ogg` |
+| `feedback.intent` | Intent panel emphasis | `Audio/SoundDesign/KenneyImpact/impactBell_heavy_000.ogg` |
 | `feedback.sunder` | Flash sequence | `Audio/KenneyRpg/knifeSlice2.ogg` |
 | `feedback.shield` | White Puff sequence, tinted in Unity | `Audio/KenneyRpg/metalClick.ogg` |
 | `feedback.status_added` | `Vfx/KenneySmoke/BlackSmoke/blackSmoke00.png` through `blackSmoke24.png`, tinted by status | `Audio/KenneyInterface/drop_002.ogg` |
 | `feedback.status_removed` | White Puff sequence | `Audio/KenneyInterface/close_002.ogg` |
+| `feedback.status_removed.frozen.1`–`.3` | White Puff sequence, ice tint | `Audio/SoundDesign/IgnasIce/LedasLuzta.ogg`, `LedasLuzta2.ogg`, `LedasLuzta33.ogg` |
 | `feedback.victory` | Explosion sequence plus `ui.victory` | `Audio/KenneyInterface/confirmation_004.ogg` |
 | `feedback.defeat` | Black Smoke sequence plus `ui.defeat` | `Audio/KenneyInterface/bong_001.ogg` |
 | `feedback.ui_select` | Selected button state | `Audio/KenneyInterface/click_003.ogg` |
 | `feedback.reward_confirmed` | Check mark and panel pulse | `Audio/KenneyInterface/confirmation_001.ogg` |
+
+Clear audio plays once per resolved clear wave rather than once per gem. It combines one short crystal transient with a lower-volume layer for the dominant gem type. Crystal variants and pitch rise across cascade steps and cap at the fifth variant. Special feedback combines a medium glass impact with a magic layer. Variant choice is derived from presentation event sequence and never consumes simulation RNG.
+
+### Music
+
+| Music role | Selected asset | Runtime use |
+| --- | --- | --- |
+| `music.crystal_cave` | `Audio/Music/CynicMusic/crystal_cave.mp3` | Title, map, events, rest, rewards, summaries, and non-boss combat |
+| `music.boss_battle` | `Audio/Music/CleytonKauffman/boss_battle.ogg` | Boss encounter and skill window |
+
+Sound effects import as mono Vorbis and decompress on load. Music retains stereo, streams from storage, loops, and uses a lower Vorbis quality suitable for mobile. Device-local settings independently enable sound effects and music.
 
 ## Game-icons file inventory
 

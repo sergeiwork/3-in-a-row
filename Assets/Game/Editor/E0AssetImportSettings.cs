@@ -31,8 +31,15 @@ namespace ThreeInARow.Editor
             if (!assetPath.StartsWith(E0Root, System.StringComparison.Ordinal)) return;
 
             var importer = (AudioImporter)assetImporter;
-            importer.forceToMono = true;
-            importer.loadInBackground = false;
+            var isMusic = assetPath.Contains("/Audio/Music/");
+            importer.forceToMono = !isMusic;
+            importer.loadInBackground = isMusic;
+
+            var settings = importer.defaultSampleSettings;
+            settings.compressionFormat = AudioCompressionFormat.Vorbis;
+            settings.quality = isMusic ? 0.62f : 0.78f;
+            settings.loadType = isMusic ? AudioClipLoadType.Streaming : AudioClipLoadType.DecompressOnLoad;
+            importer.defaultSampleSettings = settings;
         }
     }
 }

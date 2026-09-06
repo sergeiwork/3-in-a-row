@@ -302,7 +302,7 @@ PlayerSettings:
   AndroidReportGooglePlayAppDependencies: 1
   androidSymbolsSizeThreshold: 800
   m_BuildTargetIcons:
-  - m_BuildTarget:
+  - m_BuildTarget: 
     m_Icons:
     - serializedVersion: 2
       m_Icon: {fileID: 2800000, guid: 4c9e2f5e6e7d4d8e9f4ae2e1f8de0317, type: 3}

@@ -2,4 +2,10 @@
 
 Button {
     -unity-text-align: middle-center;
+    transition-duration: 0.08s;
+    transition-property: opacity;
+}
+
+Button:disabled {
+    opacity: 0.72;
 }

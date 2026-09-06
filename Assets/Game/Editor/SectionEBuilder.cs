@@ -27,10 +27,26 @@ namespace ThreeInARow.Editor
             BuildWindows();
         }
 
+        [MenuItem("Three in a Row/Refresh Audio Catalog")]
+        public static void RefreshAudioCatalog()
+        {
+            AssetDatabase.Refresh();
+            var catalog = AssetDatabase.LoadAssetAtPath<PresentationCatalog>(CatalogPath);
+            if (catalog == null) throw new FileNotFoundException("Missing presentation catalog", CatalogPath);
+
+            var audio = new List<PresentationCatalog.AudioEntry>(catalog.AudioClips);
+            audio.RemoveAll(entry => entry != null && IsSoundDesignKey(entry.Key));
+            AddSoundDesignAudio(audio);
+            catalog.ReplaceEntries(catalog.Sprites, audio);
+            EditorUtility.SetDirty(catalog);
+            AssetDatabase.SaveAssets();
+        }
+
         private static void PrepareRuntime()
         {
             EnsureFolder("Assets/Resources");
             EnsureFolder("Assets/Game/Scenes");
+            ConfigureUiSpriteBorders();
 
             var catalog = AssetDatabase.LoadAssetAtPath<PresentationCatalog>(CatalogPath);
             if (catalog == null)
@@ -118,8 +134,23 @@ namespace ThreeInARow.Editor
             AddIcon(sprites, "skill.keystone.hard_light", "fire-shield.png");
 
             AddSprite(sprites, "ui.button.primary", "UI/KenneyRpg/buttonLong_blue.png");
+            AddSprite(sprites, "ui.button.primary.pressed", "UI/KenneyRpg/buttonLong_blue_pressed.png");
             AddSprite(sprites, "ui.button.secondary", "UI/KenneyRpg/buttonLong_brown.png");
+            AddSprite(sprites, "ui.button.secondary.pressed", "UI/KenneyRpg/buttonLong_brown_pressed.png");
             AddSprite(sprites, "ui.button.disabled", "UI/KenneyRpg/buttonLong_grey.png");
+            AddSprite(sprites, "ui.button.disabled.pressed", "UI/KenneyRpg/buttonLong_grey_pressed.png");
+            AddSprite(sprites, "ui.button.square.primary", "UI/KenneyRpg/buttonSquare_blue.png");
+            AddSprite(sprites, "ui.button.square.primary.pressed", "UI/KenneyRpg/buttonSquare_blue_pressed.png");
+            AddSprite(sprites, "ui.button.square.secondary", "UI/KenneyRpg/buttonSquare_brown.png");
+            AddSprite(sprites, "ui.button.square.secondary.pressed", "UI/KenneyRpg/buttonSquare_brown_pressed.png");
+            AddSprite(sprites, "ui.button.square.disabled", "UI/KenneyRpg/buttonSquare_grey.png");
+            AddSprite(sprites, "ui.panel.primary", "UI/KenneyRpg/panel_blue.png");
+            AddSprite(sprites, "ui.panel.secondary", "UI/KenneyRpg/panel_brown.png");
+            AddSprite(sprites, "ui.panel.light", "UI/KenneyRpg/panel_beigeLight.png");
+            AddSprite(sprites, "ui.panel.inset", "UI/KenneyRpg/panelInset_blue.png");
+            AddSprite(sprites, "ui.state.available", "UI/KenneyRpg/iconCircle_blue.png");
+            AddSprite(sprites, "ui.state.completed", "UI/KenneyRpg/iconCheck_blue.png");
+            AddSprite(sprites, "ui.state.locked", "UI/KenneyRpg/iconCross_grey.png");
             AddSprite(sprites, "feedback.clear", "Vfx/KenneySmoke/WhitePuff/whitePuff08.png");
             AddSprite(sprites, "feedback.special", "Vfx/KenneySmoke/Explosion/explosion04.png");
             AddSprite(sprites, "feedback.hit", "Vfx/KenneySmoke/Flash/flash04.png");
@@ -128,9 +159,6 @@ namespace ThreeInARow.Editor
             var audio = new List<PresentationCatalog.AudioEntry>();
             AddAudio(audio, "feedback.swap", "Audio/KenneyInterface/pluck_001.ogg");
             AddAudio(audio, "feedback.invalid_swap", "Audio/KenneyInterface/error_003.ogg");
-            AddAudio(audio, "feedback.clear", "Audio/KenneyInterface/glass_002.ogg");
-            AddAudio(audio, "feedback.special", "Audio/KenneyInterface/maximize_006.ogg");
-            AddAudio(audio, "feedback.hit", "Audio/KenneyRpg/chop.ogg");
             AddAudio(audio, "feedback.sunder", "Audio/KenneyRpg/knifeSlice2.ogg");
             AddAudio(audio, "feedback.shield", "Audio/KenneyRpg/metalClick.ogg");
             AddAudio(audio, "feedback.status_added", "Audio/KenneyInterface/drop_002.ogg");
@@ -139,6 +167,7 @@ namespace ThreeInARow.Editor
             AddAudio(audio, "feedback.defeat", "Audio/KenneyInterface/bong_001.ogg");
             AddAudio(audio, "feedback.ui_select", "Audio/KenneyInterface/click_003.ogg");
             AddAudio(audio, "feedback.reward_confirmed", "Audio/KenneyInterface/confirmation_001.ogg");
+            AddSoundDesignAudio(audio);
 
             catalog.ReplaceEntries(sprites, audio);
             EditorUtility.SetDirty(catalog);
@@ -151,7 +180,9 @@ namespace ThreeInARow.Editor
                 AssetDatabase.CreateAsset(panelSettings, PanelSettingsPath);
             }
             panelSettings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
-            panelSettings.referenceResolution = new Vector2Int(1080, 1920);
+            // A 720-wide logical canvas keeps 18-24 point copy legible on common
+            // 1080-wide phones while preserving enough vertical room for combat.
+            panelSettings.referenceResolution = new Vector2Int(720, 1280);
             panelSettings.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
             panelSettings.match = 0.5f;
             panelSettings.clearColor = false;
@@ -217,6 +248,79 @@ namespace ThreeInARow.Editor
             var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
             if (clip == null) throw new FileNotFoundException("Missing mapped E0 audio clip", path);
             destination.Add(new PresentationCatalog.AudioEntry { Key = key, Clip = clip });
+        }
+
+        private static bool IsSoundDesignKey(string key)
+        {
+            return !string.IsNullOrEmpty(key) &&
+                   (key == "feedback.clear" ||
+                    key == "feedback.special" ||
+                    key == "feedback.hit" ||
+                    key.StartsWith("feedback.clear.", StringComparison.Ordinal) ||
+                    key.StartsWith("feedback.special.", StringComparison.Ordinal) ||
+                    key.StartsWith("feedback.hit.stone.", StringComparison.Ordinal) ||
+                    key == "feedback.intent" ||
+                    key.StartsWith("feedback.status_removed.frozen.", StringComparison.Ordinal) ||
+                    key.StartsWith("music.", StringComparison.Ordinal));
+        }
+
+        private static void AddSoundDesignAudio(List<PresentationCatalog.AudioEntry> audio)
+        {
+            AddAudio(audio, "feedback.clear.crystal.1", "Audio/SoundDesign/KenneyImpact/impactGlass_light_000.ogg");
+            AddAudio(audio, "feedback.clear.crystal.2", "Audio/SoundDesign/KenneyImpact/impactGlass_light_001.ogg");
+            AddAudio(audio, "feedback.clear.crystal.3", "Audio/SoundDesign/KenneyImpact/impactGlass_light_002.ogg");
+            AddAudio(audio, "feedback.clear.crystal.4", "Audio/SoundDesign/KenneyImpact/impactGlass_light_003.ogg");
+            AddAudio(audio, "feedback.clear.crystal.5", "Audio/SoundDesign/KenneyImpact/impactGlass_light_004.ogg");
+            AddAudio(audio, "feedback.clear.ember", "Audio/SoundDesign/RubberduckRpg/spell_fire_07.ogg");
+            AddAudio(audio, "feedback.clear.tide.1", "Audio/SoundDesign/RubberduckWater/splash_02.ogg");
+            AddAudio(audio, "feedback.clear.tide.2", "Audio/SoundDesign/RubberduckWater/splash_03.ogg");
+            AddAudio(audio, "feedback.clear.venom.1", "Audio/SoundDesign/RubberduckWater/slime_01.ogg");
+            AddAudio(audio, "feedback.clear.venom.2", "Audio/SoundDesign/RubberduckWater/slime_02.ogg");
+            AddAudio(audio, "feedback.clear.venom.3", "Audio/SoundDesign/RubberduckWater/slime_03.ogg");
+            AddAudio(audio, "feedback.clear.volt", "Audio/SoundDesign/BMacElectricity/spark.wav");
+            AddAudio(audio, "feedback.special.crystal.1", "Audio/SoundDesign/KenneyImpact/impactGlass_medium_000.ogg");
+            AddAudio(audio, "feedback.special.crystal.2", "Audio/SoundDesign/KenneyImpact/impactGlass_medium_001.ogg");
+            AddAudio(audio, "feedback.special.crystal.3", "Audio/SoundDesign/KenneyImpact/impactGlass_medium_002.ogg");
+            AddAudio(audio, "feedback.special.magic.1", "Audio/SoundDesign/JaggedStoneMagic/magical_1.ogg");
+            AddAudio(audio, "feedback.special.magic.2", "Audio/SoundDesign/JaggedStoneMagic/magical_4.ogg");
+            AddAudio(audio, "feedback.hit.stone.1", "Audio/SoundDesign/KenneyImpact/impactMining_000.ogg");
+            AddAudio(audio, "feedback.hit.stone.2", "Audio/SoundDesign/KenneyImpact/impactMining_001.ogg");
+            AddAudio(audio, "feedback.hit.stone.3", "Audio/SoundDesign/KenneyImpact/impactMining_002.ogg");
+            AddAudio(audio, "feedback.intent", "Audio/SoundDesign/KenneyImpact/impactBell_heavy_000.ogg");
+            AddAudio(audio, "feedback.status_removed.frozen.1", "Audio/SoundDesign/IgnasIce/LedasLuzta.ogg");
+            AddAudio(audio, "feedback.status_removed.frozen.2", "Audio/SoundDesign/IgnasIce/LedasLuzta2.ogg");
+            AddAudio(audio, "feedback.status_removed.frozen.3", "Audio/SoundDesign/IgnasIce/LedasLuzta33.ogg");
+            AddAudio(audio, "music.crystal_cave", "Audio/Music/CynicMusic/crystal_cave.mp3");
+            AddAudio(audio, "music.boss_battle", "Audio/Music/CleytonKauffman/boss_battle.ogg");
+        }
+
+        private static void ConfigureUiSpriteBorders()
+        {
+            SetSpriteBorder("UI/KenneyRpg/buttonLong_blue.png", new Vector4(22, 18, 22, 18));
+            SetSpriteBorder("UI/KenneyRpg/buttonLong_blue_pressed.png", new Vector4(22, 16, 22, 16));
+            SetSpriteBorder("UI/KenneyRpg/buttonLong_brown.png", new Vector4(22, 18, 22, 18));
+            SetSpriteBorder("UI/KenneyRpg/buttonLong_brown_pressed.png", new Vector4(22, 16, 22, 16));
+            SetSpriteBorder("UI/KenneyRpg/buttonLong_grey.png", new Vector4(22, 18, 22, 18));
+            SetSpriteBorder("UI/KenneyRpg/buttonLong_grey_pressed.png", new Vector4(22, 16, 22, 16));
+            SetSpriteBorder("UI/KenneyRpg/buttonSquare_blue.png", new Vector4(14, 18, 14, 18));
+            SetSpriteBorder("UI/KenneyRpg/buttonSquare_blue_pressed.png", new Vector4(14, 16, 14, 16));
+            SetSpriteBorder("UI/KenneyRpg/buttonSquare_brown.png", new Vector4(14, 18, 14, 18));
+            SetSpriteBorder("UI/KenneyRpg/buttonSquare_brown_pressed.png", new Vector4(14, 16, 14, 16));
+            SetSpriteBorder("UI/KenneyRpg/buttonSquare_grey.png", new Vector4(14, 18, 14, 18));
+            SetSpriteBorder("UI/KenneyRpg/panel_blue.png", new Vector4(20, 20, 20, 20));
+            SetSpriteBorder("UI/KenneyRpg/panel_brown.png", new Vector4(20, 20, 20, 20));
+            SetSpriteBorder("UI/KenneyRpg/panel_beigeLight.png", new Vector4(20, 20, 20, 20));
+            SetSpriteBorder("UI/KenneyRpg/panelInset_blue.png", new Vector4(20, 20, 20, 20));
+        }
+
+        private static void SetSpriteBorder(string relativePath, Vector4 border)
+        {
+            var path = ArtRoot + relativePath;
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) throw new FileNotFoundException("Missing mapped E0 texture", path);
+            if (importer.spriteBorder == border) return;
+            importer.spriteBorder = border;
+            importer.SaveAndReimport();
         }
 
         private static void EnsureFolder(string path)

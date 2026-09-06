@@ -19,6 +19,9 @@ namespace ThreeInARow.Presentation
     public sealed class ThreeInARowApp : MonoBehaviour
     {
         private const string ReducedMotionKey = "three_in_a_row.reduced_motion";
+        private const string SoundEnabledKey = "three_in_a_row.sound_enabled";
+        private const string MusicEnabledKey = "three_in_a_row.music_enabled";
+        private const int SfxVoiceCount = 8;
         private const float SwapDuration = 0.20f;
         private const float ClearDuration = 0.14f;
         private const float MinimumDropDuration = 0.18f;
@@ -37,7 +40,9 @@ namespace ThreeInARow.Presentation
         private PresentationCatalog _catalog;
         private RunDirector _director;
         private UIDocument _document;
-        private AudioSource _audioSource;
+        private readonly List<AudioSource> _sfxSources = new List<AudioSource>();
+        private AudioSource _musicSource;
+        private int _nextSfxSource;
         private VisualElement _root;
         private VisualElement _safeArea;
         private VisualElement _board;
@@ -54,6 +59,8 @@ namespace ThreeInARow.Presentation
         private Vector2 _pointerStart;
         private bool _inputLocked;
         private bool _reducedMotion;
+        private bool _soundEnabled;
+        private bool _musicEnabled;
         private ContentId? _targetingSkill;
         private readonly List<GridCell> _skillTargets = new List<GridCell>();
 
@@ -62,11 +69,22 @@ namespace ThreeInARow.Presentation
             Screen.orientation = ScreenOrientation.Portrait;
             UnityEngine.Application.targetFrameRate = 60;
             _reducedMotion = PlayerPrefs.GetInt(ReducedMotionKey, 0) != 0;
+            _soundEnabled = PlayerPrefs.GetInt(SoundEnabledKey, 1) != 0;
+            _musicEnabled = PlayerPrefs.GetInt(MusicEnabledKey, 1) != 0;
             _catalog = Resources.Load<PresentationCatalog>("E0PresentationCatalog");
             _director = new RunDirector(new JsonCheckpointStore());
-            _audioSource = gameObject.AddComponent<AudioSource>();
-            _audioSource.playOnAwake = false;
-            _audioSource.spatialBlend = 0f;
+            for (var index = 0; index < SfxVoiceCount; index++)
+            {
+                var source = gameObject.AddComponent<AudioSource>();
+                source.playOnAwake = false;
+                source.spatialBlend = 0f;
+                _sfxSources.Add(source);
+            }
+            _musicSource = gameObject.AddComponent<AudioSource>();
+            _musicSource.playOnAwake = false;
+            _musicSource.loop = true;
+            _musicSource.spatialBlend = 0f;
+            _musicSource.volume = 0.22f;
 
             _document = GetComponent<UIDocument>();
             if (_document == null) _document = gameObject.AddComponent<UIDocument>();
@@ -77,7 +95,7 @@ namespace ThreeInARow.Presentation
                 panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
                 panelSettings.name = "Резервная портретная панель";
                 panelSettings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
-                panelSettings.referenceResolution = new Vector2Int(1080, 1920);
+                panelSettings.referenceResolution = new Vector2Int(720, 1280);
                 panelSettings.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
                 panelSettings.match = 0.5f;
             }
@@ -118,6 +136,7 @@ namespace ThreeInARow.Presentation
         private void BeginScreen()
         {
             StopAllCoroutines();
+            ApplyMusicForCurrentScreen();
             _root.Clear();
             _boardCells.Clear();
             _gemVisuals.Clear();
@@ -173,17 +192,25 @@ namespace ThreeInARow.Presentation
             subtitle.style.marginBottom = 54;
             _safeArea.Add(subtitle);
 
+            var menu = Card("ui.panel.secondary");
+            menu.style.width = Length.Percent(100);
+            menu.style.maxWidth = 720;
+            menu.style.paddingLeft = 18;
+            menu.style.paddingRight = 18;
+            menu.style.paddingTop = 16;
+            menu.style.paddingBottom = 16;
             var start = ActionButton("НАЧАТЬ ЗАБЕГ", StartRun, true);
             start.tooltip = "Начать новый забег по карте из семи этапов.";
-            _safeArea.Add(start);
+            menu.Add(start);
             if (_director.CanResume)
             {
                 var resume = ActionButton("ПРОДОЛЖИТЬ", ResumeRun, false);
                 resume.tooltip = "Продолжить с последней сохранённой контрольной точки.";
-                _safeArea.Add(resume);
+                menu.Add(resume);
             }
-            _safeArea.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildTitle), false));
-            _safeArea.Add(ActionButton("НАСТРОЙКИ И АВТОРЫ", BuildSettings, false));
+            menu.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildTitle), false));
+            menu.Add(ActionButton("НАСТРОЙКИ И АВТОРЫ", BuildSettings, false));
+            _safeArea.Add(menu);
 
             var version = LabelText("Контент R1–R2 · v0.6", 18, Muted, TextAnchor.MiddleCenter);
             version.style.marginTop = 36;
@@ -206,6 +233,21 @@ namespace ThreeInARow.Presentation
             motion.tooltip = "Включить или выключить необязательные движения и задержки анимации.";
             _safeArea.Add(motion);
 
+            _safeArea.Add(ActionButton(_soundEnabled ? "ЗВУКОВЫЕ ЭФФЕКТЫ: ВКЛ." : "ЗВУКОВЫЕ ЭФФЕКТЫ: ВЫКЛ.", () =>
+            {
+                _soundEnabled = !_soundEnabled;
+                PlayerPrefs.SetInt(SoundEnabledKey, _soundEnabled ? 1 : 0);
+                PlayerPrefs.Save();
+                BuildSettings();
+            }, false));
+            _safeArea.Add(ActionButton(_musicEnabled ? "МУЗЫКА: ВКЛ." : "МУЗЫКА: ВЫКЛ.", () =>
+            {
+                _musicEnabled = !_musicEnabled;
+                PlayerPrefs.SetInt(MusicEnabledKey, _musicEnabled ? 1 : 0);
+                PlayerPrefs.Save();
+                BuildSettings();
+            }, false));
+
             _safeArea.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildSettings), false));
 
             _safeArea.Add(SectionHeading("ОБЯЗАТЕЛЬНОЕ УКАЗАНИЕ АВТОРСТВА"));
@@ -213,7 +255,7 @@ namespace ThreeInARow.Presentation
             _safeArea.Add(ActionButton("ОТКРЫТЬ GAME-ICONS.NET", () => UnityEngine.Application.OpenURL("https://game-icons.net/"), false));
             _safeArea.Add(ActionButton("ОТКРЫТЬ CC BY 3.0", () => UnityEngine.Application.OpenURL("https://creativecommons.org/licenses/by/3.0/"), false));
             _safeArea.Add(SectionHeading("ДРУГИЕ АВТОРЫ"));
-            _safeArea.Add(Paragraph("Кристаллы: Andrew Tidey · Интерфейс, отклик и звук: Kenney · Портреты врагов: временные материалы проекта."));
+            _safeArea.Add(Paragraph("Кристаллы: Andrew Tidey · Интерфейс и часть звуков: Kenney · Звуки: rubberduck, Brian MacIntosh, IgnasD и JaggedStone · Музыка: The Cynic Project и Cleyton Kauffman · Портреты врагов: временные материалы проекта."));
             var spacer = new VisualElement();
             spacer.style.flexGrow = 1;
             _safeArea.Add(spacer);
@@ -292,63 +334,140 @@ namespace ThreeInARow.Presentation
             top.Add(heading);
             top.Add(SmallButton("?", () => BuildHelp(BuildForCurrentScreen)));
             _safeArea.Add(top);
-            _safeArea.Add(LabelText("Финал: " + PresentationText.Name(state.Map.BossEnemyId) +
-                " · выберите подсвеченный узел", 18, Muted, TextAnchor.MiddleCenter));
+            var mapHint = LabelText("Маршрут к цели: " + PresentationText.Name(state.Map.BossEnemyId) +
+                " · выберите доступный путь", 20, Muted, TextAnchor.MiddleCenter);
+            mapHint.style.whiteSpace = WhiteSpace.Normal;
+            mapHint.style.marginBottom = 6;
+            _safeArea.Add(mapHint);
 
             var mapPanel = new VisualElement();
             mapPanel.style.flexGrow = 1;
-            mapPanel.style.justifyContent = Justify.SpaceAround;
+            mapPanel.style.justifyContent = Justify.Center;
+            mapPanel.style.paddingLeft = 4;
+            mapPanel.style.paddingRight = 4;
             for (var rowIndex = 6; rowIndex >= 0; rowIndex--)
             {
+                var nodes = MapNodesInRow(state.Map, rowIndex);
                 var row = Row();
                 row.style.justifyContent = Justify.Center;
-                foreach (var node in state.Map.Nodes)
+                row.style.minHeight = 78;
+                foreach (var node in nodes)
                 {
-                    if (node.Row != rowIndex) continue;
                     var captured = node;
-                    var label = NodeLabel(node);
-                    var button = new Button(() => SelectMapNode(captured.Id)) { text = label };
-                    button.style.unityTextAlign = TextAnchor.MiddleCenter;
-                    button.style.minHeight = 68;
-                    button.style.flexGrow = 1;
-                    button.style.maxWidth = node.Row == 3 ? 310 : 430;
-                    button.style.marginLeft = 5;
-                    button.style.marginRight = 5;
-                    button.style.fontSize = 16;
-                    button.style.whiteSpace = WhiteSpace.Normal;
-                    button.style.color = TextColor;
                     var reachable = MapSimulation.IsReachable(state.Map, node);
+                    var button = new Button(() => SelectMapNode(captured.Id));
+                    button.style.minHeight = 76;
+                    button.style.flexGrow = 1;
+                    button.style.flexBasis = 0;
+                    button.style.maxWidth = nodes.Count == 1 ? 430 : 320;
+                    button.style.marginLeft = 4;
+                    button.style.marginRight = 4;
+                    button.style.paddingLeft = 10;
+                    button.style.paddingRight = 10;
+                    button.style.paddingTop = 8;
+                    button.style.paddingBottom = 8;
+                    button.style.flexDirection = FlexDirection.Row;
+                    button.style.alignItems = Align.Center;
+                    SkinButton(button,
+                        node.Completed ? "ui.button.secondary" : reachable ? "ui.button.primary" : "ui.button.disabled",
+                        node.Completed ? "ui.button.secondary.pressed" : reachable ? "ui.button.primary.pressed" : "ui.button.disabled.pressed");
+
+                    var iconStack = new VisualElement();
+                    iconStack.style.width = 52;
+                    iconStack.style.height = 52;
+                    iconStack.style.marginRight = 8;
+                    var nodeIcon = Icon(MapNodeIconKey(node), 48);
+                    nodeIcon.style.position = Position.Absolute;
+                    nodeIcon.style.left = 2;
+                    nodeIcon.style.top = 2;
+                    iconStack.Add(nodeIcon);
+                    var stateIcon = Icon(node.Completed ? "ui.state.completed" : reachable ? "ui.state.available" : "ui.state.locked", 20);
+                    stateIcon.style.position = Position.Absolute;
+                    stateIcon.style.right = 0;
+                    stateIcon.style.bottom = 0;
+                    iconStack.Add(stateIcon);
+                    button.Add(iconStack);
+
+                    var copy = new VisualElement();
+                    copy.style.flexGrow = 1;
+                    var stage = LabelText("ЭТАП " + (node.Row + 1) + " · " + PresentationText.NodeTypeName(node.Type).ToUpperInvariant(),
+                        15, node.Completed ? Gold : reachable ? Cyan : Muted);
+                    stage.style.unityFontStyleAndWeight = FontStyle.Bold;
+                    stage.style.whiteSpace = WhiteSpace.Normal;
+                    copy.Add(stage);
+                    var detail = LabelText(MapNodeDetail(node), nodes.Count >= 3 ? 14 : 17, TextColor);
+                    detail.style.whiteSpace = WhiteSpace.Normal;
+                    detail.style.marginTop = 2;
+                    copy.Add(detail);
+                    button.Add(copy);
+
                     button.SetEnabled(reachable);
-                    button.style.backgroundColor = node.Completed ? Hex("#285A45")
-                        : reachable ? Hex("#28738A") : Panel;
                     button.tooltip = MapNodeTooltip(node);
                     row.Add(button);
                 }
                 mapPanel.Add(row);
                 if (rowIndex > 0)
                 {
-                    var connections = LabelText("↑   ↑   ↑", 17, Muted, TextAnchor.MiddleCenter);
-                    connections.tooltip = "Каждый узел ряда соединён со всеми показанными узлами следующего ряда.";
+                    var lowerNodes = MapNodesInRow(state.Map, rowIndex - 1);
+                    var connections = new MapConnectionBand(nodes, lowerNodes);
+                    connections.tooltip = "Линии показывают доступные переходы между этапами.";
                     mapPanel.Add(connections);
                 }
             }
             _safeArea.Add(mapPanel);
-            _safeArea.Add(LabelText("Здоровье " + state.Player.Health + "/" + PlayerState.MaxHealth +
-                " · Щит " + state.Player.Shield + " · Уровень " + state.Level, 18, TextColor, TextAnchor.MiddleCenter));
+            var runStatus = Card("ui.panel.inset");
+            runStatus.style.flexDirection = FlexDirection.Row;
+            runStatus.style.justifyContent = Justify.SpaceAround;
+            runStatus.style.alignItems = Align.Center;
+            runStatus.style.marginTop = 5;
+            runStatus.style.marginBottom = 3;
+            runStatus.Add(MapStat("ui.player_health", state.Player.Health + "/" + PlayerState.MaxHealth));
+            runStatus.Add(MapStat("ui.shield", state.Player.Shield.ToString()));
+            runStatus.Add(MapStat("ui.experience", "УР. " + state.Level));
+            _safeArea.Add(runStatus);
             _safeArea.Add(ActionButton("НАСТРОИТЬ АКТИВНЫЕ НАВЫКИ", BuildLoadoutModal, false));
         }
 
-        private string NodeLabel(MapNodeState node)
+        private static List<MapNodeState> MapNodesInRow(MapState map, int rowIndex)
         {
-            var prefix = node.Completed ? "✓ " : node.Visited ? "• " : string.Empty;
+            var result = new List<MapNodeState>();
+            if (map == null || map.Nodes == null) return result;
+            foreach (var node in map.Nodes)
+                if (node != null && node.Row == rowIndex) result.Add(node);
+            result.Sort((left, right) => left.Column.CompareTo(right.Column));
+            return result;
+        }
+
+        private static string MapNodeIconKey(MapNodeState node)
+        {
             if (node.Type == MapNodeType.NormalCombat || node.Type == MapNodeType.EliteCombat || node.Type == MapNodeType.Boss)
             {
                 var encounter = MvpCombatContentCatalog.Instance.GetEncounter(node.ContentId);
-                return prefix + PresentationText.NodeTypeName(node.Type).ToUpperInvariant() + "\n" +
-                       PresentationText.Name(encounter.Enemy.Id) + " · " + PresentationText.Name(node.PressureId);
+                return encounter.Enemy.Id.Value;
             }
-            return prefix + PresentationText.NodeTypeName(node.Type).ToUpperInvariant() + "\n" +
-                   PresentationText.Name(node.ContentId);
+            return node.Type == MapNodeType.Rest ? "ui.player_health" : "gem.prism";
+        }
+
+        private static string MapNodeDetail(MapNodeState node)
+        {
+            if (node.Type == MapNodeType.NormalCombat || node.Type == MapNodeType.EliteCombat || node.Type == MapNodeType.Boss)
+            {
+                var encounter = MvpCombatContentCatalog.Instance.GetEncounter(node.ContentId);
+                return PresentationText.Name(encounter.Enemy.Id) + "\n" + PresentationText.Name(node.PressureId);
+            }
+            return PresentationText.Name(node.ContentId);
+        }
+
+        private VisualElement MapStat(string iconKey, string value)
+        {
+            var stat = Row();
+            stat.style.alignItems = Align.Center;
+            stat.Add(Icon(iconKey, 28));
+            var label = LabelText(value, 18, TextColor);
+            label.style.marginLeft = 5;
+            label.style.unityFontStyleAndWeight = FontStyle.Bold;
+            stat.Add(label);
+            return stat;
         }
 
         private string MapNodeTooltip(MapNodeState node)
@@ -521,6 +640,20 @@ namespace ThreeInARow.Presentation
                     PlayerPrefs.Save();
                     BuildForCurrentScreen();
                 }, true));
+                modal.Add(ActionButton(_soundEnabled ? "ЗВУКОВЫЕ ЭФФЕКТЫ: ВКЛ." : "ЗВУКОВЫЕ ЭФФЕКТЫ: ВЫКЛ.", () =>
+                {
+                    _soundEnabled = !_soundEnabled;
+                    PlayerPrefs.SetInt(SoundEnabledKey, _soundEnabled ? 1 : 0);
+                    PlayerPrefs.Save();
+                    BuildForCurrentScreen();
+                }, false));
+                modal.Add(ActionButton(_musicEnabled ? "МУЗЫКА: ВКЛ." : "МУЗЫКА: ВЫКЛ.", () =>
+                {
+                    _musicEnabled = !_musicEnabled;
+                    PlayerPrefs.SetInt(MusicEnabledKey, _musicEnabled ? 1 : 0);
+                    PlayerPrefs.Save();
+                    BuildForCurrentScreen();
+                }, false));
                 modal.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildForCurrentScreen), false));
                 modal.Add(Paragraph("Автор значков — Lorc. Опубликованы на game-icons.net по лицензии CC BY 3.0."));
                 modal.Add(ActionButton("GAME-ICONS.NET", () => UnityEngine.Application.OpenURL("https://game-icons.net/"), false));
@@ -1176,6 +1309,7 @@ namespace ThreeInARow.Presentation
             _inputLocked = true;
             var played = new HashSet<string>(StringComparer.Ordinal);
             var paced = 0;
+            var cascadeStep = 0;
             for (var eventIndex = 0; eventIndex < events.Events.Count; eventIndex++)
             {
                 var item = events.Events[eventIndex];
@@ -1211,13 +1345,14 @@ namespace ThreeInARow.Presentation
                         if (resolutionEvent.Type == SimulationEventType.GemCleared)
                         {
                             ShowEventCue(resolutionEvent);
-                            PlayEventSound(resolutionEvent, played);
                             clearEvents.Add(resolutionEvent);
                         }
                         eventIndex++;
                     }
                     eventIndex--;
 
+                    cascadeStep++;
+                    PlayClearSound(clearEvents, cascadeStep);
                     yield return AnimateClears(clearEvents);
 
                     // Combat consequences retain their deterministic order, but no longer hold
@@ -1755,10 +1890,10 @@ namespace ThreeInARow.Presentation
         private void PlayEventSound(SimulationEvent item, HashSet<string> played)
         {
             var key = item.Type == SimulationEventType.SwapAccepted ? "feedback.swap"
-                : item.Type == SimulationEventType.GemCleared ? "feedback.clear"
                 : item.Type == SimulationEventType.SpecialCreated || item.Type == SimulationEventType.SpecialActivated
                     ? "feedback.special"
                 : item.Type == SimulationEventType.DamageApplied ? "feedback.hit"
+                : item.Type == SimulationEventType.EnemyIntentStarted ? "feedback.intent"
                 : item.Type == SimulationEventType.StatusAdded ? "feedback.status_added"
                 : item.Type == SimulationEventType.StatusRemoved ? "feedback.status_removed"
                 : item.Type == SimulationEventType.EnemyDefeated ? "feedback.victory"
@@ -1767,18 +1902,133 @@ namespace ThreeInARow.Presentation
                 : item.Type == SimulationEventType.SkillUsed && item.SourceId.Value == "skill.sunder" ? "feedback.sunder"
                 : string.Empty;
             if (string.IsNullOrEmpty(key) || !played.Add(key) || _catalog == null) return;
+
+            if (key == "feedback.special")
+            {
+                PlayOneShot(VariantKey("feedback.special.crystal", 3, item.Sequence), 0.78f);
+                PlayOneShot(VariantKey("feedback.special.magic", 2, item.Sequence), 0.52f);
+                return;
+            }
+            if (key == "feedback.hit")
+            {
+                PlayOneShot(VariantKey("feedback.hit.stone", 3, item.Sequence), 0.82f);
+                return;
+            }
+            if (key == "feedback.status_removed" && item.SourceId.Value == "status.frozen")
+            {
+                PlayOneShot(VariantKey("feedback.status_removed.frozen", 3, item.Sequence), 0.72f);
+                return;
+            }
+            PlayOneShot(key);
+        }
+
+        private void PlayClearSound(List<SimulationEvent> clearEvents, int cascadeStep)
+        {
+            if (clearEvents == null || clearEvents.Count == 0) return;
+            var sequence = clearEvents[0].Sequence;
+            var variant = Mathf.Min(Mathf.Max(cascadeStep, 1), 5);
+            var pitch = 1f + 0.055f * Mathf.Min(cascadeStep - 1, 5);
+            PlayOneShot("feedback.clear.crystal." + variant, 0.82f, pitch);
+
+            var gemId = DominantClearedGem(clearEvents);
+            if (gemId == "gem.ember")
+                PlayOneShot("feedback.clear.ember", 0.34f, pitch);
+            else if (gemId == "gem.tide")
+                PlayOneShot(VariantKey("feedback.clear.tide", 2, sequence), 0.32f, pitch);
+            else if (gemId == "gem.venom")
+                PlayOneShot(VariantKey("feedback.clear.venom", 3, sequence), 0.32f, pitch);
+            else if (gemId == "gem.volt")
+                PlayOneShot("feedback.clear.volt", 0.38f, pitch);
+        }
+
+        private static string DominantClearedGem(List<SimulationEvent> clearEvents)
+        {
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            var bestId = string.Empty;
+            var bestCount = 0;
+            foreach (var item in clearEvents)
+            {
+                var id = item.SourceId.Value;
+                if (string.IsNullOrEmpty(id)) continue;
+                int count;
+                counts.TryGetValue(id, out count);
+                count++;
+                counts[id] = count;
+                if (count <= bestCount) continue;
+                bestId = id;
+                bestCount = count;
+            }
+            return bestId;
+        }
+
+        private static string VariantKey(string prefix, int count, long sequence)
+        {
+            var index = PositiveModulo((int)(sequence % count), count) + 1;
+            return prefix + "." + index;
+        }
+
+        private void PlayOneShot(string key, float volume = 1f, float pitch = 1f)
+        {
+            if (!_soundEnabled || _catalog == null || _sfxSources.Count == 0) return;
             var clip = _catalog.GetAudio(key);
-            if (clip != null) _audioSource.PlayOneShot(clip);
+            if (clip == null) return;
+
+            AudioSource source = null;
+            foreach (var candidate in _sfxSources)
+            {
+                if (candidate.isPlaying) continue;
+                source = candidate;
+                break;
+            }
+            if (source == null)
+            {
+                source = _sfxSources[_nextSfxSource];
+                source.Stop();
+            }
+            _nextSfxSource = (_nextSfxSource + 1) % _sfxSources.Count;
+            source.pitch = Mathf.Clamp(pitch, 0.75f, 1.5f);
+            source.PlayOneShot(clip, Mathf.Clamp01(volume));
+        }
+
+        private void ApplyMusicForCurrentScreen()
+        {
+            var key = "music.crystal_cave";
+            if (_director != null &&
+                (_director.Screen == RunScreen.Encounter || _director.Screen == RunScreen.SkillWindow))
+            {
+                var currentNode = MapSimulation.GetCurrentNode(_director.State);
+                if (currentNode != null && currentNode.Type == MapNodeType.Boss)
+                    key = "music.boss_battle";
+            }
+            PlayMusic(key);
+        }
+
+        private void PlayMusic(string key)
+        {
+            if (_musicSource == null) return;
+            if (!_musicEnabled || _catalog == null)
+            {
+                _musicSource.Stop();
+                _musicSource.clip = null;
+                return;
+            }
+            var clip = _catalog.GetAudio(key);
+            if (clip == null)
+            {
+                _musicSource.Stop();
+                _musicSource.clip = null;
+                return;
+            }
+            if (_musicSource.clip == clip && _musicSource.isPlaying) return;
+            _musicSource.Stop();
+            _musicSource.clip = clip;
+            _musicSource.Play();
         }
 
         private void RejectInput(string text)
         {
             SetMessage(text, Danger);
-            if (_catalog != null)
-            {
-                var clip = _catalog.GetAudio("feedback.invalid_swap");
-                if (clip != null) _audioSource.PlayOneShot(clip);
-            }
+            PlayOneShot("feedback.invalid_swap");
             if (_reducedMotion || _board == null) return;
             SetTranslation(_board, new Vector3(-10, 0, 0));
             _board.schedule.Execute(() => SetTranslation(_board, Vector3.zero)).StartingIn(100);
@@ -1822,7 +2072,7 @@ namespace ThreeInARow.Presentation
             _root.Add(shade);
         }
 
-        private VisualElement Card()
+        private VisualElement Card(string skinKey = "ui.panel.primary")
         {
             var element = new VisualElement();
             element.style.backgroundColor = Panel;
@@ -1836,6 +2086,12 @@ namespace ThreeInARow.Presentation
             element.style.borderTopRightRadius = 14;
             element.style.borderBottomLeftRadius = 14;
             element.style.borderBottomRightRadius = 14;
+            var sprite = _catalog == null ? null : _catalog.GetSprite(skinKey);
+            if (sprite != null)
+            {
+                element.style.backgroundColor = Color.clear;
+                element.style.backgroundImage = new StyleBackground(sprite);
+            }
             return element;
         }
 
@@ -1881,9 +2137,9 @@ namespace ThreeInARow.Presentation
             button.style.fontSize = 23;
             button.style.unityFontStyleAndWeight = FontStyle.Bold;
             button.style.color = TextColor;
-            button.style.backgroundColor = primary ? Hex("#28738A") : PanelLight;
-            var sprite = _catalog == null ? null : _catalog.GetSprite(primary ? "ui.button.primary" : "ui.button.secondary");
-            if (sprite != null) button.style.backgroundImage = new StyleBackground(sprite);
+            SkinButton(button,
+                primary ? "ui.button.primary" : "ui.button.secondary",
+                primary ? "ui.button.primary.pressed" : "ui.button.secondary.pressed");
             return button;
         }
 
@@ -1897,8 +2153,34 @@ namespace ThreeInARow.Presentation
             button.style.marginRight = 4;
             button.style.fontSize = 16;
             button.style.color = TextColor;
-            button.style.backgroundColor = PanelLight;
+            var square = text.Length <= 2;
+            SkinButton(button,
+                square ? "ui.button.square.secondary" : "ui.button.secondary",
+                square ? "ui.button.square.secondary.pressed" : "ui.button.secondary.pressed");
             return button;
+        }
+
+        private void SkinButton(Button button, string normalKey, string pressedKey)
+        {
+            button.style.backgroundColor = Color.clear;
+            button.style.borderLeftWidth = 0;
+            button.style.borderRightWidth = 0;
+            button.style.borderTopWidth = 0;
+            button.style.borderBottomWidth = 0;
+            SetButtonSprite(button, normalKey);
+            button.RegisterCallback<PointerDownEvent>(_ =>
+            {
+                if (button.enabledInHierarchy) SetButtonSprite(button, pressedKey);
+            });
+            button.RegisterCallback<PointerUpEvent>(_ => SetButtonSprite(button, normalKey));
+            button.RegisterCallback<PointerCancelEvent>(_ => SetButtonSprite(button, normalKey));
+            button.RegisterCallback<PointerLeaveEvent>(_ => SetButtonSprite(button, normalKey));
+        }
+
+        private void SetButtonSprite(Button button, string key)
+        {
+            var sprite = _catalog == null ? null : _catalog.GetSprite(key);
+            if (sprite != null) button.style.backgroundImage = new StyleBackground(sprite);
         }
 
         private VisualElement Icon(string key, float size)
@@ -2031,6 +2313,46 @@ namespace ThreeInARow.Presentation
             element.style.borderRightWidth = width;
             element.style.borderTopWidth = width;
             element.style.borderBottomWidth = width;
+        }
+
+        private sealed class MapConnectionBand : VisualElement
+        {
+            private readonly List<MapNodeState> _upperNodes;
+            private readonly List<MapNodeState> _lowerNodes;
+
+            public MapConnectionBand(List<MapNodeState> upperNodes, List<MapNodeState> lowerNodes)
+            {
+                _upperNodes = upperNodes;
+                _lowerNodes = lowerNodes;
+                name = "map-connections";
+                pickingMode = PickingMode.Ignore;
+                style.height = 22;
+                style.flexShrink = 0;
+                generateVisualContent += DrawConnections;
+            }
+
+            private void DrawConnections(MeshGenerationContext context)
+            {
+                if (_upperNodes.Count == 0 || _lowerNodes.Count == 0) return;
+                var painter = context.painter2D;
+                painter.lineWidth = 3f;
+                painter.strokeColor = new Color(0.40f, 0.84f, 0.91f, 0.48f);
+                var width = contentRect.width;
+                var height = contentRect.height;
+                for (var lowerIndex = 0; lowerIndex < _lowerNodes.Count; lowerIndex++)
+                {
+                    var lower = _lowerNodes[lowerIndex];
+                    for (var upperIndex = 0; upperIndex < _upperNodes.Count; upperIndex++)
+                    {
+                        var upper = _upperNodes[upperIndex];
+                        if (!ThreeInARowApp.Contains(lower.ConnectionIds, upper.Id)) continue;
+                        painter.BeginPath();
+                        painter.MoveTo(new Vector2((upperIndex + 0.5f) * width / _upperNodes.Count, 0));
+                        painter.LineTo(new Vector2((lowerIndex + 0.5f) * width / _lowerNodes.Count, height));
+                        painter.Stroke();
+                    }
+                }
+            }
         }
 
         private static BoardGemState FindGem(BoardState board, GridCell cell)

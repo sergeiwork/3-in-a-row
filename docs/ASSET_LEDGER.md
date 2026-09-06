@@ -26,6 +26,7 @@ The other sourced E0 packs are CC0 and require no attribution. Voluntary credit 
 | Interface Sounds | Kenney | CC0 1.0 | <https://kenney.nl/assets/interface-sounds> | `Audio/KenneyInterface` | Not required; voluntary credit: Kenney |
 | RPG Audio | Kenney | CC0 1.0 | <https://kenney.nl/assets/rpg-audio> | `Audio/KenneyRpg` | Not required; voluntary credit: Kenney |
 | Enemy portraits | OpenAI ImageGen built-in tool | Project-generated placeholder | Prompt provenance below | `Enemies/Generated` | None |
+| Application icon | OpenAI ImageGen built-in tool | Project-generated original | Prompt provenance below | `../app_icon.png` | None |
 
 Each sourced directory contains the license text distributed with its source pack.
 
@@ -165,6 +166,26 @@ All listed files come from Kenney's UI Pack: RPG Expansion.
 Every PNG below is by Lorc under CC BY 3.0. Its exact source page is `https://game-icons.net/1x1/lorc/{filename-without-extension}.html`.
 
 `anchor.png`, `big-wave.png`, `bordered-shield.png`, `bubbling-flask.png`, `circle-sparks.png`, `cracked-glass.png`, `crystal-shine.png`, `fire-shield.png`, `frozen-block.png`, `glass-heart.png`, `hammer-drop.png`, `ice-spear.png`, `justice-star.png`, `laurel-crown.png`, `lightning-frequency.png`, `magic-palm.png`, `magic-swirl.png`, `marrow-drain.png`, `poison-bottle.png`, `poison-gas.png`, `power-lightning.png`, `rock.png`, `shattered-sword.png`, `skull-crossed-bones.png`, `small-fire.png`, `snowflake-1.png`, `wave-strike.png`.
+
+## Generated application icon provenance
+
+The 1024×1024 application icon was generated with the built-in OpenAI ImageGen tool on 2026-09-06. It uses no third-party character, franchise, logo, or source image.
+
+```text
+Use case: logo-brand
+Asset type: production mobile game app icon, square 1024x1024
+Primary request: Create a bold, instantly readable icon for a portrait match-3 roguelike where every matched crystal becomes a weapon. The hero mark is one large radiant faceted prism crystal, with three smaller aligned gems behind it suggesting a three-in-a-row match and a subtle upward blade/spear silhouette formed by the crystal facets.
+Scene/backdrop: deep midnight-navy magical cavern glow, full-bleed square background with a polished dark indigo vignette; no transparent corners and no baked-in rounded-square border because app stores apply their own mask.
+Subject: central luminous diamond-shaped prism crystal, magenta-violet core shifting to cyan highlights; three small gem echoes arranged in a tight diagonal/row behind it; restrained gold-bronze framing accents that hint at roguelike fantasy armor.
+Style/medium: premium stylized mobile game icon, crisp painterly 3D illustration, chunky faceted geometry, clean silhouette, high polish, consistent with colorful match-3 gems and dramatic fantasy crystal enemies.
+Composition/framing: centered, symmetrical, extreme close-up, single dominant shape filling about 72% of canvas; important details inside central 80% safe area; readable at 48px; controlled depth, not a scene.
+Lighting/mood: energetic magical glow, bright cyan and hot magenta rim light, heroic and tactical rather than cute.
+Color palette: midnight navy, electric cyan, prism magenta, small warm ember-orange/gold accents.
+Materials/textures: glossy cut gemstone, subtle stone/metal frame, sharp specular highlights, clean edges.
+Constraints: no text, no letters, no numbers, no character face, no UI, no grid board, no clutter, no watermark; one iconic focal point; strong contrast; avoid overly thin details and photorealism.
+```
+
+The full-resolution source is stored at `Assets/Game/Presentation/Art/app_icon.png`; platform-specific masks and downscaling should be applied by Unity or the target store pipeline.
 
 ## Generated portrait provenance
 

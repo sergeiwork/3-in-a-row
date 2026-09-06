@@ -73,6 +73,8 @@ namespace ThreeInARow.Presentation
             _musicEnabled = PlayerPrefs.GetInt(MusicEnabledKey, 1) != 0;
             _catalog = Resources.Load<PresentationCatalog>("E0PresentationCatalog");
             _director = new RunDirector(new JsonCheckpointStore());
+            if (FindAnyObjectByType<AudioListener>() == null)
+                gameObject.AddComponent<AudioListener>();
             for (var index = 0; index < SfxVoiceCount; index++)
             {
                 var source = gameObject.AddComponent<AudioSource>();

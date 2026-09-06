@@ -195,6 +195,7 @@ namespace ThreeInARow.Editor
             var root = new GameObject("ThreeInARowApp");
             var document = root.AddComponent<UIDocument>();
             document.panelSettings = panelSettings;
+            root.AddComponent<AudioListener>();
             root.AddComponent<ThreeInARowApp>();
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

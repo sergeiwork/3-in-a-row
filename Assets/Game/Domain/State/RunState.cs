@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using ThreeInARow.Domain.Ids;
+using ThreeInARow.Domain.Mastery;
 using ThreeInARow.Domain.Random;
 
 namespace ThreeInARow.Domain.State
@@ -12,10 +13,11 @@ namespace ThreeInARow.Domain.State
     [Serializable]
     public sealed class RunState
     {
-        public const int CurrentSchemaVersion = 6;
+        public const int CurrentSchemaVersion = 8;
+        public const string CurrentContentVersion = "0.8.0";
 
         public int SchemaVersion = CurrentSchemaVersion;
-        public string ContentVersion = "0.6.0";
+        public string ContentVersion = CurrentContentVersion;
         public ulong Seed;
         public int EncounterIndex;
         public int ResolvedTurnCount;
@@ -34,6 +36,14 @@ namespace ThreeInARow.Domain.State
         public PendingEventState PendingEvent = new PendingEventState();
         public List<PendingEncounterModifierState> PendingEncounterModifiers = new List<PendingEncounterModifierState>();
         public bool PendingEliteReward;
+        // R3/R4 run header. The profile unlock set is copied at run start so replay never reads mutable meta state.
+        public int DifficultyTier;
+        public ContentId DifficultyId = MasteryContentIds.Difficulty0;
+        public ContentId UnlockPolicyId = MasteryContentIds.ProfileUnlockPolicy;
+        public bool IsChallengeRun;
+        public ContentId ChallengeId = MasteryContentIds.StandardRun;
+        public string ChallengeContentVersion = string.Empty;
+        public List<ContentId> AvailableContentIds = new List<ContentId>();
     }
 
     [Serializable]
@@ -47,6 +57,9 @@ namespace ThreeInARow.Domain.State
         public int Toxic;
         // Counts cleared Volt gems toward the next deterministic cooldown reduction.
         public int VoltClearProgress;
+        // Hybrid-skill state. Both fields reset at encounter start and are part of the deterministic save/hash contract.
+        public int FocusConversionsThisEncounter;
+        public int EmpoweredEmberClearDamage;
         // Stable left-to-right slot order. Learned active skills remain in SelectedSkillIds.
         public List<ContentId> EquippedActiveSkillIds = new List<ContentId>();
         public List<SkillCooldownState> SkillCooldowns = new List<SkillCooldownState>();
@@ -59,6 +72,9 @@ namespace ThreeInARow.Domain.State
         public int Health;
         public int IntentIndex;
         public int PoisonStacks;
+        public int Barrier;
+        public int Phase;
+        public ContentId TelegraphedTargetId = "content.none";
     }
 
     [Serializable]

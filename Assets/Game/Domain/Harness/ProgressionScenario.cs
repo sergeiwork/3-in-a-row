@@ -30,7 +30,7 @@ namespace ThreeInARow.Domain.Harness
 
             var events = new EventBatch();
             ProgressionSimulation.GrantExperience(
-                state, 2, ProgressionContentIds.SystemProgression, events);
+                state, 1, ProgressionContentIds.SystemProgression, events);
             if (!state.PendingChoice.IsPending || state.PendingChoice.OptionIds.Count != 3)
                 throw new InvalidOperationException("The first level did not offer three rewards.");
 

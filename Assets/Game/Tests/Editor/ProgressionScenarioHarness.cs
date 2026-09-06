@@ -14,7 +14,7 @@ namespace ThreeInARow.Tests
             var second = ProgressionScenario.Run();
             if (!string.Equals(first.StateHash, second.StateHash, StringComparison.Ordinal))
                 throw new InvalidOperationException("Progression scenario is not repeatable.");
-            if (first.State.Level != 2 || first.State.Experience != 2)
+            if (first.State.Level != 2 || first.State.Experience != 1)
                 throw new InvalidOperationException("XP and level did not persist.");
             if (!ProgressionRules.HasSkill(first.State, first.SelectedReward))
                 throw new InvalidOperationException("The selected reward did not persist into combat.");

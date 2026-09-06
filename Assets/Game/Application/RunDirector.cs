@@ -7,6 +7,8 @@ using ThreeInARow.Domain.Events;
 using ThreeInARow.Domain.Ids;
 using ThreeInARow.Domain.Progression;
 using ThreeInARow.Domain.Map;
+using ThreeInARow.Domain.Mastery;
+using ThreeInARow.Domain.Meta;
 using ThreeInARow.Domain.Random;
 using ThreeInARow.Domain.State;
 
@@ -35,6 +37,15 @@ namespace ThreeInARow.Application
         public List<DamageStatistic> DamageBySource = new List<DamageStatistic>();
         public List<string> RouteNodeIds = new List<string>();
         public List<string> EventChoiceIds = new List<string>();
+        public int HealthDamageTaken;
+        public int CurrentEncounterHealthDamageTaken;
+        public int MaxPoisonStacksInResponse;
+        public int MaxCleanseStatusKinds;
+        public int FlawlessEliteVictories;
+        public int SpecialActivations;
+        public int SparkActivations;
+        public int FocusConversions;
+        public int PoisonApplications;
     }
 
     [Serializable]
@@ -97,27 +108,79 @@ namespace ThreeInARow.Application
         public const int EncounterCount = 7;
 
         private readonly ICheckpointStore _checkpoints;
+        private readonly IProfileStore _profiles;
+        private bool _profileRunCompleted;
 
         public RunState State { get; private set; }
         public RunStatistics Statistics { get; private set; }
         public RunScreen Screen { get; private set; }
         public bool CanResume => _checkpoints.HasCheckpoint;
+        public ProfileState Profile { get; private set; }
+        public ProfileUpdateResult LastProfileUpdate { get; private set; }
 
-        public RunDirector(ICheckpointStore checkpoints)
+        public RunDirector(ICheckpointStore checkpoints, IProfileStore profiles = null)
         {
             _checkpoints = checkpoints ?? throw new ArgumentNullException(nameof(checkpoints));
+            _profiles = profiles ?? new MemoryProfileStore();
+            Profile = _profiles.LoadOrCreate() ?? ProfileProgression.CreateFresh();
+            ProfileProgression.Normalize(Profile);
             Screen = RunScreen.Title;
         }
 
         public RunActionResult StartNewRun(ulong seed)
         {
+            return StartNewRun(seed, 0);
+        }
+
+        public RunActionResult StartNewRun(ulong seed, int difficultyTier)
+        {
+            if (difficultyTier < 0 || difficultyTier > Profile.BestDifficultyUnlocked)
+                return RunActionResult.Reject("DifficultyLocked");
+            return StartRun(seed, difficultyTier, false, MasteryContentIds.StandardRun,
+                MasteryContentIds.ProfileUnlockPolicy, RunState.CurrentContentVersion);
+        }
+
+        public RunActionResult StartWeeklyChallenge(WeeklyChallengeDefinition challenge)
+        {
+            if (challenge == null) throw new ArgumentNullException(nameof(challenge));
+            if (!string.Equals(challenge.ContentVersion, RunState.CurrentContentVersion, StringComparison.Ordinal))
+                return RunActionResult.Reject("ChallengeContentVersionMismatch");
+            return StartRun(challenge.Seed, challenge.DifficultyTier, true, challenge.Id,
+                challenge.UnlockPolicyId, challenge.ContentVersion);
+        }
+
+        private RunActionResult StartRun(ulong seed, int difficultyTier, bool isChallenge,
+            ContentId challengeId, ContentId unlockPolicyId, string challengeContentVersion)
+        {
             _checkpoints.Clear();
+            var difficulty = MasteryContentCatalog.Instance.Get(difficultyTier);
             State = new RunState
             {
                 Seed = seed,
-                RandomStreams = RandomStreams.Create(seed)
+                RandomStreams = RandomStreams.Create(seed),
+                DifficultyTier = difficultyTier,
+                DifficultyId = difficulty.Id,
+                IsChallengeRun = isChallenge,
+                ChallengeId = challengeId,
+                UnlockPolicyId = unlockPolicyId,
+                ChallengeContentVersion = challengeContentVersion,
+                AvailableContentIds = new List<ContentId>()
             };
+            if (unlockPolicyId.Equals(MasteryContentIds.AllContentUnlockPolicy))
+            {
+                foreach (var challenge in ProfileContentCatalog.Instance.Challenges)
+                    if (!Contains(State.AvailableContentIds, challenge.UnlockContentId))
+                        State.AvailableContentIds.Add(challenge.UnlockContentId);
+            }
+            else if (Profile.UnlockedContentIds != null)
+            {
+                State.AvailableContentIds.AddRange(Profile.UnlockedContentIds);
+            }
             Statistics = new RunStatistics();
+            LastProfileUpdate = new ProfileUpdateResult();
+            _profileRunCompleted = false;
+            Profile.Aggregate.RunsStarted++;
+            _profiles.Save(Profile);
             ProgressionSimulation.InitializeRun(State);
 
             var events = new EventBatch();
@@ -138,6 +201,7 @@ namespace ThreeInARow.Application
             ProgressionSimulation.InitializeRun(State);
             BoardSimulation.EnsurePlayable(State);
             Screen = DeriveStableScreen();
+            _profileRunCompleted = Screen == RunScreen.Victory || Screen == RunScreen.Defeat;
             SaveStableCheckpoint();
             return true;
         }
@@ -163,10 +227,16 @@ namespace ThreeInARow.Application
 
         public RunActionResult UseSkill(ContentId skillId, IEnumerable<GridCell> targets)
         {
+            return UseSkill(skillId, targets, "content.none");
+        }
+
+        public RunActionResult UseSkill(ContentId skillId, IEnumerable<GridCell> targets, ContentId optionId)
+        {
             if (Screen != RunScreen.Encounter && Screen != RunScreen.SkillWindow)
                 return RunActionResult.Reject("SkillWindowClosed");
             var command = new UseSkillCommand { SkillId = skillId };
             if (targets != null) command.Targets.AddRange(targets);
+            command.OptionId = optionId;
             var result = ProgressionSimulation.UseActiveSkill(State, command);
             if (!result.Accepted) return RunActionResult.Reject(result.RejectionReason);
 
@@ -235,6 +305,7 @@ namespace ThreeInARow.Application
             var node = MapSimulation.GetCurrentNode(State);
             if (node.Type == MapNodeType.NormalCombat || node.Type == MapNodeType.EliteCombat || node.Type == MapNodeType.Boss)
             {
+                Statistics.CurrentEncounterHealthDamageTaken = 0;
                 var tuningDepth = Math.Max(0, Math.Min(4, node.Row));
                 var encounterEvents = CombatSimulation.StartEncounter(State, node.ContentId, tuningDepth);
                 events.Append(encounterEvents);
@@ -258,7 +329,11 @@ namespace ThreeInARow.Application
                 State, new SelectEventChoiceCommand { ChoiceId = choiceId });
             if (!result.Accepted) return RunActionResult.Reject(result.Rejection);
             Record(result.Events, 0);
-            if (State.Player.Health <= 0) Screen = RunScreen.Defeat;
+            if (State.Player.Health <= 0)
+            {
+                Screen = RunScreen.Defeat;
+                CompleteProfileRun(false);
+            }
             else if (State.PendingChoice != null && State.PendingChoice.IsPending) Screen = RunScreen.Reward;
             else Screen = RunScreen.Map;
             SaveStableCheckpoint();
@@ -278,6 +353,7 @@ namespace ThreeInARow.Application
             if (State.Player.Health <= 0)
             {
                 Screen = RunScreen.Defeat;
+                CompleteProfileRun(false);
                 return;
             }
             if (State.Enemy.Health <= 0)
@@ -285,7 +361,10 @@ namespace ThreeInARow.Application
                 var node = MapSimulation.GetCurrentNode(State);
                 MapSimulation.CompleteCurrentNode(State, events);
                 if (node != null && node.Type == MapNodeType.Boss)
+                {
                     Screen = RunScreen.Victory;
+                    CompleteProfileRun(true);
+                }
                 else if (State.PendingChoice != null && State.PendingChoice.IsPending)
                     Screen = RunScreen.Reward;
                 else
@@ -329,19 +408,57 @@ namespace ThreeInARow.Application
         {
             if (Statistics == null) Statistics = new RunStatistics();
             Statistics.BiggestCascade = Math.Max(Statistics.BiggestCascade, cascadeCount);
+            var cleanseKinds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var item in events.Events)
             {
                 if (item.Type == SimulationEventType.EnemyDefeated)
+                {
                     Statistics.EncountersCleared++;
+                    Profile.Aggregate.EnemiesDefeated++;
+                    var enemy = MvpCombatContentCatalog.Instance.GetEnemy(item.SourceId);
+                    if (enemy.IsElite)
+                    {
+                        Profile.Aggregate.ElitesDefeated++;
+                        if (Statistics.CurrentEncounterHealthDamageTaken == 0)
+                            Statistics.FlawlessEliteVictories++;
+                    }
+                    if (enemy.IsBoss) Profile.Aggregate.BossesDefeated++;
+                }
                 if (item.Type == SimulationEventType.MapNodeSelected)
                     Statistics.RouteNodeIds.Add(item.SourceId.Value);
                 if (item.Type == SimulationEventType.EventChoiceSelected)
                     Statistics.EventChoiceIds.Add(item.SourceId.Value);
-                if (item.Type != SimulationEventType.DamageApplied ||
-                    item.Detail.IndexOf("target=enemy", StringComparison.Ordinal) < 0) continue;
-                Statistics.TotalDamage += item.Amount;
-                AddDamage(item.SourceId.Value, item.Amount);
+                if (item.Type == SimulationEventType.SpecialActivated)
+                {
+                    Statistics.SpecialActivations++;
+                    if (item.SourceId.Value == "special.spark") Statistics.SparkActivations++;
+                }
+                if (item.Type == SimulationEventType.ResourceChanged &&
+                    item.Detail.IndexOf("resource=focus;reason=conversion", StringComparison.Ordinal) >= 0)
+                    Statistics.FocusConversions++;
+                if (item.Type == SimulationEventType.StatusAdded && item.SourceId.Value == "status.poison")
+                    Statistics.PoisonApplications += item.Amount;
+                if (item.Type == SimulationEventType.StatusRemoved && item.RelatedId.Value == "skill.cleanse")
+                    cleanseKinds.Add(item.SourceId.Value);
+                if (item.Type == SimulationEventType.StatusTicked && item.SourceId.Value == "status.poison")
+                    Statistics.MaxPoisonStacksInResponse = Math.Max(
+                        Statistics.MaxPoisonStacksInResponse, ParseDetailInt(item.Detail, "stacks="));
+                if (item.Type == SimulationEventType.DamageApplied &&
+                    item.Detail.IndexOf("target=player", StringComparison.Ordinal) >= 0)
+                {
+                    Statistics.HealthDamageTaken += item.Amount;
+                    Statistics.CurrentEncounterHealthDamageTaken += item.Amount;
+                }
+                if (item.Type == SimulationEventType.DamageApplied &&
+                    item.Detail.IndexOf("target=enemy", StringComparison.Ordinal) >= 0)
+                {
+                    Statistics.TotalDamage += item.Amount;
+                    AddDamage(item.SourceId.Value, item.Amount);
+                }
+                Discover(item);
             }
+            Statistics.MaxCleanseStatusKinds = Math.Max(Statistics.MaxCleanseStatusKinds, cleanseKinds.Count);
+            _profiles.Save(Profile);
         }
 
         private void AddDamage(string sourceId, int amount)
@@ -353,6 +470,133 @@ namespace ThreeInARow.Application
                 return;
             }
             Statistics.DamageBySource.Add(new DamageStatistic { SourceId = sourceId, Amount = amount });
+        }
+
+        private void CompleteProfileRun(bool victory)
+        {
+            if (_profileRunCompleted || State == null || Statistics == null) return;
+            _profileRunCompleted = true;
+            var signals = new RunCompletionSignals
+            {
+                Victory = victory,
+                BossId = State.Map == null ? (ContentId)"enemy.unset" : State.Map.BossEnemyId,
+                DifficultyTier = State.DifficultyTier,
+                RemainingHealth = State.Player.Health,
+                ValidTurnCount = State.ResolvedTurnCount,
+                LargestCascade = Statistics.BiggestCascade,
+                DominantBranchId = DominantDamageBranch(),
+                EmberSkillsLearned = CountLearnedBranch("ember"),
+                MaxPoisonStacksInResponse = Statistics.MaxPoisonStacksInResponse,
+                MaxCleanseStatusKinds = Statistics.MaxCleanseStatusKinds,
+                FlawlessEliteVictories = Statistics.FlawlessEliteVictories,
+                SpecialActivations = Statistics.SpecialActivations,
+                SparkActivations = Statistics.SparkActivations,
+                FocusConversions = Statistics.FocusConversions,
+                PoisonApplications = Statistics.PoisonApplications,
+                IsChallengeRun = State.IsChallengeRun,
+                ChallengeId = State.ChallengeId
+            };
+            LastProfileUpdate = ProfileProgression.CompleteRun(Profile, signals);
+            _profiles.Save(Profile);
+        }
+
+        private int CountLearnedBranch(string branch)
+        {
+            var count = 0;
+            foreach (var skillId in State.SelectedSkillIds)
+            {
+                try
+                {
+                    if (string.Equals(MvpProgressionContentCatalog.Instance.GetSkill(skillId).BranchTag,
+                        branch, StringComparison.Ordinal)) count++;
+                }
+                catch (KeyNotFoundException) { }
+            }
+            return count;
+        }
+
+        private ContentId DominantDamageBranch()
+        {
+            var totals = new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                { "branch.ember", 0 }, { "branch.tide", 0 }, { "branch.venom", 0 }, { "branch.volt", 0 }
+            };
+            foreach (var damage in Statistics.DamageBySource)
+            {
+                var branch = BranchForDamageSource(damage.SourceId);
+                if (branch != null) totals[branch] += damage.Amount;
+            }
+            var best = "branch.none";
+            var amount = 0;
+            foreach (var pair in totals)
+            {
+                if (pair.Value <= amount) continue;
+                best = pair.Key;
+                amount = pair.Value;
+            }
+            return (ContentId)best;
+        }
+
+        private static string BranchForDamageSource(string sourceId)
+        {
+            if (sourceId == "gem.ember" || sourceId == "special.spark" || sourceId == "skill.scalding_current") return "branch.ember";
+            if (sourceId == "gem.tide" || sourceId == "special.current") return "branch.tide";
+            if (sourceId == "gem.venom" || sourceId == "special.spore" || sourceId == "status.poison") return "branch.venom";
+            if (sourceId == "gem.volt" || sourceId == "special.charge") return "branch.volt";
+            return null;
+        }
+
+        private void Discover(SimulationEvent item)
+        {
+            DiscoverId(item.SourceId);
+            DiscoverId(item.RelatedId);
+            if (item.Type == SimulationEventType.EnemyIntentTelegraphed)
+                ProfileProgression.Discover(Profile, CodexCategory.Intent, item.SourceId, item.RelatedId);
+            if (item.Type == SimulationEventType.MapNodeSelected && item.RelatedId.Value != null &&
+                item.RelatedId.Value.StartsWith("event.", StringComparison.Ordinal))
+                ProfileProgression.Discover(Profile, CodexCategory.Event, item.RelatedId);
+        }
+
+        private void DiscoverId(ContentId id)
+        {
+            var value = id.Value ?? string.Empty;
+            if (value.StartsWith("gem.", StringComparison.Ordinal)) ProfileProgression.Discover(Profile, CodexCategory.Gem, id);
+            else if (value.StartsWith("special.", StringComparison.Ordinal) && value != "special.none") ProfileProgression.Discover(Profile, CodexCategory.Special, id);
+            else if (value.StartsWith("status.", StringComparison.Ordinal) && value != "status.none") ProfileProgression.Discover(Profile, CodexCategory.Status, id);
+            else if (value.StartsWith("enemy.", StringComparison.Ordinal) && value != "enemy.unset")
+            {
+                var category = CodexCategory.Enemy;
+                try
+                {
+                    var enemy = MvpCombatContentCatalog.Instance.GetEnemy(id);
+                    if (enemy.IsBoss) category = CodexCategory.Boss;
+                    else if (enemy.IsElite) category = CodexCategory.Elite;
+                }
+                catch (KeyNotFoundException) { }
+                ProfileProgression.Discover(Profile, category, id);
+            }
+            else if (value.StartsWith("skill.", StringComparison.Ordinal)) ProfileProgression.Discover(Profile, CodexCategory.Skill, id);
+            else if (value.StartsWith("event.", StringComparison.Ordinal)) ProfileProgression.Discover(Profile, CodexCategory.Event, id);
+        }
+
+        private static int ParseDetailInt(string detail, string marker)
+        {
+            if (string.IsNullOrEmpty(detail)) return 0;
+            var start = detail.IndexOf(marker, StringComparison.Ordinal);
+            if (start < 0) return 0;
+            start += marker.Length;
+            var end = detail.IndexOf(';', start);
+            var text = end < 0 ? detail.Substring(start) : detail.Substring(start, end - start);
+            int value;
+            return int.TryParse(text, style: System.Globalization.NumberStyles.Integer,
+                provider: System.Globalization.CultureInfo.InvariantCulture, result: out value) ? value : 0;
+        }
+
+        private static bool Contains(IEnumerable<ContentId> ids, ContentId wanted)
+        {
+            if (ids == null) return false;
+            foreach (var id in ids) if (id.Equals(wanted)) return true;
+            return false;
         }
 
         private void SaveStableCheckpoint()

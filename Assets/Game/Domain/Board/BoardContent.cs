@@ -22,6 +22,7 @@ namespace ThreeInARow.Domain.Board
         public static readonly ContentId Frozen = "status.frozen";
         public static readonly ContentId Cracked = "status.cracked";
         public static readonly ContentId Anchored = "status.anchored";
+        public static readonly ContentId Thorned = "status.thorned";
     }
 
     /// <summary>

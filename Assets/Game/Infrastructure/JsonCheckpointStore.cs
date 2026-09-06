@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using ThreeInARow.Application;
 using ThreeInARow.Domain.Ids;
+using ThreeInARow.Domain.Mastery;
 using ThreeInARow.Domain.Random;
 using ThreeInARow.Domain.State;
 using UnityEngine;
@@ -59,9 +60,11 @@ namespace ThreeInARow.Infrastructure
                     return false;
                 var state = envelope.run.ToDomain();
                 if (state.SchemaVersion != RunState.CurrentSchemaVersion ||
+                    !string.Equals(state.ContentVersion, RunState.CurrentContentVersion, StringComparison.Ordinal) ||
                     state.Board == null || state.Board.Gems == null ||
                     state.Board.Gems.Count != BoardState.Width * BoardState.Height ||
                     state.Map == null || state.Map.Nodes == null || state.Map.Nodes.Count == 0 ||
+                    state.AvailableContentIds == null || !ValidMasteryHeader(state) ||
                     (state.PendingCombatTurn != null && state.PendingCombatTurn.AwaitingEnemyResponse))
                     return false;
                 snapshot = new CheckpointSnapshot(state, envelope.statistics ?? new RunStatistics());
@@ -70,6 +73,22 @@ namespace ThreeInARow.Infrastructure
             catch (Exception exception)
             {
                 Debug.LogWarning("Checkpoint could not be loaded: " + exception.Message);
+                return false;
+            }
+        }
+
+        private static bool ValidMasteryHeader(RunState state)
+        {
+            try
+            {
+                if (!MasteryContentCatalog.Instance.Get(state.DifficultyTier).Id.Equals(state.DifficultyId)) return false;
+                if (state.IsChallengeRun)
+                    return !state.ChallengeId.Equals(MasteryContentIds.StandardRun) &&
+                           string.Equals(state.ChallengeContentVersion, RunState.CurrentContentVersion, StringComparison.Ordinal);
+                return state.ChallengeId.Equals(MasteryContentIds.StandardRun);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
                 return false;
             }
         }
@@ -113,6 +132,13 @@ namespace ThreeInARow.Infrastructure
             public PendingEventDto pendingEvent;
             public List<PendingModifierDto> pendingEncounterModifiers = new List<PendingModifierDto>();
             public bool pendingEliteReward;
+            public int difficultyTier;
+            public string difficultyId;
+            public string unlockPolicyId;
+            public bool isChallengeRun;
+            public string challengeId;
+            public string challengeContentVersion;
+            public List<string> availableContent = new List<string>();
 
             public static RunDto FromDomain(RunState state)
             {
@@ -132,12 +158,19 @@ namespace ThreeInARow.Infrastructure
                     currentEncounterId = Id(state.CurrentEncounterId),
                     map = MapDto.FromDomain(state.Map),
                     pendingEvent = PendingEventDto.FromDomain(state.PendingEvent),
-                    pendingEliteReward = state.PendingEliteReward
+                    pendingEliteReward = state.PendingEliteReward,
+                    difficultyTier = state.DifficultyTier,
+                    difficultyId = Id(state.DifficultyId),
+                    unlockPolicyId = Id(state.UnlockPolicyId),
+                    isChallengeRun = state.IsChallengeRun,
+                    challengeId = Id(state.ChallengeId),
+                    challengeContentVersion = state.ChallengeContentVersion
                 };
                 if (state.Board != null && state.Board.Gems != null)
                     foreach (var gem in state.Board.Gems) dto.gems.Add(GemDto.FromDomain(gem));
                 AddIds(dto.selectedSkills, state.SelectedSkillIds);
                 AddIds(dto.selectedEncounters, state.SelectedEncounterIds);
+                AddIds(dto.availableContent, state.AvailableContentIds);
                 if (state.PendingEncounterModifiers != null)
                     foreach (var modifier in state.PendingEncounterModifiers)
                         if (modifier != null) dto.pendingEncounterModifiers.Add(new PendingModifierDto
@@ -184,7 +217,14 @@ namespace ThreeInARow.Infrastructure
                     Map = map == null ? new MapState() : map.ToDomain(),
                     PendingEvent = pendingEvent == null ? new PendingEventState() : pendingEvent.ToDomain(),
                     PendingEncounterModifiers = new List<PendingEncounterModifierState>(),
-                    PendingEliteReward = pendingEliteReward
+                    PendingEliteReward = pendingEliteReward,
+                    DifficultyTier = difficultyTier,
+                    DifficultyId = Content(difficultyId),
+                    UnlockPolicyId = Content(unlockPolicyId),
+                    IsChallengeRun = isChallengeRun,
+                    ChallengeId = Content(challengeId),
+                    ChallengeContentVersion = challengeContentVersion ?? string.Empty,
+                    AvailableContentIds = ToIds(availableContent)
                 };
                 if (gems != null)
                     foreach (var gem in gems) state.Board.Gems.Add(gem.ToDomain());
@@ -310,6 +350,8 @@ namespace ThreeInARow.Infrastructure
             public int focus;
             public int toxic;
             public int voltClearProgress;
+            public int focusConversionsThisEncounter;
+            public int empoweredEmberClearDamage;
             public List<string> equippedActives = new List<string>();
             public List<CooldownDto> cooldowns = new List<CooldownDto>();
 
@@ -322,7 +364,9 @@ namespace ThreeInARow.Infrastructure
                     shield = player.Shield,
                     focus = player.Focus,
                     toxic = player.Toxic,
-                    voltClearProgress = player.VoltClearProgress
+                    voltClearProgress = player.VoltClearProgress,
+                    focusConversionsThisEncounter = player.FocusConversionsThisEncounter,
+                    empoweredEmberClearDamage = player.EmpoweredEmberClearDamage
                 };
                 AddIds(dto.equippedActives, player.EquippedActiveSkillIds);
                 if (player.SkillCooldowns != null)
@@ -344,6 +388,8 @@ namespace ThreeInARow.Infrastructure
                     Focus = focus,
                     Toxic = toxic,
                     VoltClearProgress = voltClearProgress,
+                    FocusConversionsThisEncounter = focusConversionsThisEncounter,
+                    EmpoweredEmberClearDamage = empoweredEmberClearDamage,
                     EquippedActiveSkillIds = ToIds(equippedActives),
                     SkillCooldowns = new List<SkillCooldownState>()
                 };
@@ -365,6 +411,9 @@ namespace ThreeInARow.Infrastructure
             public int health;
             public int intentIndex;
             public int poisonStacks;
+            public int barrier;
+            public int phase;
+            public string telegraphedTargetId;
 
             public static EnemyDto FromDomain(EnemyState enemy)
             {
@@ -374,7 +423,10 @@ namespace ThreeInARow.Infrastructure
                     definitionId = Id(enemy.DefinitionId),
                     health = enemy.Health,
                     intentIndex = enemy.IntentIndex,
-                    poisonStacks = enemy.PoisonStacks
+                    poisonStacks = enemy.PoisonStacks,
+                    barrier = enemy.Barrier,
+                    phase = enemy.Phase,
+                    telegraphedTargetId = Id(enemy.TelegraphedTargetId)
                 };
             }
 
@@ -385,7 +437,10 @@ namespace ThreeInARow.Infrastructure
                     DefinitionId = Content(definitionId),
                     Health = health,
                     IntentIndex = intentIndex,
-                    PoisonStacks = poisonStacks
+                    PoisonStacks = poisonStacks,
+                    Barrier = barrier,
+                    Phase = phase,
+                    TelegraphedTargetId = Content(telegraphedTargetId)
                 };
             }
         }

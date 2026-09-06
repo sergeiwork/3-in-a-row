@@ -239,6 +239,123 @@ namespace ThreeInARow.Domain.Board
             return events;
         }
 
+        /// <summary>Recolors one normal movable gem and resolves any match through the normal clear pipeline.</summary>
+        public static EventBatch Transmute(
+            RunState state,
+            GridCell cell,
+            ContentId targetGemId,
+            ContentId sourceId,
+            IBoardContentCatalog catalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            catalog = catalog ?? MvpBoardContentCatalog.Instance;
+            ValidateCatalog(catalog);
+            if (!catalog.IsNormalGem(targetGemId)) throw new ArgumentException("Transmute requires a normal gem color.", nameof(targetGemId));
+            var board = BoardMatrix.FromState(state.Board);
+            var gem = board[cell];
+            if (gem == null || !catalog.IsNormalGem(gem.GemId) || HasSpecial(gem) || !IsMovable(gem))
+                throw new InvalidOperationException("Transmute target is not a movable normal gem.");
+
+            var previous = gem.GemId;
+            gem.GemId = targetGemId;
+            var events = new EventBatch();
+            events.Add(SimulationEventType.GemTransmuted, targetGemId, "reason=transmute", 1, cell, null, previous);
+            ResolveMutation(board, state, catalog, events, 0);
+            return events;
+        }
+
+        /// <summary>Activates one match-four special in place, then resolves refill and cascades normally.</summary>
+        public static EventBatch Detonate(
+            RunState state,
+            GridCell cell,
+            ContentId sourceId,
+            IBoardContentCatalog catalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            catalog = catalog ?? MvpBoardContentCatalog.Instance;
+            ValidateCatalog(catalog);
+            var board = BoardMatrix.FromState(state.Board);
+            var gem = board[cell];
+            if (gem == null || !IsMatchFourSpecial(gem.SpecialId) || !IsMovable(gem))
+                throw new InvalidOperationException("Detonate target is not a movable match-four special.");
+
+            var events = new EventBatch();
+            var random = RandomStreams.Restore(RandomStream.BoardSpawn, state.RandomStreams);
+            ClearCells(board, new List<GridCell> { cell }, events, 1, null);
+            CollapseAndRefill(board, random, catalog, events, 1);
+            var cascadeCount = 1;
+            ResolveCascades(board, random, catalog, events, ref cascadeCount, null, null);
+            EnsureMutationPlayable(board, random, catalog, events);
+            board.CommitTo(state.Board);
+            RandomStreams.Store(RandomStream.BoardSpawn, random, state.RandomStreams);
+            return events;
+        }
+
+        /// <summary>Rerolls one to three normal movable gems through BoardSpawn and restores a stable playable board.</summary>
+        public static EventBatch Reweave(
+            RunState state,
+            IEnumerable<GridCell> selectedCells,
+            ContentId sourceId,
+            IBoardContentCatalog catalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (selectedCells == null) throw new ArgumentNullException(nameof(selectedCells));
+            catalog = catalog ?? MvpBoardContentCatalog.Instance;
+            ValidateCatalog(catalog);
+            var cells = new List<GridCell>(selectedCells);
+            cells.Sort();
+            if (cells.Count < 1 || cells.Count > 3) throw new InvalidOperationException("Reweave requires one to three targets.");
+            for (var index = 1; index < cells.Count; index++)
+                if (cells[index].Equals(cells[index - 1])) throw new InvalidOperationException("Reweave targets must be unique.");
+
+            var board = BoardMatrix.FromState(state.Board);
+            var random = RandomStreams.Restore(RandomStream.BoardSpawn, state.RandomStreams);
+            var events = new EventBatch();
+            foreach (var cell in cells)
+            {
+                var gem = board[cell];
+                if (gem == null || !catalog.IsNormalGem(gem.GemId) || HasSpecial(gem) || !IsMovable(gem))
+                    throw new InvalidOperationException("Reweave target is not a movable normal gem.");
+                var previous = gem.GemId;
+                var candidates = catalog.SpawnableGemIds;
+                var offset = random.NextInt(candidates.Count - 1) + 1;
+                var currentIndex = 0;
+                for (var index = 0; index < candidates.Count; index++)
+                    if (candidates[index].Equals(previous)) { currentIndex = index; break; }
+                gem.GemId = candidates[(currentIndex + offset) % candidates.Count];
+                events.Add(SimulationEventType.GemTransmuted, gem.GemId, "reason=reweave", 1, cell, null, previous);
+            }
+            var cascadeCount = 0;
+            ResolveCascades(board, random, catalog, events, ref cascadeCount, null, null);
+            EnsureMutationPlayable(board, random, catalog, events);
+            board.CommitTo(state.Board);
+            RandomStreams.Store(RandomStream.BoardSpawn, random, state.RandomStreams);
+            return events;
+        }
+
+        private static void ResolveMutation(BoardMatrix board, RunState state, IBoardContentCatalog catalog,
+            EventBatch events, int cascadeCount)
+        {
+            var random = RandomStreams.Restore(RandomStream.BoardSpawn, state.RandomStreams);
+            ResolveCascades(board, random, catalog, events, ref cascadeCount, null, null);
+            EnsureMutationPlayable(board, random, catalog, events);
+            board.CommitTo(state.Board);
+            RandomStreams.Store(RandomStream.BoardSpawn, random, state.RandomStreams);
+        }
+
+        private static void EnsureMutationPlayable(BoardMatrix board, DeterministicRandom random,
+            IBoardContentCatalog catalog, EventBatch events)
+        {
+            if (!HasAnyLegalSwap(board, catalog))
+                Reshuffle(board, random, catalog, events, "active_mutation_no_legal_swap");
+        }
+
+        private static bool IsMatchFourSpecial(ContentId id)
+        {
+            return id.Equals(BoardContentIds.Spark) || id.Equals(BoardContentIds.Current) ||
+                   id.Equals(BoardContentIds.Spore) || id.Equals(BoardContentIds.Charge);
+        }
+
         private static void ResolvePrismSwap(
             BoardMatrix board,
             GridCell cellA,

@@ -5,6 +5,7 @@ using ThreeInARow.Domain.Combat;
 using ThreeInARow.Domain.Commands;
 using ThreeInARow.Domain.Events;
 using ThreeInARow.Domain.Ids;
+using ThreeInARow.Domain.Mastery;
 using ThreeInARow.Domain.Random;
 using ThreeInARow.Domain.State;
 
@@ -334,6 +335,18 @@ namespace ThreeInARow.Domain.Progression
                     GainShield(state, definition.Id, effect.Amount, events);
                 else if (effect.Type == ActiveEffectType.InfuseNormalGem)
                     InfuseNormalGem(cleanseTargets, definition.Id, events);
+                else if (effect.Type == ActiveEffectType.TransmuteNormalGem)
+                    ResolveBoardMutation(state, BoardSimulation.Transmute(
+                        state, cleanseTargets[0].Cell, command.OptionId, definition.Id), events);
+                else if (effect.Type == ActiveEffectType.DetonateMatchFourSpecial)
+                    ResolveBoardMutation(state, BoardSimulation.Detonate(
+                        state, cleanseTargets[0].Cell, definition.Id), events);
+                else if (effect.Type == ActiveEffectType.ReweaveNormalGems)
+                {
+                    var cells = new List<GridCell>();
+                    foreach (var gem in cleanseTargets) cells.Add(gem.Cell);
+                    ResolveBoardMutation(state, BoardSimulation.Reweave(state, cells, definition.Id), events);
+                }
             }
 
             var won = state.Enemy.Health <= 0;
@@ -437,6 +450,8 @@ namespace ThreeInARow.Domain.Progression
             {
                 if (!skill.CanBeLevelUpReward || skill.IsEliteKeystone || ProgressionRules.HasSkill(state, skill.Id)) continue;
                 if (skill.HasPrerequisite && !ProgressionRules.HasSkill(state, skill.PrerequisiteId)) continue;
+                if (skill.RequiresProfileUnlock && !MasteryRules.HasAvailableContent(state, skill.Id)) continue;
+                if (!HasRequiredBranches(state, skill, catalog)) continue;
                 result.Add(skill);
             }
             return result;
@@ -525,7 +540,8 @@ namespace ThreeInARow.Domain.Progression
                 return ActiveSkillRejectionReason.None;
             }
 
-            if (definition.TargetPolicy == SkillTargetPolicy.OneNormalGem)
+            if (definition.TargetPolicy == SkillTargetPolicy.OneNormalGem ||
+                definition.TargetPolicy == SkillTargetPolicy.OneNormalGemAndColor)
             {
                 if (command.Targets == null || command.Targets.Count != 1)
                     return ActiveSkillRejectionReason.InvalidTargets;
@@ -537,10 +553,54 @@ namespace ThreeInARow.Domain.Progression
                         ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Anchored) ||
                         ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Frozen))
                         return ActiveSkillRejectionReason.InvalidTargets;
+                    if (definition.TargetPolicy == SkillTargetPolicy.OneNormalGemAndColor)
+                    {
+                        if (!MvpBoardContentCatalog.Instance.IsNormalGem(command.OptionId) || gem.GemId.Equals(command.OptionId))
+                            return ActiveSkillRejectionReason.InvalidTargets;
+                    }
                     selected.Add(gem);
                     return ActiveSkillRejectionReason.None;
                 }
                 return ActiveSkillRejectionReason.InvalidTargets;
+            }
+
+            if (definition.TargetPolicy == SkillTargetPolicy.OneMatchFourSpecial)
+            {
+                if (command.Targets == null || command.Targets.Count != 1)
+                    return ActiveSkillRejectionReason.InvalidTargets;
+                foreach (var gem in state.Board.Gems)
+                {
+                    if (gem == null || !gem.Cell.Equals(command.Targets[0])) continue;
+                    if (!IsMatchFourSpecial(gem.SpecialId) ||
+                        ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Anchored) ||
+                        ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Frozen))
+                        return ActiveSkillRejectionReason.InvalidTargets;
+                    selected.Add(gem);
+                    return ActiveSkillRejectionReason.None;
+                }
+                return ActiveSkillRejectionReason.InvalidTargets;
+            }
+
+            if (definition.TargetPolicy == SkillTargetPolicy.UpToThreeNormalGems)
+            {
+                if (command.Targets == null || command.Targets.Count < 1 || command.Targets.Count > 3)
+                    return ActiveSkillRejectionReason.InvalidTargets;
+                foreach (var cell in command.Targets)
+                {
+                    BoardGemState match = null;
+                    foreach (var gem in state.Board.Gems)
+                    {
+                        if (gem == null || !gem.Cell.Equals(cell)) continue;
+                        if (MvpBoardContentCatalog.Instance.IsNormalGem(gem.GemId) &&
+                            gem.SpecialId.Equals(BoardContentIds.NoSpecial) &&
+                            !ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Anchored) &&
+                            !ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Frozen)) match = gem;
+                        break;
+                    }
+                    if (match == null || selected.Contains(match)) return ActiveSkillRejectionReason.InvalidTargets;
+                    selected.Add(match);
+                }
+                return ActiveSkillRejectionReason.None;
             }
 
             var eligible = FindStatusGems(state.Board);
@@ -590,7 +650,38 @@ namespace ThreeInARow.Domain.Progression
                 RemoveBoardStatus(gem, BoardContentIds.Frozen, sourceId, events);
                 RemoveBoardStatus(gem, BoardContentIds.Cracked, sourceId, events);
                 RemoveBoardStatus(gem, BoardContentIds.Anchored, sourceId, events);
+                RemoveBoardStatus(gem, BoardContentIds.Thorned, sourceId, events);
             }
+        }
+
+        private static void ResolveBoardMutation(RunState state, EventBatch boardEvents, EventBatch output)
+        {
+            CombatSimulation.ApplyBoardMutationEffects(state, boardEvents, output);
+        }
+
+        private static bool HasRequiredBranches(RunState state, SkillDefinition skill,
+            IProgressionContentCatalog catalog)
+        {
+            if (skill.RequiredBranchTags == null || skill.RequiredBranchTags.Count == 0) return true;
+            foreach (var required in skill.RequiredBranchTags)
+            {
+                var found = false;
+                foreach (var learnedId in state.SelectedSkillIds)
+                {
+                    SkillDefinition learned;
+                    try { learned = catalog.GetSkill(learnedId); }
+                    catch (KeyNotFoundException) { continue; }
+                    if (string.Equals(learned.BranchTag, required, StringComparison.Ordinal)) { found = true; break; }
+                }
+                if (!found) return false;
+            }
+            return true;
+        }
+
+        private static bool IsMatchFourSpecial(ContentId id)
+        {
+            return id.Equals(BoardContentIds.Spark) || id.Equals(BoardContentIds.Current) ||
+                   id.Equals(BoardContentIds.Spore) || id.Equals(BoardContentIds.Charge);
         }
 
         private static void RemoveBoardStatus(

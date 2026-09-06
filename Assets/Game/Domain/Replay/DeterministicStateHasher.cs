@@ -18,11 +18,22 @@ namespace ThreeInARow.Domain.Replay
             text.Append(state.SchemaVersion).Append('|').Append(state.ContentVersion).Append('|')
                 .Append(state.Seed).Append('|').Append(state.EncounterIndex).Append('|').Append(state.ResolvedTurnCount).Append('|')
                 .Append(state.Experience).Append('|').Append(state.Level).Append('|')
+                .Append("difficulty:").Append(state.DifficultyTier).Append(':').Append(state.DifficultyId).Append('|')
+                .Append("unlock:").Append(state.UnlockPolicyId).Append('|')
+                .Append("challenge:").Append(state.IsChallengeRun).Append(':').Append(state.ChallengeId).Append(':')
+                .Append(state.ChallengeContentVersion).Append('|')
                 .Append(state.Player.Health).Append('|').Append(state.Player.Shield).Append('|').Append(state.Player.Focus).Append('|')
                 .Append(state.Player.Toxic).Append('|')
-                .Append(state.Player.VoltClearProgress).Append('|')
+                .Append(state.Player.VoltClearProgress).Append('|').Append(state.Player.FocusConversionsThisEncounter).Append('|')
+                .Append(state.Player.EmpoweredEmberClearDamage).Append('|')
                 .Append(state.Enemy.DefinitionId).Append('|').Append(state.Enemy.Health).Append('|')
-                .Append(state.Enemy.IntentIndex).Append('|').Append(state.Enemy.PoisonStacks).Append('|');
+                .Append(state.Enemy.IntentIndex).Append('|').Append(state.Enemy.PoisonStacks).Append('|')
+                .Append(state.Enemy.Barrier).Append('|').Append(state.Enemy.Phase).Append('|')
+                .Append(state.Enemy.TelegraphedTargetId).Append('|');
+
+            if (state.AvailableContentIds != null)
+                foreach (var contentId in state.AvailableContentIds)
+                    text.Append("available:").Append(contentId).Append('|');
 
             text.Append("encounter:").Append(state.CurrentEncounterId).Append('|')
                 .Append("eliteQueued:").Append(state.PendingEliteReward).Append('|');

@@ -19,6 +19,8 @@ namespace ThreeInARow.Domain.Commands
     {
         public ContentId SkillId;
         public List<GridCell> Targets = new List<GridCell>();
+        // Optional stable content choice used by active effects such as Transmute.
+        public ContentId OptionId = "content.none";
     }
 
     [Serializable]

@@ -26,6 +26,13 @@ namespace ThreeInARow.Domain.Progression
         public static readonly ContentId Catalyze = "skill.catalyze";
         public static readonly ContentId Aegis = "skill.aegis";
         public static readonly ContentId Infuse = "skill.infuse";
+        public static readonly ContentId Transmute = "skill.transmute";
+        public static readonly ContentId Detonate = "skill.detonate";
+        public static readonly ContentId Reweave = "skill.reweave";
+        public static readonly ContentId Flashfire = "skill.flashfire";
+        public static readonly ContentId GalvanicVenom = "skill.galvanic_venom";
+        public static readonly ContentId ScaldingCurrent = "skill.scalding_current";
+        public static readonly ContentId ToxicUndertow = "skill.toxic_undertow";
 
         public static readonly ContentId TemperedCore = "skill.keystone.tempered_core";
         public static readonly ContentId PrismaticStart = "skill.keystone.prismatic_start";
@@ -43,7 +50,10 @@ namespace ThreeInARow.Domain.Progression
     {
         None,
         UpToThreeStatusGems,
-        OneNormalGem
+        OneNormalGem,
+        OneNormalGemAndColor,
+        OneMatchFourSpecial,
+        UpToThreeNormalGems
     }
 
     public enum PassiveModifierType
@@ -63,7 +73,11 @@ namespace ThreeInARow.Domain.Progression
         VictoryHeal,
         PrismaticStart,
         ActiveCooldownStartReduction,
-        ShieldExpiryDamage
+        ShieldExpiryDamage,
+        SparkAllCooldownReduction,
+        PoisonTickVoltProgress,
+        EverySecondFocusEmpowersEmber,
+        FocusConversionToxicPerCascade
     }
 
     public enum ActiveEffectType
@@ -72,7 +86,10 @@ namespace ThreeInARow.Domain.Progression
         RemoveBoardStatuses,
         CatalyzeResources,
         GainShield,
-        InfuseNormalGem
+        InfuseNormalGem,
+        TransmuteNormalGem,
+        DetonateMatchFourSpecial,
+        ReweaveNormalGems
     }
 
     public sealed class PassiveModifierDefinition
@@ -114,6 +131,8 @@ namespace ThreeInARow.Domain.Progression
         public readonly string BranchTag;
         public readonly IReadOnlyList<string> SynergyTags;
         public readonly bool IsEliteKeystone;
+        public readonly IReadOnlyList<string> RequiredBranchTags;
+        public readonly bool RequiresProfileUnlock;
 
         private SkillDefinition(
             ContentId id,
@@ -127,7 +146,7 @@ namespace ThreeInARow.Domain.Progression
             PassiveModifierDefinition[] passiveModifiers,
             ActiveEffectDefinition[] activeEffects)
             : this(id, displayKey, slotType, prerequisiteId, hasPrerequisite, canBeLevelUpReward,
-                cooldown, targetPolicy, passiveModifiers, activeEffects, string.Empty, null, false) { }
+                cooldown, targetPolicy, passiveModifiers, activeEffects, string.Empty, null, false, null, false) { }
 
         private SkillDefinition(
             ContentId id,
@@ -142,7 +161,9 @@ namespace ThreeInARow.Domain.Progression
             ActiveEffectDefinition[] activeEffects,
             string branchTag,
             string[] synergyTags,
-            bool isEliteKeystone)
+            bool isEliteKeystone,
+            string[] requiredBranchTags,
+            bool requiresProfileUnlock)
         {
             Id = id;
             DisplayKey = displayKey ?? string.Empty;
@@ -157,6 +178,8 @@ namespace ThreeInARow.Domain.Progression
             BranchTag = branchTag ?? string.Empty;
             SynergyTags = synergyTags ?? new string[0];
             IsEliteKeystone = isEliteKeystone;
+            RequiredBranchTags = requiredBranchTags ?? new string[0];
+            RequiresProfileUnlock = requiresProfileUnlock;
         }
 
         public static SkillDefinition Passive(
@@ -210,7 +233,7 @@ namespace ThreeInARow.Domain.Progression
         {
             return new SkillDefinition(id, displayKey, SkillSlotType.Passive,
                 prerequisiteId ?? default(ContentId), prerequisiteId.HasValue, true, 0,
-                SkillTargetPolicy.None, new[] { modifier }, null, branchTag, synergyTags, false);
+                SkillTargetPolicy.None, new[] { modifier }, null, branchTag, synergyTags, false, null, false);
         }
 
         public static SkillDefinition RewardActive(
@@ -222,7 +245,7 @@ namespace ThreeInARow.Domain.Progression
             params ActiveEffectDefinition[] effects)
         {
             return new SkillDefinition(id, displayKey, SkillSlotType.Active, default(ContentId), false,
-                true, cooldown, targetPolicy, null, effects, "generic", synergyTags, false);
+                true, cooldown, targetPolicy, null, effects, "generic", synergyTags, false, null, false);
         }
 
         public static SkillDefinition EliteKeystone(
@@ -232,7 +255,30 @@ namespace ThreeInARow.Domain.Progression
             params string[] synergyTags)
         {
             return new SkillDefinition(id, displayKey, SkillSlotType.Passive, default(ContentId), false,
-                false, 0, SkillTargetPolicy.None, new[] { modifier }, null, "keystone", synergyTags, true);
+                false, 0, SkillTargetPolicy.None, new[] { modifier }, null, "keystone", synergyTags, true, null, false);
+        }
+
+        public static SkillDefinition UnlockActive(
+            ContentId id,
+            string displayKey,
+            int cooldown,
+            SkillTargetPolicy targetPolicy,
+            string[] synergyTags,
+            params ActiveEffectDefinition[] effects)
+        {
+            return new SkillDefinition(id, displayKey, SkillSlotType.Active, default(ContentId), false,
+                true, cooldown, targetPolicy, null, effects, "generic", synergyTags, false, null, true);
+        }
+
+        public static SkillDefinition Hybrid(
+            ContentId id,
+            string displayKey,
+            string[] requiredBranchTags,
+            PassiveModifierDefinition modifier)
+        {
+            return new SkillDefinition(id, displayKey, SkillSlotType.Passive, default(ContentId), false,
+                true, 0, SkillTargetPolicy.None, new[] { modifier }, null, "hybrid", requiredBranchTags,
+                false, requiredBranchTags, true);
         }
     }
 
@@ -296,6 +342,28 @@ namespace ThreeInARow.Domain.Progression
                 SkillDefinition.RewardActive(ProgressionContentIds.Infuse, "skill.infuse.name", 6,
                     SkillTargetPolicy.OneNormalGem, new[] { "Контроль поля" },
                     new ActiveEffectDefinition(ActiveEffectType.InfuseNormalGem, 1)),
+
+                SkillDefinition.UnlockActive(ProgressionContentIds.Transmute, "skill.transmute.name", 5,
+                    SkillTargetPolicy.OneNormalGemAndColor, new[] { "Пламя", "Контроль поля" },
+                    new ActiveEffectDefinition(ActiveEffectType.TransmuteNormalGem, 1)),
+                SkillDefinition.UnlockActive(ProgressionContentIds.Detonate, "skill.detonate.name", 6,
+                    SkillTargetPolicy.OneMatchFourSpecial, new[] { "Особые кристаллы" },
+                    new ActiveEffectDefinition(ActiveEffectType.DetonateMatchFourSpecial, 1)),
+                SkillDefinition.UnlockActive(ProgressionContentIds.Reweave, "skill.reweave.name", 5,
+                    SkillTargetPolicy.UpToThreeNormalGems, new[] { "Контроль поля" },
+                    new ActiveEffectDefinition(ActiveEffectType.ReweaveNormalGems, 3)),
+                SkillDefinition.Hybrid(ProgressionContentIds.Flashfire, "skill.flashfire.name",
+                    new[] { "ember", "volt" },
+                    new PassiveModifierDefinition(PassiveModifierType.SparkAllCooldownReduction, 1)),
+                SkillDefinition.Hybrid(ProgressionContentIds.GalvanicVenom, "skill.galvanic_venom.name",
+                    new[] { "venom", "volt" },
+                    new PassiveModifierDefinition(PassiveModifierType.PoisonTickVoltProgress, 1)),
+                SkillDefinition.Hybrid(ProgressionContentIds.ScaldingCurrent, "skill.scalding_current.name",
+                    new[] { "ember", "tide" },
+                    new PassiveModifierDefinition(PassiveModifierType.EverySecondFocusEmpowersEmber, 2)),
+                SkillDefinition.Hybrid(ProgressionContentIds.ToxicUndertow, "skill.toxic_undertow.name",
+                    new[] { "tide", "venom" },
+                    new PassiveModifierDefinition(PassiveModifierType.FocusConversionToxicPerCascade, 1)),
 
                 SkillDefinition.EliteKeystone(ProgressionContentIds.TemperedCore, "skill.keystone.tempered_core.name",
                     new PassiveModifierDefinition(PassiveModifierType.VictoryHeal, 3), "Исцеление"),

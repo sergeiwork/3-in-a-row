@@ -17,6 +17,7 @@ namespace ThreeInARow.Domain.Map
         public static readonly ContentId FrozenReliquary = "event.frozen_reliquary";
         public static readonly ContentId CrackedCache = "event.cracked_cache";
         public static readonly ContentId RestSite = "event.rest_site";
+        public static readonly ContentId PrismaticArchive = "event.prismatic_archive";
 
         public static readonly ContentId DraftPassive = "choice.faceted_altar.draft_passive";
         public static readonly ContentId LeaveAltar = "choice.faceted_altar.leave";
@@ -32,6 +33,8 @@ namespace ThreeInARow.Domain.Map
         public static readonly ContentId NextShield = "choice.cracked_cache.shield";
         public static readonly ContentId RestHeal = "choice.rest.heal";
         public static readonly ContentId RestRepair = "choice.rest.repair";
+        public static readonly ContentId StudyArchive = "choice.prismatic_archive.study";
+        public static readonly ContentId LeaveArchive = "choice.prismatic_archive.leave";
 
         public static readonly ContentId NextCracked = "modifier.next_encounter.cracked";
         public static readonly ContentId NextShieldModifier = "modifier.next_encounter.shield";
@@ -148,7 +151,13 @@ namespace ThreeInARow.Domain.Map
                     Choice(MapContentIds.RestHeal, new EventEffectDefinition(EventEffectType.HealPlayer, 12)),
                     Choice(MapContentIds.RestRepair,
                         new EventEffectDefinition(EventEffectType.CleanseBoard),
-                        new EventEffectDefinition(EventEffectType.ReduceEquippedCooldowns, 2)))
+                        new EventEffectDefinition(EventEffectType.ReduceEquippedCooldowns, 2))),
+                Event(MapContentIds.PrismaticArchive,
+                    Choice(MapContentIds.StudyArchive,
+                        new EventEffectDefinition(EventEffectType.DamagePlayer, 6),
+                        new EventEffectDefinition(EventEffectType.OfferAnyReward, 3)),
+                    Choice(MapContentIds.LeaveArchive,
+                        new EventEffectDefinition(EventEffectType.HealPlayer, 3)))
             };
 
             _eventsById = new Dictionary<ContentId, EventDefinition>();

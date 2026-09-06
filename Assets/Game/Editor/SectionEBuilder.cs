@@ -71,6 +71,7 @@ namespace ThreeInARow.Editor
             AddIcon(sprites, "status.cracked", "cracked-glass.png");
             AddIcon(sprites, "status.anchored", "anchor.png");
             AddIcon(sprites, "status.poison", "poison-gas.png");
+            AddIcon(sprites, "status.thorned", "shattered-sword.png");
 
             AddSprite(sprites, "enemy.geode_mite", "Enemies/Generated/enemy_geode_mite.png");
             AddSprite(sprites, "enemy.frost_oracle", "Enemies/Generated/enemy_frost_oracle.png");
@@ -98,6 +99,9 @@ namespace ThreeInARow.Editor
             AddIcon(sprites, "intent.bite", "shattered-sword.png");
             AddIcon(sprites, "intent.freeze_hit", "snowflake-1.png");
             AddIcon(sprites, "intent.claw", "shattered-sword.png");
+            AddIcon(sprites, "intent.barrier", "bordered-shield.png");
+            AddIcon(sprites, "intent.jam", "magic-palm.png");
+            AddIcon(sprites, "intent.thorns", "shattered-sword.png");
 
             AddIcon(sprites, "ui.player_health", "glass-heart.png");
             AddIcon(sprites, "ui.enemy_health", "glass-heart.png");
@@ -128,6 +132,13 @@ namespace ThreeInARow.Editor
             AddIcon(sprites, "skill.live_wire", "power-lightning.png");
             AddIcon(sprites, "skill.aegis", "bordered-shield.png");
             AddIcon(sprites, "skill.infuse", "crystal-shine.png");
+            AddIcon(sprites, "skill.transmute", "magic-swirl.png");
+            AddIcon(sprites, "skill.detonate", "circle-sparks.png");
+            AddIcon(sprites, "skill.reweave", "crystal-shine.png");
+            AddIcon(sprites, "skill.flashfire", "small-fire.png");
+            AddIcon(sprites, "skill.galvanic_venom", "power-lightning.png");
+            AddIcon(sprites, "skill.scalding_current", "wave-strike.png");
+            AddIcon(sprites, "skill.toxic_undertow", "poison-bottle.png");
             AddIcon(sprites, "skill.keystone.tempered_core", "glass-heart.png");
             AddIcon(sprites, "skill.keystone.prismatic_start", "crystal-shine.png");
             AddIcon(sprites, "skill.keystone.rapid_casting", "magic-swirl.png");
@@ -202,7 +213,7 @@ namespace ThreeInARow.Editor
 
             PlayerSettings.productName = "Three in a Row: Roguelike Crystals";
             PlayerSettings.companyName = "Three in a Row";
-            PlayerSettings.bundleVersion = "0.6.0";
+            PlayerSettings.bundleVersion = "0.8.0";
             PlayerSettings.defaultScreenWidth = 1080;
             PlayerSettings.defaultScreenHeight = 1920;
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;

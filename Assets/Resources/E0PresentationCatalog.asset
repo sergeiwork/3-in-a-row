@@ -41,6 +41,8 @@ MonoBehaviour:
     Sprite: {fileID: 21300000, guid: 0b3a2a64696250f4dbbd59508da75568, type: 3}
   - Key: status.poison
     Sprite: {fileID: 21300000, guid: eaa56007797659d4c914702d70cab9e9, type: 3}
+  - Key: status.thorned
+    Sprite: {fileID: 21300000, guid: 704dc4dec463bef4b9d9f7214420bca3, type: 3}
   - Key: enemy.geode_mite
     Sprite: {fileID: 21300000, guid: 93a8f310154650b42baef6af48f89390, type: 3}
   - Key: enemy.frost_oracle
@@ -90,6 +92,12 @@ MonoBehaviour:
   - Key: intent.freeze_hit
     Sprite: {fileID: 21300000, guid: bfe31e1731d291040b2363de2e5d3384, type: 3}
   - Key: intent.claw
+    Sprite: {fileID: 21300000, guid: 704dc4dec463bef4b9d9f7214420bca3, type: 3}
+  - Key: intent.barrier
+    Sprite: {fileID: 21300000, guid: 3fb045dab2fad24478ade2c9c0205d96, type: 3}
+  - Key: intent.jam
+    Sprite: {fileID: 21300000, guid: f5d31dd6d689af24998a736c2d08ddd4, type: 3}
+  - Key: intent.thorns
     Sprite: {fileID: 21300000, guid: 704dc4dec463bef4b9d9f7214420bca3, type: 3}
   - Key: ui.player_health
     Sprite: {fileID: 21300000, guid: cb30631d89e44e04f8b0bdc3983e88f8, type: 3}
@@ -147,6 +155,20 @@ MonoBehaviour:
     Sprite: {fileID: 21300000, guid: 3fb045dab2fad24478ade2c9c0205d96, type: 3}
   - Key: skill.infuse
     Sprite: {fileID: 21300000, guid: fea87270ed1902946ab87c94855b5eaa, type: 3}
+  - Key: skill.transmute
+    Sprite: {fileID: 21300000, guid: 5183de26e3a8f814ea09e364203fd9c9, type: 3}
+  - Key: skill.detonate
+    Sprite: {fileID: 21300000, guid: 2be72cbd36aef834481c1d76353f9cd3, type: 3}
+  - Key: skill.reweave
+    Sprite: {fileID: 21300000, guid: fea87270ed1902946ab87c94855b5eaa, type: 3}
+  - Key: skill.flashfire
+    Sprite: {fileID: 21300000, guid: dbf98c5e327b47343bf53369f31f5e24, type: 3}
+  - Key: skill.galvanic_venom
+    Sprite: {fileID: 21300000, guid: f6f69ca163e9e7a41887b9e788e0fd55, type: 3}
+  - Key: skill.scalding_current
+    Sprite: {fileID: 21300000, guid: 8c27d76a8814cb246aeae55bd0045ab0, type: 3}
+  - Key: skill.toxic_undertow
+    Sprite: {fileID: 21300000, guid: 09b11c044c583894d9cdcb924a4875bf, type: 3}
   - Key: skill.keystone.tempered_core
     Sprite: {fileID: 21300000, guid: cb30631d89e44e04f8b0bdc3983e88f8, type: 3}
   - Key: skill.keystone.prismatic_start

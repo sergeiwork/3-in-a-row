@@ -44,7 +44,9 @@ namespace ThreeInARow.Domain.Combat
     {
         DamagePlayer,
         ApplyBoardStatus,
-        DrainResources
+        DrainResources,
+        GainEnemyBarrier,
+        JamActiveSkill
     }
 
     public sealed class IntentEffectDefinition
@@ -86,6 +88,16 @@ namespace ThreeInARow.Domain.Combat
         {
             return new IntentEffectDefinition(IntentEffectType.DrainResources, 0, "status.none", focus, toxic, 0);
         }
+
+        public static IntentEffectDefinition Barrier(int amount)
+        {
+            return new IntentEffectDefinition(IntentEffectType.GainEnemyBarrier, amount, "status.none", 0, 0, 0);
+        }
+
+        public static IntentEffectDefinition Jam(int turns)
+        {
+            return new IntentEffectDefinition(IntentEffectType.JamActiveSkill, turns, "status.none", 0, 0, 0);
+        }
     }
 
     public sealed class IntentDefinition
@@ -112,6 +124,8 @@ namespace ThreeInARow.Domain.Combat
         public readonly ContentId DominantPressureId;
         public readonly bool IsElite;
         public readonly bool IsBoss;
+        public readonly IReadOnlyList<IntentDefinition> SecondPhaseIntentCycle;
+        public readonly int SecondPhaseHealthPercent;
 
         public EnemyDefinition(
             ContentId id,
@@ -134,6 +148,35 @@ namespace ThreeInARow.Domain.Combat
             IsElite = isElite;
             IsBoss = isBoss;
             IntentCycle = intentCycle;
+            SecondPhaseIntentCycle = new IntentDefinition[0];
+            SecondPhaseHealthPercent = 0;
+        }
+
+        public EnemyDefinition(
+            ContentId id,
+            string displayKey,
+            int maxHealth,
+            int rewardXp,
+            ContentId dominantPressureId,
+            bool isElite,
+            bool isBoss,
+            int secondPhaseHealthPercent,
+            IntentDefinition[] intentCycle,
+            IntentDefinition[] secondPhaseIntentCycle)
+        {
+            if (maxHealth <= 0) throw new ArgumentOutOfRangeException(nameof(maxHealth));
+            if (intentCycle == null || intentCycle.Length == 0) throw new ArgumentException("An enemy needs at least one intent.", nameof(intentCycle));
+            if (secondPhaseIntentCycle == null || secondPhaseIntentCycle.Length == 0) throw new ArgumentException("A phased enemy needs a second intent cycle.", nameof(secondPhaseIntentCycle));
+            Id = id;
+            DisplayKey = displayKey ?? string.Empty;
+            MaxHealth = maxHealth;
+            RewardXp = rewardXp;
+            DominantPressureId = dominantPressureId;
+            IsElite = isElite;
+            IsBoss = isBoss;
+            IntentCycle = intentCycle;
+            SecondPhaseIntentCycle = secondPhaseIntentCycle;
+            SecondPhaseHealthPercent = secondPhaseHealthPercent;
         }
 
         public EnemyDefinition(
@@ -209,13 +252,22 @@ namespace ThreeInARow.Domain.Combat
                 Intent("intent.prism_stalker.bolt_10", "intent.bolt", IntentEffectDefinition.Damage(10)));
 
             var warden = new EnemyDefinition(
-                CombatContentIds.CrystalWarden, "enemy.crystal_warden.name", 128, 1, "pressure.anchor", false, true,
-                Intent("intent.crystal_warden.seal", "intent.seal", IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
-                Intent("intent.crystal_warden.shardstorm_10", "intent.shardstorm", IntentEffectDefinition.Damage(10)),
-                Intent("intent.crystal_warden.freeze_anchor", "intent.freeze_anchor",
-                    IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2),
-                    IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
-                Intent("intent.crystal_warden.shardstorm_12", "intent.shardstorm", IntentEffectDefinition.Damage(12)));
+                CombatContentIds.CrystalWarden, "enemy.crystal_warden.name", 128, 1, "pressure.anchor", false, true, 50,
+                new[]
+                {
+                    Intent("intent.crystal_warden.seal", "intent.seal", IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
+                    Intent("intent.crystal_warden.shardstorm_10", "intent.shardstorm", IntentEffectDefinition.Damage(10)),
+                    Intent("intent.crystal_warden.freeze_anchor", "intent.freeze_anchor",
+                        IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2),
+                        IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
+                    Intent("intent.crystal_warden.shardstorm_12", "intent.shardstorm", IntentEffectDefinition.Damage(12))
+                },
+                new[]
+                {
+                    Intent("intent.crystal_warden.phase2.barrier", "intent.barrier", IntentEffectDefinition.Barrier(18)),
+                    Intent("intent.crystal_warden.phase2.jam", "intent.jam", IntentEffectDefinition.Damage(8), IntentEffectDefinition.Jam(1)),
+                    Intent("intent.crystal_warden.phase2.shardstorm", "intent.shardstorm", IntentEffectDefinition.Damage(13))
+                });
 
             var tick = new EnemyDefinition(
                 CombatContentIds.CrystalTick, "enemy.crystal_tick.name", 56, 1, "pressure.drain",
@@ -252,13 +304,22 @@ namespace ThreeInARow.Domain.Combat
                     IntentEffectDefinition.Damage(6), IntentEffectDefinition.Drain(2, 2)),
                 Intent("intent.stormglass_roc.hit_10", "intent.bolt", IntentEffectDefinition.Damage(10)));
             var engine = new EnemyDefinition(
-                CombatContentIds.FacetEngine, "enemy.facet_engine.name", 132, 1, "pressure.mixed", false, true,
-                Intent("intent.facet_engine.anchor_2", "intent.seal", IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
-                Intent("intent.facet_engine.hit_crack", "intent.crush",
-                    IntentEffectDefinition.Damage(9), IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)),
-                Intent("intent.facet_engine.freeze_drain", "intent.freeze_anchor",
-                    IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2), IntentEffectDefinition.Drain(2, 2)),
-                Intent("intent.facet_engine.hit_13", "intent.shardstorm", IntentEffectDefinition.Damage(13)));
+                CombatContentIds.FacetEngine, "enemy.facet_engine.name", 132, 1, "pressure.mixed", false, true, 50,
+                new[]
+                {
+                    Intent("intent.facet_engine.anchor_2", "intent.seal", IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
+                    Intent("intent.facet_engine.hit_crack", "intent.crush",
+                        IntentEffectDefinition.Damage(9), IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)),
+                    Intent("intent.facet_engine.freeze_drain", "intent.freeze_anchor",
+                        IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2), IntentEffectDefinition.Drain(2, 2)),
+                    Intent("intent.facet_engine.hit_13", "intent.shardstorm", IntentEffectDefinition.Damage(13))
+                },
+                new[]
+                {
+                    Intent("intent.facet_engine.phase2.thorns", "intent.thorns", IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 3)),
+                    Intent("intent.facet_engine.phase2.barrier", "intent.barrier", IntentEffectDefinition.Barrier(16)),
+                    Intent("intent.facet_engine.phase2.overload", "intent.bolt", IntentEffectDefinition.Damage(12))
+                });
 
             _encounters = new List<EncounterDefinition>
             {

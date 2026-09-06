@@ -17,6 +17,7 @@ namespace ThreeInARow.Presentation
             { "special.spore", "Спора" }, { "special.charge", "Заряд" }, { "special.prism", "Призма" },
             { "status.frozen", "Заморозка" }, { "status.cracked", "Трещина" },
             { "status.anchored", "Якорь" }, { "status.poison", "Отравление" },
+            { "status.thorned", "Шипы" },
             { "enemy.geode_mite", "Геодовый клещ" }, { "enemy.frost_oracle", "Ледяной оракул" },
             { "enemy.geode_mite_elite", "Матёрый геодовый клещ" }, { "enemy.prism_stalker", "Призматический охотник" },
             { "enemy.crystal_warden", "Кристальный страж" },
@@ -32,6 +33,11 @@ namespace ThreeInARow.Presentation
             { "skill.concentrate", "Концентрат" }, { "skill.contagion", "Заражение" },
             { "skill.static_guard", "Статический щит" }, { "skill.live_wire", "Живой провод" },
             { "skill.aegis", "Эгида" }, { "skill.infuse", "Насыщение" },
+            { "skill.transmute", "Трансмутация" }, { "skill.detonate", "Детонация" },
+            { "skill.reweave", "Переплетение" }, { "skill.flashfire", "Вспышка" },
+            { "skill.galvanic_venom", "Гальванический яд" },
+            { "skill.scalding_current", "Обжигающий поток" },
+            { "skill.toxic_undertow", "Токсичный отлив" },
             { "skill.keystone.tempered_core", "Закалённое ядро" },
             { "skill.keystone.prismatic_start", "Призматический старт" },
             { "skill.keystone.rapid_casting", "Быстрое сотворение" },
@@ -40,6 +46,7 @@ namespace ThreeInARow.Presentation
             { "event.static_loom", "Статический станок" }, { "event.prism_echo", "Эхо призмы" },
             { "event.frozen_reliquary", "Ледяной реликварий" }, { "event.cracked_cache", "Треснувший тайник" },
             { "event.rest_site", "Привал" },
+            { "event.prismatic_archive", "Призматический архив" },
             { "pressure.crack", "Трещины" }, { "pressure.freeze", "Заморозка" },
             { "pressure.anchor", "Якоря" }, { "pressure.drain", "Истощение" }, { "pressure.mixed", "Смешанное давление" },
             { "intent.chip", "Скол" }, { "intent.crack", "Трещина" }, { "intent.chill", "Холод" },
@@ -47,6 +54,10 @@ namespace ThreeInARow.Presentation
             { "intent.drain", "Истощение" }, { "intent.seal", "Печать" },
             { "intent.shardstorm", "Буря осколков" }, { "intent.freeze_anchor", "Заморозка и якорь" },
             { "intent.bite", "Укус" }, { "intent.freeze_hit", "Морозный удар" }, { "intent.claw", "Клешня" },
+            { "intent.barrier", "Барьер" }, { "intent.jam", "Помеха" }, { "intent.thorns", "Шипы" },
+            { "difficulty.0.standard", "Обычная" }, { "difficulty.1.sharp_edges", "Острые грани" },
+            { "difficulty.2.unstable_grid", "Нестабильная сетка" }, { "difficulty.3.long_road", "Долгий путь" },
+            { "difficulty.4.hostile_pattern", "Враждебный узор" }, { "difficulty.5.perfect_facet", "Идеальная грань" },
             { "intent.geode_mite.chip_5", "Скол" }, { "intent.geode_mite.chip_6", "Скол" },
             { "intent.geode_mite.crack_3", "Трещина" },
             { "intent.frost_oracle.freeze_2", "Заморозка" }, { "intent.frost_oracle.freeze_3", "Заморозка" },
@@ -97,6 +108,7 @@ namespace ThreeInARow.Presentation
             if (id == "status.cracked") return "Треснувшие кристаллы исчезают как обычно, но не дают свой эффект.";
             if (id == "status.anchored") return "Кристаллы с якорем нельзя двигать или менять местами в этот ход, но их можно убрать совпадением.";
             if (id == "status.poison") return "Отравление наносит врагу урон перед его ответом, затем теряет один заряд.";
+            if (id == "status.thorned") return "Уборка шипованного кристалла наносит 2 урона здоровью; не более 6 за одно разрешение поля. Состояние снимается Очищением.";
             return Name(id);
         }
 
@@ -119,6 +131,13 @@ namespace ThreeInARow.Presentation
             if (skill.Id.Value == "skill.catalyze") return "Преобразует до 4 ед. концентрации в урон, а пары токсина — в отравление. Перезарядка: 5 ходов.";
             if (skill.Id.Value == "skill.aegis") return "Даёт 10 щита. Перезарядка: 4 хода.";
             if (skill.Id.Value == "skill.infuse") return "Превращает выбранный обычный кристалл в его особую версию. Перезарядка: 6 ходов.";
+            if (skill.Id.Value == "skill.transmute") return "Меняет цвет одного подвижного обычного кристалла. Перезарядка: 5 ходов.";
+            if (skill.Id.Value == "skill.detonate") return "Активирует выбранный особый кристалл на месте. Перезарядка: 6 ходов.";
+            if (skill.Id.Value == "skill.reweave") return "Пересоздаёт до трёх обычных кристаллов. Перезарядка: 5 ходов.";
+            if (skill.Id.Value == "skill.flashfire") return "Активация Искры сокращает обе экипированные перезарядки на 1.";
+            if (skill.Id.Value == "skill.galvanic_venom") return "Каждое срабатывание отравления даёт 1 ед. прогресса Разряда.";
+            if (skill.Id.Value == "skill.scalding_current") return "Каждое второе преобразование концентрации усиливает следующую группу Пламени на 2 урона за кристалл.";
+            if (skill.Id.Value == "skill.toxic_undertow") return "Преобразование концентрации добавляет 1 токсин, не чаще раза за каскад.";
             if (skill.Id.Value == "skill.keystone.tempered_core") return "Исцеление после победы увеличено с 4 до 7.";
             if (skill.Id.Value == "skill.keystone.prismatic_start") return "В начале каждого боя один подходящий кристалл становится Призмой.";
             if (skill.Id.Value == "skill.keystone.rapid_casting") return "Использованный активный навык начинает перезарядку на 1 ход ниже, минимум 1.";
@@ -148,6 +167,9 @@ namespace ThreeInARow.Presentation
                 return "Используйте перед перестановкой. Навык расходует до 4 ед. концентрации и наносит 3 урона за каждую, затем расходует до 4 ед. токсина парами и даёт 1 заряд отравления за каждую пару. Не тратит ресурс, который не даст эффекта. Перезарядка: 5 ходов.";
             if (skill.Id.Value == "skill.infuse")
                 return "Используйте перед перестановкой. Выберите один обычный кристалл без особого свойства, Заморозки или Якоря: он станет Искрой, Потоком, Спорой или Зарядом своего цвета. Трещина сохраняется. Перезарядка: 6 ходов.";
+            if (skill.Id.Value == "skill.transmute") return "Выберите один подвижный обычный кристалл и новый цвет. Если возникает совпадение, оно разрешается через обычные события поля. Точный предел: одна цель. Перезарядка: 5 ходов.";
+            if (skill.Id.Value == "skill.detonate") return "Выберите Искру, Поток, Спору или Заряд: особый кристалл активируется на месте, поле заполняется и каскады разрешаются как обычно. Перезарядка: 6 ходов.";
+            if (skill.Id.Value == "skill.reweave") return "Выберите от одного до трёх подвижных обычных кристаллов. Их новые цвета берутся из потока BoardSpawn; затем поле гарантированно стабильно и играбельно. Перезарядка: 5 ходов.";
             return SkillDescription(skill);
         }
 
@@ -159,6 +181,7 @@ namespace ThreeInARow.Presentation
             if (eventId.Value == "event.prism_echo") return "Эхо может породить Призму — за цену.";
             if (eventId.Value == "event.frozen_reliquary") return "Внутри заключён новый активный навык и древний холод.";
             if (eventId.Value == "event.cracked_cache") return "Можно забрать улучшение сейчас или подготовить защиту.";
+            if (eventId.Value == "event.prismatic_archive") return "Открытый архив предлагает редкое знание за часть здоровья.";
             return "Выберите способ восстановиться перед продолжением пути.";
         }
 
@@ -179,6 +202,8 @@ namespace ThreeInARow.Presentation
             if (id == "choice.cracked_cache.shield") return "Следующий бой начнётся с 6 щита.";
             if (id == "choice.rest.heal") return "Восстановить 12 здоровья.";
             if (id == "choice.rest.repair") return "Снять все состояния с поля и сократить обе перезарядки на 2.";
+            if (id == "choice.prismatic_archive.study") return "Потерять 6 здоровья; выбрать одно из трёх улучшений.";
+            if (id == "choice.prismatic_archive.leave") return "Восстановить 3 здоровья и уйти.";
             return Name(choiceId);
         }
 
@@ -191,16 +216,20 @@ namespace ThreeInARow.Presentation
             return "Босс";
         }
 
-        public static string IntentDescription(IntentDefinition intent)
+        public static string IntentDescription(IntentDefinition intent, int enemyDirectDamageBonus = 0)
         {
             var parts = new List<string>();
             foreach (var effect in intent.Effects)
             {
-                if (effect.Type == IntentEffectType.DamagePlayer) parts.Add("Нанесёт " + effect.Amount + " урона");
+                if (effect.Type == IntentEffectType.DamagePlayer) parts.Add("Нанесёт " + (effect.Amount + enemyDirectDamageBonus) + " урона");
                 else if (effect.Type == IntentEffectType.ApplyBoardStatus)
                     parts.Add("Наложит «" + Name(effect.StatusId) + "» на " + effect.Amount + " крист.");
                 else if (effect.Type == IntentEffectType.DrainResources)
                     parts.Add("Заберёт до " + effect.FocusAmount + " ед. концентрации и " + effect.ToxicAmount + " ед. токсина");
+                else if (effect.Type == IntentEffectType.GainEnemyBarrier)
+                    parts.Add("Получит " + effect.Amount + " временного барьера");
+                else if (effect.Type == IntentEffectType.JamActiveSkill)
+                    parts.Add("Добавит " + effect.Amount + " ход перезарядки одному активному навыку");
             }
             return string.Join(" · ", parts.ToArray());
         }

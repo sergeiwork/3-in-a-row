@@ -1,6 +1,6 @@
 # Content Expansion and Retention Roadmap
 
-**Status:** R1 and R2 implemented and promoted to [GDD.md](GDD.md); R3–R5 remain proposals  
+**Status:** R1–R4 implemented and promoted to [GDD.md](GDD.md); R5 remains a proposal
 **Depends on:** [GDD.md](GDD.md), especially the deterministic content, command, event, and checkpoint boundaries  
 **Planning principle:** Ship the smallest stage that gives players a new reason to make another run, measure it, and expand only after its retention hypothesis is supported.
 
@@ -384,10 +384,16 @@ Each stage should be implemented in this order:
 
 Do not start the next stage merely because the current one is code-complete. Start it when the current retention hypothesis is either supported or clearly falsified and the next experiment addresses what was learned.
 
-## 12. Locked R1/R2 implementation decisions
+## 12. Locked R1–R4 implementation decisions
 
 - Standard reward thresholds are `1 / 2 / 4`; there is no separate starter draft.
 - The six passives ship as proposed. Static Guard triggers once for one explicit non-turn-tick cooldown-reduction operation, even when both slots change.
 - Infuse targets one normal, non-special cell without Frozen or Anchored. Cracked is allowed and remains on the transformed gem.
 - Selected combat assignments are persisted on map nodes in `MapState`; `SelectedEncounterIds` is the ordered generated assignment ledger used by checkpoints and hashes.
 - Domain schema `6` intentionally rejects older development checkpoints and the existing Russian Resume error explains incompatibility.
+- R3 profile schema `1` is separate from the run checkpoint. Standard runs snapshot profile unlock IDs; weekly runs pin `unlock_policy.all_v0.8`.
+- Hybrid prerequisites use required branch-tag arrays. Advanced actives resolve board changes through `BoardSpawn` and the ordinary clear/special event pipeline.
+- Difficulty tiers are cumulative immutable definitions. Tier 1 requires wins dominated by all four damage branches; tiers 2–5 unlock one at a time after a standard-run win on the preceding highest tier.
+- Weekly challenges use a UTC Monday ID, pinned content `0.8.0`, deterministic FNV-1a seed, difficulty 3, and local-only records.
+- R4 Barrier, Jam, Thorned, and phase state is persisted and hashed. Jam targets are selected and persisted at telegraph time; Thorned damage is 2 per cleared gem and capped at 6 per board-resolution batch.
+- The combined R3/R4 run schema is `8`; schema `7` was reserved and never shipped.

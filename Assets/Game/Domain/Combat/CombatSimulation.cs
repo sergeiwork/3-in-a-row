@@ -6,6 +6,7 @@ using ThreeInARow.Domain.Events;
 using ThreeInARow.Domain.Ids;
 using ThreeInARow.Domain.Progression;
 using ThreeInARow.Domain.Map;
+using ThreeInARow.Domain.Mastery;
 using ThreeInARow.Domain.Random;
 using ThreeInARow.Domain.State;
 
@@ -102,15 +103,28 @@ namespace ThreeInARow.Domain.Combat
                 DefinitionId = encounter.Enemy.Id,
                 Health = encounter.Enemy.MaxHealth,
                 IntentIndex = 0,
-                PoisonStacks = 0
+                PoisonStacks = 0,
+                Barrier = 0,
+                Phase = 0,
+                TelegraphedTargetId = "content.none"
             };
+            state.Player.FocusConversionsThisEncounter = 0;
+            state.Player.EmpoweredEmberClearDamage = 0;
 
             var events = new EventBatch();
             events.Append(MapSimulation.ApplyPendingEncounterModifiers(state));
+            var difficulty = MasteryRules.For(state);
+            if (difficulty.EncounterStartCracked > 0)
+            {
+                ApplyBoardStatus(state, difficulty.Id,
+                    IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, difficulty.EncounterStartCracked), events);
+                events.Append(BoardSimulation.EnsurePlayable(state));
+            }
+            PrepareTelegraph(state, encounter.Enemy.IntentCycle[0]);
             events.Add(
                 SimulationEventType.EnemyIntentTelegraphed,
                 encounter.Enemy.IntentCycle[0].Id,
-                "telegraph=" + encounter.Enemy.IntentCycle[0].TelegraphKey,
+                TelegraphDetail(state, encounter.Enemy, 0, encounter.Enemy.IntentCycle[0]),
                 0,
                 null,
                 null,
@@ -226,25 +240,45 @@ namespace ThreeInARow.Domain.Combat
             EventBatch output,
             int startIndex)
         {
+            var toxicUndertowCascades = new HashSet<int>();
+            var currentCascade = 0;
+            var thornDamage = 0;
             for (var index = startIndex; index < boardEvents.Events.Count; index++)
             {
                 var item = boardEvents.Events[index];
                 output.Add(item);
+                var parsedCascade = ParseCascade(item.Detail);
+                if (parsedCascade > 0) currentCascade = parsedCascade;
                 if (item.Type == SimulationEventType.GemCleared)
-                    ResolveGemClear(state, item, output);
+                    ResolveGemClear(state, item, output, toxicUndertowCascades, currentCascade, ref thornDamage);
                 else if (item.Type == SimulationEventType.SpecialActivated)
-                    ResolveSpecial(state, item.SourceId, output);
+                    ResolveSpecial(state, item.SourceId, output, toxicUndertowCascades, currentCascade);
                 else if (item.Type == SimulationEventType.GemsMatched &&
                          item.SourceId.Equals(BoardContentIds.Venom) && item.Amount >= 4)
                 {
                     var bonus = ProgressionRules.GetModifier(state, PassiveModifierType.LargeVenomMatchToxic);
                     if (bonus > 0) AddToxic(state, bonus, ProgressionContentIds.Contagion, output);
                 }
+                else if (item.Type == SimulationEventType.GemsMatched && item.SourceId.Equals(BoardContentIds.Ember) &&
+                         state.Player.EmpoweredEmberClearDamage > 0)
+                {
+                    var bonus = state.Player.EmpoweredEmberClearDamage;
+                    state.Player.EmpoweredEmberClearDamage = 0;
+                    DamageEnemy(state, ProgressionContentIds.ScaldingCurrent, bonus * item.Amount,
+                        "empowered_ember_match", output);
+                }
             }
         }
 
-        private static void ResolveGemClear(RunState state, SimulationEvent item, EventBatch output)
+        private static void ResolveGemClear(RunState state, SimulationEvent item, EventBatch output,
+            HashSet<int> toxicUndertowCascades, int cascade, ref int thornDamage)
         {
+            if (Contains(item.StatusIds, BoardContentIds.Thorned) && thornDamage < 6)
+            {
+                var applied = Math.Min(2, 6 - thornDamage);
+                thornDamage += applied;
+                DamagePlayer(state, BoardContentIds.Thorned, applied, output);
+            }
             if (Contains(item.StatusIds, BoardContentIds.Cracked)) return;
             if (!IsNoSpecial(item.RelatedId)) return;
 
@@ -252,11 +286,16 @@ namespace ThreeInARow.Domain.Combat
             {
                 var damage = 4 + ProgressionRules.GetModifier(
                     state, PassiveModifierType.EmberClearDamage);
+                if (state.Player.EmpoweredEmberClearDamage > 0)
+                {
+                    damage += state.Player.EmpoweredEmberClearDamage;
+                    state.Player.EmpoweredEmberClearDamage = 0;
+                }
                 DamageEnemy(state, BoardContentIds.Ember, damage, "gem_clear", output);
             }
             else if (item.SourceId.Equals(BoardContentIds.Tide))
             {
-                AddFocus(state, 1, BoardContentIds.Tide, output);
+                AddFocus(state, 1, BoardContentIds.Tide, output, toxicUndertowCascades, cascade);
             }
             else if (item.SourceId.Equals(BoardContentIds.Venom))
             {
@@ -269,7 +308,8 @@ namespace ThreeInARow.Domain.Combat
             }
         }
 
-        private static void ResolveSpecial(RunState state, ContentId specialId, EventBatch output)
+        private static void ResolveSpecial(RunState state, ContentId specialId, EventBatch output,
+            HashSet<int> toxicUndertowCascades, int cascade)
         {
             if (specialId.Equals(BoardContentIds.Spark))
             {
@@ -284,10 +324,12 @@ namespace ThreeInARow.Domain.Combat
                     output.Add(SimulationEventType.ResourceChanged, specialId,
                         "resource=shield;reason=backdraft;current=" + state.Player.Shield, shield);
                 }
+                var flashfire = ProgressionRules.GetModifier(state, PassiveModifierType.SparkAllCooldownReduction);
+                if (flashfire > 0) ReduceAllCooldowns(state, flashfire, "flashfire", output, true);
             }
             else if (specialId.Equals(BoardContentIds.Current))
             {
-                AddFocus(state, 5, specialId, output);
+                AddFocus(state, 5, specialId, output, toxicUndertowCascades, cascade);
             }
             else if (specialId.Equals(BoardContentIds.Spore))
             {
@@ -302,7 +344,8 @@ namespace ThreeInARow.Domain.Combat
             // Prism's effect is represented by the color GemCleared events that follow it.
         }
 
-        private static void AddFocus(RunState state, int amount, ContentId sourceId, EventBatch output)
+        private static void AddFocus(RunState state, int amount, ContentId sourceId, EventBatch output,
+            HashSet<int> toxicUndertowCascades = null, int cascade = 0)
         {
             state.Player.Focus += amount;
             output.Add(SimulationEventType.ResourceChanged, sourceId,
@@ -315,6 +358,19 @@ namespace ThreeInARow.Domain.Combat
                 var damage = BaseFocusDamage + ProgressionRules.GetModifier(
                     state, PassiveModifierType.FocusConversionDamage);
                 DamageEnemy(state, sourceId, damage, "focus_conversion", output);
+                state.Player.FocusConversionsThisEncounter++;
+                var emberEmpower = ProgressionRules.GetModifier(
+                    state, PassiveModifierType.EverySecondFocusEmpowersEmber);
+                if (emberEmpower > 0 && state.Player.FocusConversionsThisEncounter % 2 == 0)
+                    state.Player.EmpoweredEmberClearDamage = emberEmpower;
+                var toxicGain = ProgressionRules.GetModifier(
+                    state, PassiveModifierType.FocusConversionToxicPerCascade);
+                if (toxicGain > 0 && toxicUndertowCascades != null &&
+                    !toxicUndertowCascades.Contains(cascade))
+                {
+                    toxicUndertowCascades.Add(cascade);
+                    AddToxic(state, toxicGain, ProgressionContentIds.ToxicUndertow, output);
+                }
                 var cooldownReduction = ProgressionRules.GetModifier(
                     state, PassiveModifierType.FocusConversionLeftCooldown);
                 if (cooldownReduction > 0)
@@ -357,7 +413,12 @@ namespace ThreeInARow.Domain.Combat
                 var stacks = state.Enemy.PoisonStacks;
                 var damagePerStack = BasePoisonDamagePerStack + ProgressionRules.GetModifier(
                     state, PassiveModifierType.PoisonDamagePerStack);
-                DamageEnemy(state, CombatContentIds.Poison, stacks * damagePerStack, "enemy_response_start", events);
+                events.Add(SimulationEventType.StatusTicked, CombatContentIds.Poison,
+                    "target=enemy;stacks=" + stacks, stacks, null, null, state.Enemy.DefinitionId);
+                DamageEnemy(state, CombatContentIds.Poison, stacks * damagePerStack,
+                    "enemy_response_start;stacks=" + stacks, events);
+                var voltProgress = ProgressionRules.GetModifier(state, PassiveModifierType.PoisonTickVoltProgress);
+                if (voltProgress > 0) AddVoltProgress(state, voltProgress, events);
                 state.Enemy.PoisonStacks = Math.Max(0, stacks - 1);
                 if (state.Enemy.PoisonStacks == 0)
                     events.Add(SimulationEventType.StatusRemoved, CombatContentIds.Poison, "expired", 1);
@@ -369,8 +430,9 @@ namespace ThreeInARow.Domain.Combat
             }
 
             var enemy = catalog.GetEnemy(state.Enemy.DefinitionId);
-            var intentIndex = PositiveModulo(state.Enemy.IntentIndex, enemy.IntentCycle.Count);
-            var intent = enemy.IntentCycle[intentIndex];
+            var cycle = GetIntentCycle(state, enemy);
+            var intentIndex = PositiveModulo(state.Enemy.IntentIndex, cycle.Count);
+            var intent = cycle[intentIndex];
             events.Add(
                 SimulationEventType.EnemyIntentStarted,
                 intent.Id,
@@ -380,28 +442,38 @@ namespace ThreeInARow.Domain.Combat
                 null,
                 enemy.Id);
 
-            foreach (var effect in intent.Effects)
+            var effects = new List<IntentEffectDefinition>(intent.Effects);
+            var difficulty = MasteryRules.For(state);
+            if (enemy.IsElite && intentIndex == cycle.Count - 1)
+                effects.AddRange(difficulty.EliteFinalIntentEffects);
+            foreach (var effect in effects)
             {
                 if (effect.Type == IntentEffectType.DamagePlayer)
-                    DamagePlayer(state, intent.Id, effect.Amount, events);
+                    DamagePlayer(state, intent.Id, effect.Amount + difficulty.EnemyDirectDamageBonus, events);
                 else if (effect.Type == IntentEffectType.ApplyBoardStatus)
                     ApplyBoardStatus(state, intent.Id, effect, events);
                 else if (effect.Type == IntentEffectType.DrainResources)
                     DrainResources(state, intent.Id, effect, events);
+                else if (effect.Type == IntentEffectType.GainEnemyBarrier)
+                    GainEnemyBarrier(state, intent.Id, effect.Amount, events);
+                else if (effect.Type == IntentEffectType.JamActiveSkill)
+                    JamActiveSkill(state, intent.Id, effect.Amount, events);
             }
 
-            state.Enemy.IntentIndex = (intentIndex + 1) % enemy.IntentCycle.Count;
+            state.Enemy.IntentIndex = (intentIndex + 1) % cycle.Count;
             if (state.Player.Health <= 0)
             {
                 events.Add(SimulationEventType.RunEnded, enemy.Id, "defeat", 0);
                 return false;
             }
             events.Append(BoardSimulation.EnsurePlayable(state, boardCatalog));
-            var nextIntent = enemy.IntentCycle[state.Enemy.IntentIndex];
+            cycle = GetIntentCycle(state, enemy);
+            var nextIntent = cycle[state.Enemy.IntentIndex % cycle.Count];
+            PrepareTelegraph(state, nextIntent);
             events.Add(
                 SimulationEventType.EnemyIntentTelegraphed,
                 nextIntent.Id,
-                "telegraph=" + nextIntent.TelegraphKey,
+                TelegraphDetail(state, enemy, state.Enemy.IntentIndex, nextIntent),
                 0,
                 null,
                 null,
@@ -418,6 +490,12 @@ namespace ThreeInARow.Domain.Combat
             DamageEnemy(state, sourceId, amount, "active_skill", output);
         }
 
+        internal static void ApplyBoardMutationEffects(RunState state, EventBatch boardEvents, EventBatch output)
+        {
+            ResolvePlayerEffects(state, boardEvents, output, 0);
+            ConvertFocusOverflowToShield(state, output);
+        }
+
         private static void DamageEnemy(
             RunState state,
             ContentId sourceId,
@@ -426,6 +504,16 @@ namespace ThreeInARow.Domain.Combat
             EventBatch output)
         {
             if (amount <= 0 || state.Enemy.Health <= 0) return;
+            var absorbed = Math.Min(amount, state.Enemy.Barrier);
+            if (absorbed > 0)
+            {
+                state.Enemy.Barrier -= absorbed;
+                output.Add(SimulationEventType.EnemyBarrierChanged, sourceId,
+                    "reason=absorbed;current=" + state.Enemy.Barrier, -absorbed, null, null, state.Enemy.DefinitionId);
+            }
+            amount -= absorbed;
+            if (amount <= 0) return;
+            var beforeHealth = state.Enemy.Health;
             var applied = Math.Min(amount, state.Enemy.Health);
             state.Enemy.Health -= applied;
             output.Add(
@@ -436,6 +524,7 @@ namespace ThreeInARow.Domain.Combat
                 null,
                 null,
                 state.Enemy.DefinitionId);
+            TryEnterBossPhase(state, beforeHealth, output);
         }
 
         private static void DamagePlayer(RunState state, ContentId sourceId, int amount, EventBatch events)
@@ -507,6 +596,37 @@ namespace ThreeInARow.Domain.Combat
                     "resource=toxic;reason=drain;current=" + state.Player.Toxic, -toxic);
         }
 
+        private static void GainEnemyBarrier(RunState state, ContentId intentId, int amount, EventBatch events)
+        {
+            if (amount <= 0) return;
+            state.Enemy.Barrier += amount;
+            events.Add(SimulationEventType.EnemyBarrierChanged, intentId,
+                "reason=intent;current=" + state.Enemy.Barrier, amount, null, null, state.Enemy.DefinitionId);
+        }
+
+        private static void JamActiveSkill(RunState state, ContentId intentId, int amount, EventBatch events)
+        {
+            if (amount <= 0 || state.Player.EquippedActiveSkillIds == null ||
+                state.Player.EquippedActiveSkillIds.Count == 0) return;
+            var targetId = state.Enemy.TelegraphedTargetId;
+            if (!Contains(state.Player.EquippedActiveSkillIds, targetId))
+            {
+                var random = RandomStreams.Restore(RandomStream.IntentVariation, state.RandomStreams);
+                targetId = state.Player.EquippedActiveSkillIds[random.NextInt(state.Player.EquippedActiveSkillIds.Count)];
+                RandomStreams.Store(RandomStream.IntentVariation, random, state.RandomStreams);
+            }
+            var cooldown = ProgressionRules.FindCooldown(state.Player, targetId);
+            if (cooldown == null) return;
+            cooldown.RemainingTurns += amount;
+            if (state.PendingCombatTurn != null && state.PendingCombatTurn.SkillIdsUsed != null &&
+                !Contains(state.PendingCombatTurn.SkillIdsUsed, targetId))
+                state.PendingCombatTurn.SkillIdsUsed.Add(targetId);
+            events.Add(SimulationEventType.ActiveJammed, intentId,
+                "turns=" + amount + ";current=" + cooldown.RemainingTurns, amount, null, null, targetId);
+            events.Add(SimulationEventType.CooldownChanged, targetId,
+                "reason=jammed;current=" + cooldown.RemainingTurns, amount, null, null, intentId);
+        }
+
         internal static void AddEnemyPoison(
             RunState state,
             ContentId sourceId,
@@ -545,7 +665,8 @@ namespace ThreeInARow.Domain.Combat
             ProgressionSimulation.GrantExperience(state, enemy.RewardXp, enemy.Id, events);
             if (enemy.IsElite)
                 ProgressionSimulation.QueueEliteReward(state, enemy.Id, events);
-            var victoryHeal = 4 + ProgressionRules.GetModifier(state, PassiveModifierType.VictoryHeal);
+            var victoryHeal = MasteryRules.For(state).BaseVictoryHealing +
+                ProgressionRules.GetModifier(state, PassiveModifierType.VictoryHeal);
             var restored = Math.Min(victoryHeal, PlayerState.MaxHealth - state.Player.Health);
             state.Player.Health += restored;
             if (restored > 0)
@@ -698,6 +819,74 @@ namespace ThreeInARow.Domain.Combat
                 state.PendingCombatTurn.SkillIdsUsed = new List<ContentId>();
             else
                 state.PendingCombatTurn.SkillIdsUsed.Clear();
+        }
+
+        private static IReadOnlyList<IntentDefinition> GetIntentCycle(RunState state, EnemyDefinition enemy)
+        {
+            if (state.Enemy.Phase > 0 && enemy.SecondPhaseIntentCycle != null && enemy.SecondPhaseIntentCycle.Count > 0)
+                return enemy.SecondPhaseIntentCycle;
+            return enemy.IntentCycle;
+        }
+
+        private static void TryEnterBossPhase(RunState state, int beforeHealth, EventBatch events)
+        {
+            if (state.Enemy.Phase > 0 || !MasteryRules.For(state).EnableBossSecondPhase || state.Enemy.Health <= 0) return;
+            EnemyDefinition enemy;
+            try { enemy = MvpCombatContentCatalog.Instance.GetEnemy(state.Enemy.DefinitionId); }
+            catch (KeyNotFoundException) { return; }
+            if (!enemy.IsBoss || enemy.SecondPhaseIntentCycle == null || enemy.SecondPhaseIntentCycle.Count == 0) return;
+            var threshold = enemy.MaxHealth * enemy.SecondPhaseHealthPercent / 100;
+            if (beforeHealth <= threshold || state.Enemy.Health > threshold) return;
+            state.Enemy.Phase = 1;
+            state.Enemy.IntentIndex = 0;
+            var next = enemy.SecondPhaseIntentCycle[0];
+            PrepareTelegraph(state, next);
+            events.Add(SimulationEventType.BossPhaseChanged, enemy.Id,
+                "phase=2;thresholdPercent=" + enemy.SecondPhaseHealthPercent, 2);
+            events.Add(SimulationEventType.EnemyIntentTelegraphed, next.Id,
+                TelegraphDetail(state, enemy, 0, next), 0, null, null, enemy.Id);
+        }
+
+        private static string TelegraphDetail(RunState state, EnemyDefinition enemy, int intentIndex,
+            IntentDefinition intent)
+        {
+            var detail = "telegraph=" + intent.TelegraphKey + ";phase=" + (state.Enemy.Phase + 1);
+            foreach (var effect in intent.Effects)
+                if (effect.Type == IntentEffectType.JamActiveSkill)
+                    detail += ";jamTarget=" + state.Enemy.TelegraphedTargetId + ";jamTurns=" + effect.Amount;
+            var cycle = GetIntentCycle(state, enemy);
+            if (enemy.IsElite && intentIndex == cycle.Count - 1 &&
+                MasteryRules.For(state).EliteFinalIntentEffects.Count > 0)
+                detail += ";difficultyExtraEffects=" + MasteryRules.For(state).EliteFinalIntentEffects.Count;
+            return detail;
+        }
+
+        private static void PrepareTelegraph(RunState state, IntentDefinition intent)
+        {
+            state.Enemy.TelegraphedTargetId = "content.none";
+            if (state.Player.EquippedActiveSkillIds == null || state.Player.EquippedActiveSkillIds.Count == 0) return;
+            foreach (var effect in intent.Effects)
+            {
+                if (effect.Type != IntentEffectType.JamActiveSkill) continue;
+                var random = RandomStreams.Restore(RandomStream.IntentVariation, state.RandomStreams);
+                state.Enemy.TelegraphedTargetId =
+                    state.Player.EquippedActiveSkillIds[random.NextInt(state.Player.EquippedActiveSkillIds.Count)];
+                RandomStreams.Store(RandomStream.IntentVariation, random, state.RandomStreams);
+                return;
+            }
+        }
+
+        private static int ParseCascade(string detail)
+        {
+            if (string.IsNullOrEmpty(detail)) return 0;
+            const string marker = "cascade=";
+            var start = detail.IndexOf(marker, StringComparison.Ordinal);
+            if (start < 0) return 0;
+            start += marker.Length;
+            var end = detail.IndexOf(';', start);
+            var value = end < 0 ? detail.Substring(start) : detail.Substring(start, end - start);
+            int parsed;
+            return int.TryParse(value, out parsed) ? parsed : 0;
         }
 
         private static bool IsNoSpecial(ContentId specialId)

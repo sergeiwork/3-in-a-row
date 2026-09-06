@@ -64,6 +64,7 @@ Paths below are relative to `Assets/Game/Presentation/Art/E0`.
 | `status.cracked` | `Icons/GameIconsLorc/cracked-glass.png` | Independent board overlay and tooltip icon |
 | `status.anchored` | `Icons/GameIconsLorc/anchor.png` | Independent board overlay and tooltip icon; duration is live text |
 | `status.poison` | `Icons/GameIconsLorc/poison-gas.png` | Enemy status icon; stack count is live text |
+| `status.thorned` | `Icons/GameIconsLorc/shattered-sword.png` | R4 board overlay and tooltip icon; per-clear damage and cap are live text |
 
 Status images remain separate UI layers so a gem can display multiple statuses without a combinatorial sprite set.
 
@@ -102,6 +103,9 @@ Intent damage/status amounts are live text. Composite intents display multiple i
 | `intent.freeze_anchor` | `Icons/GameIconsLorc/snowflake-1.png` + `anchor.png` |
 | `intent.bite`, `intent.claw` | `Icons/GameIconsLorc/shattered-sword.png` |
 | `intent.freeze_hit` | `Icons/GameIconsLorc/snowflake-1.png` |
+| `intent.barrier` | `Icons/GameIconsLorc/bordered-shield.png` |
+| `intent.jam` | `Icons/GameIconsLorc/magic-palm.png` |
+| `intent.thorns` | `Icons/GameIconsLorc/shattered-sword.png` |
 
 ### HUD and progression
 
@@ -131,6 +135,13 @@ Intent damage/status amounts are live text. Composite intents display multiple i
 | `skill.live_wire` | `Icons/GameIconsLorc/power-lightning.png` |
 | `skill.aegis` | `Icons/GameIconsLorc/bordered-shield.png` |
 | `skill.infuse` | `Icons/GameIconsLorc/crystal-shine.png` |
+| `skill.transmute` | `Icons/GameIconsLorc/magic-swirl.png` |
+| `skill.detonate` | `Icons/GameIconsLorc/circle-sparks.png` |
+| `skill.reweave` | `Icons/GameIconsLorc/crystal-shine.png` |
+| `skill.flashfire` | `Icons/GameIconsLorc/small-fire.png` |
+| `skill.galvanic_venom` | `Icons/GameIconsLorc/power-lightning.png` |
+| `skill.scalding_current` | `Icons/GameIconsLorc/wave-strike.png` |
+| `skill.toxic_undertow` | `Icons/GameIconsLorc/poison-bottle.png` |
 | `skill.keystone.tempered_core` | `Icons/GameIconsLorc/glass-heart.png` |
 | `skill.keystone.prismatic_start` | `Icons/GameIconsLorc/crystal-shine.png` |
 | `skill.keystone.rapid_casting` | `Icons/GameIconsLorc/magic-swirl.png` |

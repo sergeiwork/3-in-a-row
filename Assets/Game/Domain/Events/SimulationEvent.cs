@@ -34,7 +34,12 @@ namespace ThreeInARow.Domain.Events
         MapNodeSelected,
         MapNodeCompleted,
         EventChoiceSelected,
-        PendingModifierAdded
+        PendingModifierAdded,
+        GemTransmuted,
+        EnemyBarrierChanged,
+        ActiveJammed,
+        BossPhaseChanged,
+        StatusTicked
     }
 
     [Serializable]

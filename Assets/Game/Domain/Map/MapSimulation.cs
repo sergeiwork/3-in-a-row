@@ -6,6 +6,7 @@ using ThreeInARow.Domain.Commands;
 using ThreeInARow.Domain.Events;
 using ThreeInARow.Domain.Ids;
 using ThreeInARow.Domain.Progression;
+using ThreeInARow.Domain.Mastery;
 using ThreeInARow.Domain.Random;
 using ThreeInARow.Domain.State;
 
@@ -75,15 +76,18 @@ namespace ThreeInARow.Domain.Map
             var mapRandom = RandomStreams.Restore(RandomStream.MapGeneration, state.RandomStreams);
             var encounterRandom = RandomStreams.Restore(RandomStream.EncounterSelection, state.RandomStreams);
             var map = new MapState();
-            map.BossEnemyId = mapRandom.NextInt(2) == 0
-                ? CombatContentIds.CrystalWarden
-                : CombatContentIds.FacetEngine;
+            map.BossEnemyId = MasteryRules.HasAvailableContent(state, CombatContentIds.FacetEngine) &&
+                              mapRandom.NextInt(2) != 0
+                ? CombatContentIds.FacetEngine
+                : CombatContentIds.CrystalWarden;
 
             var eventsPool = new List<ContentId>
             {
                 MapContentIds.FacetedAltar, MapContentIds.QuietPool, MapContentIds.StaticLoom,
                 MapContentIds.PrismEcho, MapContentIds.FrozenReliquary, MapContentIds.CrackedCache
             };
+            if (MasteryRules.HasAvailableContent(state, MapContentIds.PrismaticArchive))
+                eventsPool.Add(MapContentIds.PrismaticArchive);
             var usedEnemies = new List<ContentId>();
             var usedPressures = new List<ContentId>();
             state.SelectedEncounterIds = new List<ContentId>();

@@ -8,6 +8,8 @@ using ThreeInARow.Domain.Events;
 using ThreeInARow.Domain.Ids;
 using ThreeInARow.Domain.Progression;
 using ThreeInARow.Domain.Map;
+using ThreeInARow.Domain.Mastery;
+using ThreeInARow.Domain.Meta;
 using ThreeInARow.Domain.State;
 using ThreeInARow.Infrastructure;
 using UnityEngine;
@@ -63,6 +65,7 @@ namespace ThreeInARow.Presentation
         private bool _musicEnabled;
         private ContentId? _targetingSkill;
         private readonly List<GridCell> _skillTargets = new List<GridCell>();
+        private ContentId _skillOption = "content.none";
 
         private void Awake()
         {
@@ -72,7 +75,7 @@ namespace ThreeInARow.Presentation
             _soundEnabled = PlayerPrefs.GetInt(SoundEnabledKey, 1) != 0;
             _musicEnabled = PlayerPrefs.GetInt(MusicEnabledKey, 1) != 0;
             _catalog = Resources.Load<PresentationCatalog>("E0PresentationCatalog");
-            _director = new RunDirector(new JsonCheckpointStore());
+            _director = new RunDirector(new JsonCheckpointStore(), new JsonProfileStore());
             if (FindAnyObjectByType<AudioListener>() == null)
                 gameObject.AddComponent<AudioListener>();
             for (var index = 0; index < SfxVoiceCount; index++)
@@ -164,6 +167,7 @@ namespace ThreeInARow.Presentation
         {
             _targetingSkill = null;
             _skillTargets.Clear();
+            _skillOption = "content.none";
             switch (_director.Screen)
             {
                 case RunScreen.Title: BuildTitle(); break;
@@ -210,11 +214,17 @@ namespace ThreeInARow.Presentation
                 resume.tooltip = "Продолжить с последней сохранённой контрольной точки.";
                 menu.Add(resume);
             }
+            menu.Add(ActionButton("КОДЕКС И ЦЕЛИ", BuildCodex, false));
             menu.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildTitle), false));
             menu.Add(ActionButton("НАСТРОЙКИ И АВТОРЫ", BuildSettings, false));
             _safeArea.Add(menu);
 
-            var version = LabelText("Контент R1–R2 · v0.6", 18, Muted, TextAnchor.MiddleCenter);
+            var profile = _director.Profile;
+            var progress = LabelText("Побед: " + profile.Aggregate.RunsWon + " · открыто целей: " +
+                profile.CompletedChallengeIds.Count + " · сложность: " + profile.BestDifficultyUnlocked, 18, Muted, TextAnchor.MiddleCenter);
+            progress.style.marginTop = 24;
+            _safeArea.Add(progress);
+            var version = LabelText("Контент R1–R4 · v0.8", 18, Muted, TextAnchor.MiddleCenter);
             version.style.marginTop = 36;
             _safeArea.Add(version);
         }
@@ -303,6 +313,11 @@ namespace ThreeInARow.Presentation
             scroll.Add(HelpRow("status.cracked", "ТРЕЩИНА", PresentationText.StatusDescription("status.cracked")));
             scroll.Add(HelpRow("status.anchored", "ЯКОРЬ", PresentationText.StatusDescription("status.anchored")));
             scroll.Add(HelpRow("status.poison", "ОТРАВЛЕНИЕ", PresentationText.StatusDescription("status.poison")));
+            scroll.Add(HelpRow("status.thorned", "ШИПЫ", PresentationText.StatusDescription("status.thorned")));
+
+            scroll.Add(SectionHeading("СЛОЖНОСТЬ И ИСПЫТАНИЯ"));
+            scroll.Add(Paragraph("Уровни складываются: 1 — прямой урон врагов +1; 2 — бой начинается с двух Трещин; 3 — лечение после победы снижено до 2; 4 — финальное намерение элиты получает дополнительный эффект; 5 — боссы переходят во вторую фазу при 50% здоровья."));
+            scroll.Add(Paragraph("Недельное испытание закрепляет версию контента, карту, сложность и полный набор открытий. Локальный рекорд сравнивает число ходов, затем оставшееся здоровье."));
 
             _safeArea.Add(scroll);
             _safeArea.Add(ActionButton("НАЗАД", back, false));
@@ -310,10 +325,64 @@ namespace ThreeInARow.Presentation
 
         private void StartRun()
         {
+            ShowModal("ВЫБЕРИТЕ РЕЖИМ", "Каждый уровень сложности добавляет правило к предыдущим.", modal =>
+            {
+                for (var tier = 0; tier <= _director.Profile.BestDifficultyUnlocked; tier++)
+                {
+                    var captured = tier;
+                    var definition = MasteryContentCatalog.Instance.Get(tier);
+                    modal.Add(ActionButton("СЛОЖНОСТЬ " + tier + " · " + PresentationText.Name(definition.Id).ToUpperInvariant(),
+                        () => StartStandardRun(captured), tier == _director.Profile.BestDifficultyUnlocked));
+                }
+                var weekly = WeeklyChallenge.ForUtcDate(DateTime.UtcNow);
+                modal.Add(ActionButton("НЕДЕЛЬНОЕ ИСПЫТАНИЕ · " + weekly.WeekStartUtc,
+                    () => StartWeeklyRun(weekly), false));
+            });
+        }
+
+        private void StartStandardRun(int difficultyTier)
+        {
             var ticks = DateTime.UtcNow.Ticks;
             var seed = unchecked((ulong)ticks ^ ((ulong)Environment.TickCount << 32));
-            var result = _director.StartNewRun(seed == 0 ? 1UL : seed);
+            var result = _director.StartNewRun(seed == 0 ? 1UL : seed, difficultyTier);
             PlayBatch(result.Events, BuildForCurrentScreen);
+        }
+
+        private void StartWeeklyRun(WeeklyChallengeDefinition weekly)
+        {
+            var result = _director.StartWeeklyChallenge(weekly);
+            if (!result.Accepted)
+            {
+                BuildTitle();
+                ShowModal("ИСПЫТАНИЕ НЕДОСТУПНО", "Версия локального контента не совпадает с закреплённой версией испытания.");
+                return;
+            }
+            PlayBatch(result.Events, BuildForCurrentScreen);
+        }
+
+        private void BuildCodex()
+        {
+            BeginScreen();
+            _safeArea.Add(Title("КОДЕКС И ЦЕЛИ", 42, Gold));
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.flexGrow = 1;
+            scroll.Add(SectionHeading("СЛЕДУЮЩИЕ ЦЕЛИ"));
+            foreach (var goal in ProfileProgression.SuggestedGoals(_director.Profile))
+                scroll.Add(Paragraph(goal.CategoryText + ": " + goal.GoalText));
+            scroll.Add(SectionHeading("ОТКРЫТЫЕ ЗАПИСИ"));
+            if (_director.Profile.CodexEntries.Count == 0) scroll.Add(Paragraph("Пока записей нет."));
+            foreach (var entry in _director.Profile.CodexEntries)
+                scroll.Add(StatLine(entry.Category + " · " +
+                    (entry.Category == CodexCategory.Intent ? PresentationText.Name(entry.ParentContentId) + " / " : string.Empty) +
+                    PresentationText.Name(entry.ContentId), entry.SeenCount.ToString()));
+            scroll.Add(SectionHeading("РЕКОРДЫ"));
+            if (_director.Profile.Records.Count == 0) scroll.Add(Paragraph("Первая победа создаст запись."));
+            foreach (var record in _director.Profile.Records)
+                scroll.Add(Paragraph(PresentationText.Name(record.BossId) + " · сложность " + record.DifficultyTier +
+                    " · побед " + record.Wins + " · ходов " + record.FastestValidTurnCount +
+                    " · здоровье " + record.BestRemainingHealth + " · каскад " + record.LargestCascade));
+            _safeArea.Add(scroll);
+            _safeArea.Add(ActionButton("НАЗАД", BuildTitle, false));
         }
 
         private void ResumeRun()
@@ -337,6 +406,8 @@ namespace ThreeInARow.Presentation
             top.Add(SmallButton("?", () => BuildHelp(BuildForCurrentScreen)));
             _safeArea.Add(top);
             var mapHint = LabelText("Маршрут к цели: " + PresentationText.Name(state.Map.BossEnemyId) +
+                " · сложность " + state.DifficultyTier +
+                (state.IsChallengeRun ? " · недельное испытание" : string.Empty) +
                 " · выберите доступный путь", 20, Muted, TextAnchor.MiddleCenter);
             mapHint.style.whiteSpace = WhiteSpace.Normal;
             mapHint.style.marginBottom = 6;
@@ -595,12 +666,20 @@ namespace ThreeInARow.Presentation
             enemyInfo.Add(Title(PresentationText.Name(enemy.Id), 31, TextColor));
             enemyInfo.Add(Bar("ЗДОРОВЬЕ " + state.Enemy.Health + " / " + enemy.MaxHealth,
                 enemy.MaxHealth <= 0 ? 0 : (float)state.Enemy.Health / enemy.MaxHealth, Danger));
+            if (state.Enemy.Barrier > 0)
+                enemyInfo.Add(InlineIconLabel("ui.shield", "Барьер врага: " + state.Enemy.Barrier,
+                    "Временное здоровье поглощает урон раньше здоровья врага."));
+            if (state.Enemy.Phase > 0)
+                enemyInfo.Add(LabelText("ФАЗА 2", 16, Gold));
             if (state.Enemy.PoisonStacks > 0)
                 enemyInfo.Add(InlineIconLabel("status.poison", "Отравление: " + state.Enemy.PoisonStacks, PresentationText.StatusDescription("status.poison")));
             enemyPanel.Add(enemyInfo);
             _safeArea.Add(enemyPanel);
 
-            var intent = enemy.IntentCycle[PositiveModulo(state.Enemy.IntentIndex, enemy.IntentCycle.Count)];
+            var intentCycle = state.Enemy.Phase > 0 && enemy.SecondPhaseIntentCycle.Count > 0
+                ? enemy.SecondPhaseIntentCycle
+                : enemy.IntentCycle;
+            var intent = intentCycle[PositiveModulo(state.Enemy.IntentIndex, intentCycle.Count)];
             var intentPanel = Row();
             intentPanel.style.backgroundColor = Hex("#372F4F");
             intentPanel.style.paddingLeft = 12;
@@ -612,7 +691,16 @@ namespace ThreeInARow.Presentation
             intentPanel.style.alignItems = Align.Center;
             foreach (var intentIcon in IntentAssetKeys(intent.TelegraphKey))
                 intentPanel.Add(Icon(intentIcon, 54));
-            var intentText = LabelText("ДАЛЕЕ: " + PresentationText.Name(intent.TelegraphKey) + "\n" + PresentationText.IntentDescription(intent), 19, TextColor);
+            var intentDescription = PresentationText.IntentDescription(intent,
+                MasteryContentCatalog.Instance.Get(state.DifficultyTier).EnemyDirectDamageBonus);
+            foreach (var effect in intent.Effects)
+                if (effect.Type == IntentEffectType.JamActiveSkill)
+                    intentDescription += " · Цель: " + PresentationText.Name(state.Enemy.TelegraphedTargetId) +
+                                         ", +" + effect.Amount + " ход перезарядки";
+            if (enemy.IsElite && state.DifficultyTier >= 4 &&
+                state.Enemy.IntentIndex == intentCycle.Count - 1)
+                intentDescription += " · Дополнительно наложит Шипы на 1 кристалл";
+            var intentText = LabelText("ДАЛЕЕ: " + PresentationText.Name(intent.TelegraphKey) + "\n" + intentDescription, 19, TextColor);
             intentText.style.flexGrow = 1;
             intentText.style.marginLeft = 10;
             intentPanel.Add(intentText);
@@ -840,7 +928,8 @@ namespace ThreeInARow.Presentation
             if (_targetingSkill.HasValue)
             {
                 var targetDefinition = MvpProgressionContentCatalog.Instance.GetSkill(_targetingSkill.Value);
-                if (targetDefinition.TargetPolicy == SkillTargetPolicy.OneNormalGem)
+                if (targetDefinition.TargetPolicy == SkillTargetPolicy.OneNormalGem ||
+                    targetDefinition.TargetPolicy == SkillTargetPolicy.OneNormalGemAndColor)
                 {
                     var valid = MvpBoardContentCatalog.Instance.IsNormalGem(gem.GemId) &&
                                 gem.SpecialId.Equals(BoardContentIds.NoSpecial) &&
@@ -854,12 +943,46 @@ namespace ThreeInARow.Presentation
                     _skillTargets.Clear();
                     _skillTargets.Add(cell);
                     RefreshCellSelections();
-                    SetMessage("Цель выбрана. Подтвердите Насыщение.", Gold);
+                    SetMessage("Цель выбрана. Подтвердите навык.", Gold);
+                    return;
+                }
+                if (targetDefinition.TargetPolicy == SkillTargetPolicy.OneMatchFourSpecial)
+                {
+                    var valid = IsMatchFourSpecial(gem.SpecialId) &&
+                                !Contains(gem.StatusIds, BoardContentIds.Anchored) &&
+                                !Contains(gem.StatusIds, BoardContentIds.Frozen);
+                    if (!valid)
+                    {
+                        SetMessage("Выберите подвижную Искру, Поток, Спору или Заряд.", Danger);
+                        return;
+                    }
+                    _skillTargets.Clear();
+                    _skillTargets.Add(cell);
+                    RefreshCellSelections();
+                    SetMessage("Особый кристалл выбран. Подтвердите Детонацию.", Gold);
+                    return;
+                }
+                if (targetDefinition.TargetPolicy == SkillTargetPolicy.UpToThreeNormalGems)
+                {
+                    var valid = MvpBoardContentCatalog.Instance.IsNormalGem(gem.GemId) &&
+                                gem.SpecialId.Equals(BoardContentIds.NoSpecial) &&
+                                !Contains(gem.StatusIds, BoardContentIds.Anchored) &&
+                                !Contains(gem.StatusIds, BoardContentIds.Frozen);
+                    if (!valid)
+                    {
+                        SetMessage("Выберите подвижный обычный кристалл.", Danger);
+                        return;
+                    }
+                    var selectedIndex = _skillTargets.FindIndex(value => value.Equals(cell));
+                    if (selectedIndex >= 0) _skillTargets.RemoveAt(selectedIndex);
+                    else if (_skillTargets.Count < 3) _skillTargets.Add(cell);
+                    else SetMessage("Переплетение действует максимум на три кристалла.", Danger);
+                    RefreshCellSelections();
                     return;
                 }
                 if (gem.StatusIds == null || gem.StatusIds.Count == 0)
                 {
-                    SetMessage("Выберите кристалл с заморозкой, трещиной или якорем.", Danger);
+                    SetMessage("Выберите кристалл с заморозкой, трещиной, якорем или шипами.", Danger);
                     return;
                 }
                 var index = _skillTargets.FindIndex(value => value.Equals(cell));
@@ -989,6 +1112,16 @@ namespace ThreeInARow.Presentation
                 ShowInfuseTargeting(definition);
                 return;
             }
+            if (definition.TargetPolicy == SkillTargetPolicy.OneNormalGemAndColor ||
+                definition.TargetPolicy == SkillTargetPolicy.OneMatchFourSpecial ||
+                definition.TargetPolicy == SkillTargetPolicy.UpToThreeNormalGems)
+            {
+                _targetingSkill = definition.Id;
+                _skillTargets.Clear();
+                _skillOption = "content.none";
+                ShowMutationTargeting(definition);
+                return;
+            }
             ExecuteSkill(definition.Id, null);
         }
 
@@ -1011,6 +1144,8 @@ namespace ThreeInARow.Presentation
 
                 if (skill.HasPrerequisite)
                     modal.Add(LabelText("Требуется: " + PresentationText.Name(skill.PrerequisiteId), 17, Success));
+                if (skill.RequiredBranchTags != null && skill.RequiredBranchTags.Count > 0)
+                    modal.Add(LabelText("Требуются ветви: " + string.Join(" + ", new List<string>(skill.RequiredBranchTags).ToArray()), 17, Success));
 
                 if (skill.SlotType == SkillSlotType.Active && _director.State != null)
                 {
@@ -1096,10 +1231,63 @@ namespace ThreeInARow.Presentation
             _safeArea.Add(controls);
         }
 
+        private void ShowMutationTargeting(SkillDefinition definition)
+        {
+            var transmute = definition.TargetPolicy == SkillTargetPolicy.OneNormalGemAndColor;
+            var detonate = definition.TargetPolicy == SkillTargetPolicy.OneMatchFourSpecial;
+            SetMessage(transmute ? "Выберите один обычный кристалл и новый цвет."
+                : detonate ? "Выберите одну Искру, Поток, Спору или Заряд."
+                : "Выберите от одного до трёх обычных кристаллов.", Gold);
+            if (transmute)
+            {
+                var colors = Row();
+                foreach (var colorId in MvpBoardContentCatalog.Instance.SpawnableGemIds)
+                {
+                    var captured = colorId;
+                    var button = SmallButton(PresentationText.Name(colorId), () =>
+                    {
+                        _skillOption = captured;
+                        SetMessage("Новый цвет: " + PresentationText.Name(captured) + ". Выберите цель и подтвердите.", Gold);
+                    });
+                    button.style.flexGrow = 1;
+                    colors.Add(button);
+                }
+                _safeArea.Add(colors);
+            }
+            var controls = Row();
+            var confirm = ActionButton("ПОДТВЕРДИТЬ", () =>
+            {
+                if (_skillTargets.Count < 1 || (detonate && _skillTargets.Count != 1) ||
+                    (transmute && (_skillOption.Value == null || _skillOption.Value == "content.none")))
+                {
+                    SetMessage("Выберите подходящую цель" + (transmute ? " и новый цвет." : "."), Danger);
+                    return;
+                }
+                ExecuteSkill(definition.Id, _skillTargets, _skillOption);
+            }, true);
+            confirm.style.flexGrow = 1;
+            var cancel = ActionButton("ОТМЕНА", () =>
+            {
+                _targetingSkill = null;
+                _skillTargets.Clear();
+                _skillOption = "content.none";
+                BuildEncounter();
+            }, false);
+            cancel.style.flexGrow = 1;
+            controls.Add(confirm);
+            controls.Add(cancel);
+            _safeArea.Add(controls);
+        }
+
         private void ExecuteSkill(ContentId skillId, IEnumerable<GridCell> targets)
         {
+            ExecuteSkill(skillId, targets, "content.none");
+        }
+
+        private void ExecuteSkill(ContentId skillId, IEnumerable<GridCell> targets, ContentId optionId)
+        {
             _inputLocked = true;
-            var result = _director.UseSkill(skillId, targets);
+            var result = _director.UseSkill(skillId, targets, optionId);
             if (!result.Accepted)
             {
                 _inputLocked = false;
@@ -1278,6 +1466,9 @@ namespace ThreeInARow.Presentation
             summary.Add(StatLine("Общий урон", statistics.TotalDamage.ToString()));
             summary.Add(StatLine("Завершено ходов", _director.State.ResolvedTurnCount.ToString()));
             summary.Add(StatLine("Посещено узлов", statistics.RouteNodeIds == null ? "0" : statistics.RouteNodeIds.Count.ToString()));
+            summary.Add(StatLine("Сложность", _director.State.DifficultyTier.ToString()));
+            if (_director.State.IsChallengeRun)
+                summary.Add(StatLine("Испытание", _director.State.ChallengeId.Value));
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             summary.Add(StatLine("Отладочное зерно", _director.State.Seed.ToString()));
 #endif
@@ -1294,6 +1485,17 @@ namespace ThreeInARow.Presentation
                 upgrades.Add(PresentationText.Name(id));
             }
             _safeArea.Add(Paragraph(upgrades.Count == 0 ? "Нет" : string.Join(" · ", upgrades.ToArray())));
+
+            if (_director.LastProfileUpdate != null && _director.LastProfileUpdate.UnlockedContent.Count > 0)
+            {
+                _safeArea.Add(SectionHeading("ОТКРЫТО"));
+                var unlocked = new List<string>();
+                foreach (var id in _director.LastProfileUpdate.UnlockedContent) unlocked.Add(PresentationText.Name(id));
+                _safeArea.Add(Paragraph(string.Join(" · ", unlocked.ToArray())));
+            }
+            _safeArea.Add(SectionHeading("СЛЕДУЮЩИЕ ЦЕЛИ"));
+            foreach (var goal in ProfileProgression.SuggestedGoals(_director.Profile))
+                _safeArea.Add(Paragraph(goal.CategoryText + ": " + goal.GoalText));
 
             var spacer = new VisualElement();
             spacer.style.flexGrow = 1;
@@ -1815,6 +2017,16 @@ namespace ThreeInARow.Presentation
                 SetMessage("Состояние «" + PresentationText.Name(item.SourceId) + "» снято.", Success);
             else if (item.Type == SimulationEventType.BoardReshuffled)
                 SetMessage("Не осталось возможных ходов — поле перемешано.", Gold);
+            else if (item.Type == SimulationEventType.GemTransmuted)
+                SetMessage("Кристалл изменён: «" + PresentationText.Name(item.SourceId) + "».", Cyan);
+            else if (item.Type == SimulationEventType.EnemyBarrierChanged)
+                SetMessage(item.Amount > 0 ? "Враг получает барьер: " + item.Amount + "." : "Барьер врага поглощает урон.", Gold);
+            else if (item.Type == SimulationEventType.ActiveJammed)
+                SetMessage("Помеха увеличивает перезарядку «" + PresentationText.Name(item.RelatedId) + "».", Danger);
+            else if (item.Type == SimulationEventType.BossPhaseChanged)
+                SetMessage("Босс переходит во вторую фазу!", Danger);
+            else if (item.Type == SimulationEventType.StatusTicked)
+                SetMessage("Отравление срабатывает: " + item.Amount + " зар.", Success);
 
             var feedbackKey = item.Type == SimulationEventType.GemCleared ? "feedback.clear"
                 : item.Type == SimulationEventType.SpecialCreated || item.Type == SimulationEventType.SpecialActivated
@@ -2062,14 +2274,18 @@ namespace ThreeInARow.Presentation
             var modal = Card();
             modal.style.width = Length.Percent(88);
             modal.style.maxWidth = 720;
+            modal.style.maxHeight = Length.Percent(92);
             modal.style.paddingLeft = 28;
             modal.style.paddingRight = 28;
             modal.style.paddingTop = 24;
             modal.style.paddingBottom = 24;
-            modal.Add(Title(heading, 36, Gold));
-            if (!string.IsNullOrEmpty(body)) modal.Add(Paragraph(body));
-            addContent?.Invoke(modal);
-            modal.Add(ActionButton("ЗАКРЫТЬ", () => shade.RemoveFromHierarchy(), false));
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.Add(Title(heading, 36, Gold));
+            if (!string.IsNullOrEmpty(body)) scroll.Add(Paragraph(body));
+            addContent?.Invoke(scroll);
+            scroll.Add(ActionButton("ЗАКРЫТЬ", () => shade.RemoveFromHierarchy(), false));
+            modal.Add(scroll);
             shade.Add(modal);
             _root.Add(shade);
         }
@@ -2416,7 +2632,30 @@ namespace ThreeInARow.Presentation
                         !Contains(gem.StatusIds, BoardContentIds.Frozen)) return true;
                 return false;
             }
+            if (skill.Id.Value == "skill.transmute" || skill.Id.Value == "skill.reweave")
+            {
+                foreach (var gem in state.Board.Gems)
+                    if (gem != null && MvpBoardContentCatalog.Instance.IsNormalGem(gem.GemId) &&
+                        gem.SpecialId.Equals(BoardContentIds.NoSpecial) &&
+                        !Contains(gem.StatusIds, BoardContentIds.Anchored) &&
+                        !Contains(gem.StatusIds, BoardContentIds.Frozen)) return true;
+                return false;
+            }
+            if (skill.Id.Value == "skill.detonate")
+            {
+                foreach (var gem in state.Board.Gems)
+                    if (gem != null && IsMatchFourSpecial(gem.SpecialId) &&
+                        !Contains(gem.StatusIds, BoardContentIds.Anchored) &&
+                        !Contains(gem.StatusIds, BoardContentIds.Frozen)) return true;
+                return false;
+            }
             return true;
+        }
+
+        private static bool IsMatchFourSpecial(ContentId id)
+        {
+            return id.Equals(BoardContentIds.Spark) || id.Equals(BoardContentIds.Current) ||
+                   id.Equals(BoardContentIds.Spore) || id.Equals(BoardContentIds.Charge);
         }
 
         private static bool Contains(IEnumerable<ContentId> ids, ContentId wanted)
@@ -2459,7 +2698,9 @@ namespace ThreeInARow.Presentation
             return type == SimulationEventType.SwapAccepted || type == SimulationEventType.GemCleared ||
                    type == SimulationEventType.SpecialActivated || type == SimulationEventType.DamageApplied ||
                    type == SimulationEventType.StatusAdded || type == SimulationEventType.StatusRemoved ||
-                   type == SimulationEventType.EnemyIntentStarted || type == SimulationEventType.EnemyDefeated;
+                   type == SimulationEventType.EnemyIntentStarted || type == SimulationEventType.EnemyDefeated ||
+                   type == SimulationEventType.GemTransmuted || type == SimulationEventType.EnemyBarrierChanged ||
+                   type == SimulationEventType.ActiveJammed || type == SimulationEventType.BossPhaseChanged;
         }
 
         private static int PositiveModulo(int value, int modulus)

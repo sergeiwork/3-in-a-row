@@ -18,24 +18,19 @@ using UnityEngine.UIElements;
 namespace ThreeInARow.Presentation
 {
     [DisallowMultipleComponent]
-    public sealed class ThreeInARowApp : MonoBehaviour
+    public sealed partial class ThreeInARowApp : MonoBehaviour
     {
         private const string ReducedMotionKey = "three_in_a_row.reduced_motion";
         private const string SoundEnabledKey = "three_in_a_row.sound_enabled";
         private const string MusicEnabledKey = "three_in_a_row.music_enabled";
         private const int SfxVoiceCount = 8;
-        private const float SwapDuration = 0.20f;
-        private const float ClearDuration = 0.14f;
-        private const float MinimumDropDuration = 0.18f;
-        private const float MaximumDropDuration = 0.36f;
-        private const float MaximumAnimationFrameDelta = 1f / 30f;
-        private static readonly Color Background = Hex("#111827");
-        private static readonly Color Panel = Hex("#253247");
-        private static readonly Color PanelLight = Hex("#34445E");
-        private static readonly Color Gold = Hex("#F6C85F");
-        private static readonly Color Cyan = Hex("#67D6E8");
+        private static readonly Color Background = Hex("#091419");
+        private static readonly Color Panel = Hex("#14282D");
+        private static readonly Color PanelLight = Hex("#234049");
+        private static readonly Color Gold = Hex("#EBC782");
+        private static readonly Color Cyan = Hex("#79E2D2");
         private static readonly Color TextColor = Hex("#F8FAFC");
-        private static readonly Color Muted = Hex("#B8C4D8");
+        private static readonly Color Muted = Hex("#A1B9B9");
         private static readonly Color Danger = Hex("#F06C75");
         private static readonly Color Success = Hex("#6ED69B");
 
@@ -141,17 +136,17 @@ namespace ThreeInARow.Presentation
             var safe = Screen.safeArea;
             var scaleX = _root.resolvedStyle.width / Screen.width;
             var scaleY = _root.resolvedStyle.height / Screen.height;
-            _safeArea.style.paddingLeft = safe.xMin * scaleX;
-            _safeArea.style.paddingRight = (Screen.width - safe.xMax) * scaleX;
-            _safeArea.style.paddingBottom = safe.yMin * scaleY;
-            _safeArea.style.paddingTop = (Screen.height - safe.yMax) * scaleY;
+            _safeArea.style.paddingLeft = 16 + safe.xMin * scaleX;
+            _safeArea.style.paddingRight = 16 + (Screen.width - safe.xMax) * scaleX;
+            _safeArea.style.paddingBottom = 12 + safe.yMin * scaleY;
+            _safeArea.style.paddingTop = 12 + (Screen.height - safe.yMax) * scaleY;
         }
 
         private void BeginScreen()
         {
             StopAllCoroutines();
             ApplyMusicForCurrentScreen();
-            _root.Clear();
+            ClearScreenPreservingFeedback();
             _boardCells.Clear();
             _gemVisuals.Clear();
             _visualGemStates.Clear();
@@ -167,13 +162,18 @@ namespace ThreeInARow.Presentation
             _inputLocked = false;
             _hasPlayerAttackOrigin = false;
 
+            AddDungeonBackdrop();
             _safeArea = new VisualElement { name = "safe-area" };
+            _safeArea.style.width = Length.Percent(100);
+            _safeArea.style.maxWidth = 780;
+            _safeArea.style.alignSelf = Align.Center;
             _safeArea.style.flexGrow = 1;
             _safeArea.style.paddingLeft = 24;
             _safeArea.style.paddingRight = 24;
             _safeArea.style.paddingTop = 18;
             _safeArea.style.paddingBottom = 18;
             _root.Add(_safeArea);
+            _feedbackLayer?.BringToFront();
             ApplySafeArea();
         }
 
@@ -203,7 +203,11 @@ namespace ThreeInARow.Presentation
             _safeArea.style.justifyContent = Justify.Center;
             _safeArea.style.alignItems = Align.Center;
 
-            var crystal = Icon("gem.prism", 190);
+            var crystal = Icon("gem.prism", 170);
+            var crest = new DungeonOrnament(false);
+            crest.style.height = 44;
+            crest.style.width = 240;
+            _safeArea.Add(crest);
             crystal.style.marginBottom = 22;
             _safeArea.Add(crystal);
             _safeArea.Add(Title("ТРИ В РЯД", 54, Gold));
@@ -212,7 +216,7 @@ namespace ThreeInARow.Presentation
             subtitle.style.marginBottom = 54;
             _safeArea.Add(subtitle);
 
-            var menu = Card("ui.panel.secondary");
+            var menu = new VisualElement();
             menu.style.width = Length.Percent(100);
             menu.style.maxWidth = 720;
             menu.style.paddingLeft = 18;
@@ -666,18 +670,22 @@ namespace ThreeInARow.Presentation
             top.Add(help);
             _safeArea.Add(top);
 
-            var enemyPanel = Card();
+            var enemyPanel = new VisualElement { name = "enemy-stage" };
             enemyPanel.style.flexDirection = FlexDirection.Row;
             enemyPanel.style.alignItems = Align.Center;
-            enemyPanel.style.paddingTop = 12;
-            enemyPanel.style.paddingBottom = 12;
-            var portrait = Icon(enemy.Id.Value, 150);
+            enemyPanel.style.paddingTop = 4;
+            enemyPanel.style.paddingBottom = 4;
+            var portrait = Icon(enemy.Id.Value, 112);
+            portrait.style.flexShrink = 0;
             portrait.style.marginRight = 18;
             enemyPanel.Add(portrait);
             _enemyFeedbackAnchor = portrait;
             var enemyInfo = new VisualElement();
             enemyInfo.style.flexGrow = 1;
-            enemyInfo.Add(Title(PresentationText.Name(enemy.Id), 31, TextColor));
+            enemyInfo.style.minWidth = 0;
+            var enemyName = Title(PresentationText.Name(enemy.Id), 29, TextColor);
+            enemyName.style.unityTextAlign = TextAnchor.MiddleLeft;
+            enemyInfo.Add(enemyName);
             var enemyHealthBar = Bar("ЗДОРОВЬЕ " + state.Enemy.Health + " / " + enemy.MaxHealth,
                 enemy.MaxHealth <= 0 ? 0 : (float)state.Enemy.Health / enemy.MaxHealth, Danger);
             _enemyHealthFill = enemyHealthBar.Q<VisualElement>("bar-fill");
@@ -700,7 +708,10 @@ namespace ThreeInARow.Presentation
                 : enemy.IntentCycle;
             var intent = intentCycle[PositiveModulo(state.Enemy.IntentIndex, intentCycle.Count)];
             var intentPanel = Row();
-            intentPanel.style.backgroundColor = Hex("#372F4F");
+            intentPanel.style.backgroundColor = Hex("#2C2028");
+            intentPanel.style.borderLeftColor = Danger;
+            intentPanel.style.borderLeftWidth = 3;
+            intentPanel.style.flexShrink = 0;
             intentPanel.style.paddingLeft = 12;
             intentPanel.style.paddingRight = 12;
             intentPanel.style.paddingTop = 7;
@@ -709,7 +720,7 @@ namespace ThreeInARow.Presentation
             intentPanel.style.marginBottom = 7;
             intentPanel.style.alignItems = Align.Center;
             foreach (var intentIcon in IntentAssetKeys(intent.TelegraphKey))
-                intentPanel.Add(Icon(intentIcon, 54));
+                intentPanel.Add(Icon(intentIcon, 36));
             var intentDescription = PresentationText.IntentDescription(intent,
                 MasteryContentCatalog.Instance.Get(state.DifficultyTier).EnemyDirectDamageBonus);
             foreach (var effect in intent.Effects)
@@ -721,6 +732,8 @@ namespace ThreeInARow.Presentation
                 intentDescription += " · Дополнительно наложит Шипы на 1 кристалл";
             var intentText = LabelText("ДАЛЕЕ: " + PresentationText.Name(intent.TelegraphKey) + "\n" + intentDescription, 19, TextColor);
             intentText.style.flexGrow = 1;
+            intentText.style.flexShrink = 1;
+            intentText.style.whiteSpace = WhiteSpace.Normal;
             intentText.style.marginLeft = 10;
             intentPanel.Add(intentText);
             _safeArea.Add(intentPanel);
@@ -734,7 +747,10 @@ namespace ThreeInARow.Presentation
                 : "Нажмите на соседние кристаллы или проведите пальцем, чтобы собрать ряд.", 18, Muted, TextAnchor.MiddleCenter);
             _message.style.minHeight = 30;
             _message.style.marginTop = 4;
+            _message.style.whiteSpace = WhiteSpace.Normal;
             _safeArea.Add(_message);
+            foreach (var child in _safeArea.Children()) child.style.flexShrink = 0;
+            _safeArea.schedule.Execute(SizeEncounterBoard);
 
         }
 
@@ -773,29 +789,25 @@ namespace ThreeInARow.Presentation
         private void BuildBoard(BoardState boardState)
         {
             _board = new VisualElement { name = "board" };
-            _board.style.width = Length.Percent(100);
-            _board.style.maxWidth = 720;
             _board.style.alignSelf = Align.Center;
-            _board.style.backgroundColor = Hex("#0A1020");
-            _board.style.paddingLeft = 5;
-            _board.style.paddingRight = 5;
-            _board.style.paddingTop = 5;
-            _board.style.paddingBottom = 5;
-            _board.style.borderTopLeftRadius = 18;
-            _board.style.borderTopRightRadius = 18;
-            _board.style.borderBottomLeftRadius = 18;
-            _board.style.borderBottomRightRadius = 18;
+            _board.style.flexShrink = 0;
+            _board.style.backgroundColor = Hex("#060E13");
+            _board.style.paddingLeft = 8;
+            _board.style.paddingRight = 8;
+            _board.style.paddingTop = 8;
+            _board.style.paddingBottom = 8;
+            SetBorder(_board, Hex("#8B7955"), 2);
             _board.style.overflow = Overflow.Visible;
-            _board.RegisterCallback<GeometryChangedEvent>(evt =>
-            {
-                var size = Mathf.Min(evt.newRect.width, _safeArea.resolvedStyle.height * 0.5f);
-                if (size > 10) _board.style.height = size;
-            });
+            // Measure both axes together: a height cap must never stretch the cells sideways.
+            _safeArea.RegisterCallback<GeometryChangedEvent>(_ => SizeEncounterBoard());
+            _board.RegisterCallback<AttachToPanelEvent>(_ => _board.schedule.Execute(SizeEncounterBoard));
 
             for (var row = BoardState.Height - 1; row >= 0; row--)
             {
                 var rowElement = Row();
                 rowElement.style.flexGrow = 1;
+                rowElement.style.flexBasis = 0;
+                rowElement.style.minHeight = 0;
                 for (var column = 0; column < BoardState.Width; column++)
                 {
                     var cell = new GridCell(column, row);
@@ -829,16 +841,18 @@ namespace ThreeInARow.Presentation
             element.focusable = true;
             element.tooltip = PresentationText.GemDescription(gem.GemId, gem.SpecialId) + StatusSuffix(gem);
             element.style.flexGrow = 1;
+            element.style.flexBasis = 0;
+            element.style.minWidth = 0;
             element.style.marginLeft = 2;
             element.style.marginRight = 2;
             element.style.marginTop = 2;
             element.style.marginBottom = 2;
-            element.style.backgroundColor = Hex("#1B2940");
-            SetBorder(element, _selectedCell.HasValue && _selectedCell.Value.Equals(cell) ? Gold : Hex("#41516B"), 2);
-            element.style.borderTopLeftRadius = 10;
-            element.style.borderTopRightRadius = 10;
-            element.style.borderBottomLeftRadius = 10;
-            element.style.borderBottomRightRadius = 10;
+            element.style.backgroundColor = Hex("#11252B");
+            SetBorder(element, _selectedCell.HasValue && _selectedCell.Value.Equals(cell) ? Gold : Hex("#29434A"), 2);
+            element.style.borderTopLeftRadius = 3;
+            element.style.borderTopRightRadius = 3;
+            element.style.borderBottomLeftRadius = 3;
+            element.style.borderBottomRightRadius = 3;
 
             var assetKey = gem.SpecialId.Value != "special.none" ? gem.SpecialId.Value : gem.GemId.Value;
             var gemVisual = new VisualElement { name = "gem-visual" };
@@ -1086,20 +1100,25 @@ namespace ThreeInARow.Presentation
                                 cooldown == 0 && SkillHasEffect(state, definition);
                     var skillPanel = new VisualElement();
                     skillPanel.style.flexGrow = 1;
+                    skillPanel.style.flexBasis = 0;
+                    skillPanel.style.minWidth = 0;
                     skillPanel.style.marginLeft = 3;
                     skillPanel.style.marginRight = 3;
                     var button = new Button(() => SkillPressed(definition));
                     button.style.width = Length.Percent(100);
-                    button.style.height = 70;
+                    button.style.height = 68;
+                    StyleGameButton(button, ready);
                     button.style.flexDirection = FlexDirection.Row;
                     button.style.alignItems = Align.Center;
                     button.style.justifyContent = Justify.Center;
-                    button.style.backgroundColor = ready ? Hex("#285A6A") : Hex("#303847");
+                    button.style.backgroundColor = ready ? Hex("#16413F") : Hex("#19272C");
                     button.SetEnabled(ready);
                     button.tooltip = PresentationText.SkillDescription(definition);
                     button.Add(Icon(skillId.Value, 40));
-                    var label = LabelText(PresentationText.Name(skillId) + (cooldown > 0 ? " · " + cooldown : " · ГОТОВО"), 19, TextColor);
+                    var label = LabelText(PresentationText.Name(skillId) + (cooldown > 0 ? "\n" + cooldown + " ХОД." : ready ? "\nГОТОВО" : "\nНЕТ ЦЕЛИ"), 19, TextColor);
                     label.style.marginLeft = 8;
+                    label.style.whiteSpace = WhiteSpace.Normal;
+                    label.style.flexShrink = 1;
                     button.Add(label);
                     skillPanel.Add(button);
                     var info = SmallButton("О НАВЫКЕ", () => ShowSkillDetails(definition));
@@ -1361,6 +1380,7 @@ namespace ThreeInARow.Presentation
                 card.style.paddingBottom = 14;
                 card.style.flexDirection = FlexDirection.Row;
                 card.style.alignItems = Align.Center;
+                StyleGameButton(card, true);
                 card.style.backgroundColor = Panel;
                 card.tooltip = "Открыть полное описание и выбрать улучшение";
                 card.Add(Icon(optionId.Value, 100));
@@ -1530,806 +1550,6 @@ namespace ThreeInARow.Presentation
             }, false));
         }
 
-        private IEnumerator AnimateBatch(EventBatch events, Action finished)
-        {
-            _inputLocked = true;
-            InitializePresentedHealth(events);
-            _hasPlayerAttackOrigin = false;
-            var played = new HashSet<string>(StringComparer.Ordinal);
-            var paced = 0;
-            var cascadeStep = 0;
-            for (var eventIndex = 0; eventIndex < events.Events.Count; eventIndex++)
-            {
-                var item = events.Events[eventIndex];
-                if (item.Type == SimulationEventType.GemMoved || item.Type == SimulationEventType.GemSpawned)
-                {
-                    var motionEvents = new List<SimulationEvent>();
-                    while (eventIndex < events.Events.Count &&
-                           (events.Events[eventIndex].Type == SimulationEventType.GemMoved ||
-                            events.Events[eventIndex].Type == SimulationEventType.GemSpawned))
-                    {
-                        var motionEvent = events.Events[eventIndex];
-                        ShowEventCue(motionEvent);
-                        PlayEventSound(motionEvent, played);
-                        motionEvents.Add(motionEvent);
-                        eventIndex++;
-                    }
-                    eventIndex--;
-                    yield return AnimateGravity(motionEvents);
-                    continue;
-                }
-                if (item.Type == SimulationEventType.GemCleared)
-                {
-                    var resolutionEvents = new List<SimulationEvent>();
-                    var clearEvents = new List<SimulationEvent>();
-                    while (eventIndex < events.Events.Count &&
-                           events.Events[eventIndex].Type != SimulationEventType.GemMoved &&
-                           events.Events[eventIndex].Type != SimulationEventType.GemSpawned &&
-                           events.Events[eventIndex].Type != SimulationEventType.GemsMatched &&
-                           events.Events[eventIndex].Type != SimulationEventType.BoardReshuffled)
-                    {
-                        var resolutionEvent = events.Events[eventIndex];
-                        resolutionEvents.Add(resolutionEvent);
-                        if (resolutionEvent.Type == SimulationEventType.GemCleared)
-                            clearEvents.Add(resolutionEvent);
-                        eventIndex++;
-                    }
-                    eventIndex--;
-
-                    cascadeStep++;
-                    PlayClearSound(clearEvents, cascadeStep);
-
-                    // Present combat consequences at the instant the matched gems fire. The
-                    // clear, projectile, and hit effects then overlap instead of making damage
-                    // wait for the full disappearance animation.
-                    foreach (var resolutionEvent in resolutionEvents)
-                    {
-                        if (resolutionEvent.Type == SimulationEventType.SpecialCreated)
-                            ApplySpecialVisual(resolutionEvent);
-                        ShowEventCue(resolutionEvent);
-                        PlayEventSound(resolutionEvent, played);
-                    }
-                    yield return AnimateClears(clearEvents);
-                    continue;
-                }
-                if (item.Type == SimulationEventType.SpecialCreated)
-                    ApplySpecialVisual(item);
-                ShowEventCue(item);
-                PlayEventSound(item, played);
-                if (item.Type == SimulationEventType.SwapAccepted)
-                {
-                    yield return AnimateSwap(item);
-                    continue;
-                }
-                if (_reducedMotion || paced >= 24 || !IsPacedEvent(item.Type)) continue;
-                paced++;
-                yield return new WaitForSecondsRealtime(item.Type == SimulationEventType.DamageApplied ? 0.10f : 0.045f);
-            }
-            if (!_reducedMotion) yield return new WaitForSecondsRealtime(0.14f);
-            _inputLocked = false;
-            finished?.Invoke();
-        }
-
-        private IEnumerator AnimateSwap(SimulationEvent item)
-        {
-            if (!item.HasCell || !item.HasTargetCell) yield break;
-            VisualElement first;
-            VisualElement second;
-            if (!_gemVisuals.TryGetValue(item.Cell, out first) ||
-                !_gemVisuals.TryGetValue(item.TargetCell, out second)) yield break;
-
-            // Move both gems into the shared foreground layer before animating. Leaving translated
-            // gems parented to their old cells accumulates offsets over later swaps and can produce
-            // a one-frame jump when gravity reparents them.
-            if (_gemMotionLayer == null) yield break;
-            var firstBounds = first.worldBound;
-            var secondBounds = second.worldBound;
-            PlaceGemOnMotionLayer(first, firstBounds);
-            PlaceGemOnMotionLayer(second, secondBounds);
-
-            var firstDelta = secondBounds.center - firstBounds.center;
-            var secondDelta = -firstDelta;
-            var motions = new List<GemMotion>
-            {
-                new GemMotion(first, Vector3.zero, (Vector3)firstDelta, SwapDuration),
-                new GemMotion(second, Vector3.zero, (Vector3)secondDelta, SwapDuration)
-            };
-            if (!_reducedMotion)
-                yield return AnimateMotions(motions, MotionCurve.Smooth);
-            else
-                foreach (var motion in motions) SetTranslation(motion.Visual, motion.End);
-
-            DockGemVisual(first, item.TargetCell);
-            DockGemVisual(second, item.Cell);
-
-            _gemVisuals[item.Cell] = second;
-            _gemVisuals[item.TargetCell] = first;
-
-            GemVisualIdentity firstIdentity;
-            GemVisualIdentity secondIdentity;
-            if (_visualGemStates.TryGetValue(item.Cell, out firstIdentity) &&
-                _visualGemStates.TryGetValue(item.TargetCell, out secondIdentity))
-            {
-                _visualGemStates[item.Cell] = secondIdentity;
-                _visualGemStates[item.TargetCell] = firstIdentity;
-            }
-        }
-
-        private IEnumerator AnimateClears(List<SimulationEvent> items)
-        {
-            var visuals = new List<VisualElement>();
-            var clearedCells = new List<GridCell>();
-            foreach (var item in items)
-            {
-                if (!item.HasCell) continue;
-                clearedCells.Add(item.Cell);
-                VisualElement visual;
-                if (_gemVisuals.TryGetValue(item.Cell, out visual)) visuals.Add(visual);
-            }
-
-            if (!_reducedMotion && visuals.Count > 0)
-            {
-                var elapsed = 0f;
-                while (elapsed < ClearDuration)
-                {
-                    elapsed += AnimationDeltaTime();
-                    var progress = Mathf.Clamp01(elapsed / ClearDuration);
-                    var eased = SmootherStep(progress);
-                    var scale = Mathf.Lerp(1f, 0.12f, eased);
-                    foreach (var visual in visuals)
-                    {
-                        visual.style.scale = new Scale(new Vector3(scale, scale, 1f));
-                        visual.style.opacity = 1f - eased;
-                    }
-                    yield return null;
-                }
-            }
-
-            foreach (var visual in visuals) visual.RemoveFromHierarchy();
-            foreach (var cell in clearedCells)
-            {
-                _gemVisuals.Remove(cell);
-                _visualGemStates.Remove(cell);
-            }
-        }
-
-        private IEnumerator AnimateGravity(List<SimulationEvent> items)
-        {
-            var motions = new List<GemMotion>();
-            var movedItems = new List<SimulationEvent>();
-            var movedVisuals = new List<VisualElement>();
-            var spawnedItems = new List<SimulationEvent>();
-            var spawnedVisuals = new List<VisualElement>();
-            var spawnOrdinals = new Dictionary<int, int>();
-
-            foreach (var item in items)
-            {
-                if (item.Type == SimulationEventType.GemMoved)
-                {
-                    if (!item.HasCell || !item.HasTargetCell) continue;
-                    VisualElement visual;
-                    if (!_gemVisuals.TryGetValue(item.Cell, out visual))
-                    {
-                        VisualElement sourceCell;
-                        if (!_boardCells.TryGetValue(item.Cell, out sourceCell)) continue;
-                        visual = CreateMotionGem(item.SourceId, item.RelatedId);
-                        sourceCell.Add(visual);
-                    }
-
-                    var startCenter = (Vector2)visual.worldBound.center;
-                    if (!LiftGemVisual(visual)) continue;
-                    var delta = CellCenter(item.TargetCell) - startCenter;
-                    var travelRows = Mathf.Abs(item.TargetCell.Row - item.Cell.Row);
-                    motions.Add(new GemMotion(
-                        visual,
-                        Vector3.zero,
-                        (Vector3)delta,
-                        DropDuration(travelRows)));
-                    movedItems.Add(item);
-                    movedVisuals.Add(visual);
-                    continue;
-                }
-
-                if (item.Type != SimulationEventType.GemSpawned || !item.HasTargetCell) continue;
-                VisualElement targetCell;
-                if (!_boardCells.TryGetValue(item.TargetCell, out targetCell) || _gemMotionLayer == null) continue;
-
-                var spawnVisual = CreateMotionGem(item.SourceId, item.RelatedId);
-                PlaceGemOnMotionLayer(spawnVisual, targetCell.worldBound);
-
-                int ordinal;
-                spawnOrdinals.TryGetValue(item.TargetCell.Column, out ordinal);
-                spawnOrdinals[item.TargetCell.Column] = ordinal + 1;
-
-                // Virtual rows begin immediately above the board and continue upward. This keeps
-                // refill gems in a column stacked instead of drawing all of them on one another.
-                var dropRows = BoardState.Height + ordinal - item.TargetCell.Row;
-                var start = new Vector3(0f, -targetCell.worldBound.height * dropRows, 0f);
-                SetTranslation(spawnVisual, start);
-                spawnVisual.style.opacity = 0.35f;
-                motions.Add(new GemMotion(
-                    spawnVisual,
-                    start,
-                    Vector3.zero,
-                    DropDuration(dropRows),
-                    true));
-                spawnedItems.Add(item);
-                spawnedVisuals.Add(spawnVisual);
-            }
-
-            if (!_reducedMotion && motions.Count > 0)
-                yield return AnimateMotions(motions, MotionCurve.Drop);
-            else
-                foreach (var motion in motions) SetTranslation(motion.Visual, motion.End);
-
-            // Remove every old location before assigning destinations; chained one-row falls can
-            // otherwise overwrite a dictionary entry that is still needed by the next move.
-            foreach (var movedItem in movedItems)
-            {
-                _gemVisuals.Remove(movedItem.Cell);
-                _visualGemStates.Remove(movedItem.Cell);
-            }
-            for (var index = 0; index < movedItems.Count; index++)
-            {
-                var item = movedItems[index];
-                var visual = movedVisuals[index];
-                DockGemVisual(visual, item.TargetCell);
-                _gemVisuals[item.TargetCell] = visual;
-                _visualGemStates[item.TargetCell] = new GemVisualIdentity(item.SourceId, item.RelatedId);
-            }
-            for (var index = 0; index < spawnedItems.Count; index++)
-            {
-                var item = spawnedItems[index];
-                var visual = spawnedVisuals[index];
-                DockGemVisual(visual, item.TargetCell);
-                _gemVisuals[item.TargetCell] = visual;
-                _visualGemStates[item.TargetCell] = new GemVisualIdentity(item.SourceId, item.RelatedId);
-            }
-
-            EnsureVisualBoardComplete();
-        }
-
-        private bool LiftGemVisual(VisualElement visual)
-        {
-            if (visual == null || _gemMotionLayer == null) return false;
-            var bounds = visual.worldBound;
-            PlaceGemOnMotionLayer(visual, bounds);
-            return true;
-        }
-
-        private void PlaceGemOnMotionLayer(VisualElement visual, Rect worldBounds)
-        {
-            var layerBounds = _gemMotionLayer.worldBound;
-            visual.RemoveFromHierarchy();
-            _gemMotionLayer.Add(visual);
-            visual.style.position = Position.Absolute;
-            visual.style.left = worldBounds.xMin - layerBounds.xMin;
-            visual.style.top = worldBounds.yMin - layerBounds.yMin;
-            visual.style.right = StyleKeyword.Auto;
-            visual.style.bottom = StyleKeyword.Auto;
-            visual.style.width = worldBounds.width;
-            visual.style.height = worldBounds.height;
-            SetTranslation(visual, Vector3.zero);
-        }
-
-        private void DockGemVisual(VisualElement visual, GridCell destination)
-        {
-            VisualElement cell = null;
-            if (visual == null || !_boardCells.TryGetValue(destination, out cell)) return;
-            visual.RemoveFromHierarchy();
-            cell.Add(visual);
-            visual.style.position = Position.Absolute;
-            visual.style.left = 0;
-            visual.style.right = 0;
-            visual.style.top = 0;
-            visual.style.bottom = 0;
-            visual.style.width = StyleKeyword.Auto;
-            visual.style.height = StyleKeyword.Auto;
-            visual.style.opacity = 1f;
-            SetTranslation(visual, Vector3.zero);
-        }
-
-        private void EnsureVisualBoardComplete()
-        {
-            foreach (var entry in _visualGemStates)
-            {
-                VisualElement visual;
-                if (_gemVisuals.TryGetValue(entry.Key, out visual) && visual != null && visual.parent != null)
-                    continue;
-
-                VisualElement cell;
-                if (!_boardCells.TryGetValue(entry.Key, out cell)) continue;
-                visual = CreateMotionGem(entry.Value.GemId, entry.Value.SpecialId);
-                cell.Add(visual);
-                _gemVisuals[entry.Key] = visual;
-            }
-        }
-
-        private VisualElement CreateMotionGem(ContentId gemId, ContentId specialId)
-        {
-            var visual = new VisualElement { name = "gem-motion" };
-            visual.pickingMode = PickingMode.Ignore;
-            visual.style.position = Position.Absolute;
-            visual.style.left = 0;
-            visual.style.right = 0;
-            visual.style.top = 0;
-            visual.style.bottom = 0;
-            var assetKey = !string.IsNullOrEmpty(specialId.Value) && specialId.Value != "special.none"
-                ? specialId.Value
-                : gemId.Value;
-            var image = Icon(assetKey, 10);
-            image.style.position = Position.Absolute;
-            image.style.left = 5;
-            image.style.right = 5;
-            image.style.top = 5;
-            image.style.bottom = 5;
-            image.style.width = StyleKeyword.Auto;
-            image.style.height = StyleKeyword.Auto;
-            visual.Add(image);
-            return visual;
-        }
-
-        private IEnumerator AnimateMotions(List<GemMotion> motions, MotionCurve curve)
-        {
-            var elapsed = 0f;
-            var duration = 0f;
-            foreach (var motion in motions) duration = Mathf.Max(duration, motion.Duration);
-            while (elapsed < duration)
-            {
-                elapsed += AnimationDeltaTime();
-                foreach (var motion in motions)
-                {
-                    var progress = Mathf.Clamp01(elapsed / motion.Duration);
-                    var eased = curve == MotionCurve.Drop
-                        ? EaseInOutCubic(progress)
-                        : SmootherStep(progress);
-                    SetTranslation(motion.Visual, Vector3.LerpUnclamped(motion.Start, motion.End, eased));
-                    if (motion.FadeIn) motion.Visual.style.opacity = Mathf.Lerp(0.35f, 1f, SmootherStep(progress));
-                }
-                yield return null;
-            }
-            foreach (var motion in motions)
-            {
-                SetTranslation(motion.Visual, motion.End);
-                if (motion.FadeIn) motion.Visual.style.opacity = 1f;
-            }
-        }
-
-        private static float DropDuration(int travelRows)
-        {
-            // Square-root scaling keeps long falls readable without making large cascades drag.
-            return Mathf.Clamp(
-                0.12f + Mathf.Sqrt(Mathf.Max(1, travelRows)) * 0.075f,
-                MinimumDropDuration,
-                MaximumDropDuration);
-        }
-
-        private void ApplySpecialVisual(SimulationEvent item)
-        {
-            if (!item.HasCell) return;
-            VisualElement visual;
-            if (!_gemVisuals.TryGetValue(item.Cell, out visual) || visual == null || visual.parent == null)
-            {
-                VisualElement cell;
-                if (!_boardCells.TryGetValue(item.Cell, out cell)) return;
-                visual = CreateMotionGem(item.RelatedId, item.SourceId);
-                cell.Add(visual);
-                _gemVisuals[item.Cell] = visual;
-            }
-
-            _visualGemStates[item.Cell] = new GemVisualIdentity(item.RelatedId, item.SourceId);
-            visual.style.opacity = 1f;
-            visual.style.scale = new Scale(Vector3.one);
-            var image = visual.Q<Image>();
-            if (image != null && _catalog != null) image.sprite = _catalog.GetSprite(item.SourceId.Value);
-        }
-
-        private Vector2 CellCenter(GridCell cell)
-        {
-            return _boardCells[cell].worldBound.center;
-        }
-
-        private static float EaseOutCubic(float value)
-        {
-            var inverse = 1f - value;
-            return 1f - inverse * inverse * inverse;
-        }
-
-        private static float EaseInOutCubic(float value)
-        {
-            value = Mathf.Clamp01(value);
-            return value < 0.5f
-                ? 4f * value * value * value
-                : 1f - Mathf.Pow(-2f * value + 2f, 3f) * 0.5f;
-        }
-
-        private static float SmootherStep(float value)
-        {
-            value = Mathf.Clamp01(value);
-            return value * value * value * (value * (value * 6f - 15f) + 10f);
-        }
-
-        private static float AnimationDeltaTime()
-        {
-            // A single slow frame should not skip most of a short board animation.
-            return Mathf.Min(Time.unscaledDeltaTime, MaximumAnimationFrameDelta);
-        }
-
-        private static Vector3 Translation(VisualElement visual)
-        {
-            var translate = visual.resolvedStyle.translate;
-            return new Vector3(translate.x, translate.y, translate.z);
-        }
-
-        private static void SetTranslation(VisualElement visual, Vector3 value)
-        {
-            visual.style.translate = new Translate(new Length(value.x), new Length(value.y), value.z);
-        }
-
-        private sealed class GemMotion
-        {
-            public readonly VisualElement Visual;
-            public readonly Vector3 Start;
-            public readonly Vector3 End;
-            public readonly float Duration;
-            public readonly bool FadeIn;
-
-            public GemMotion(
-                VisualElement visual,
-                Vector3 start,
-                Vector3 end,
-                float duration,
-                bool fadeIn = false)
-            {
-                Visual = visual;
-                Start = start;
-                End = end;
-                Duration = Mathf.Max(0.001f, duration);
-                FadeIn = fadeIn;
-            }
-        }
-
-        private enum MotionCurve
-        {
-            Smooth,
-            Drop
-        }
-
-        private readonly struct GemVisualIdentity
-        {
-            public readonly ContentId GemId;
-            public readonly ContentId SpecialId;
-
-            public GemVisualIdentity(ContentId gemId, ContentId specialId)
-            {
-                GemId = gemId;
-                SpecialId = specialId;
-            }
-        }
-
-        private void PlayBatch(EventBatch events, Action finished)
-        {
-            if (_root == null)
-            {
-                finished?.Invoke();
-                return;
-            }
-            StartCoroutine(AnimateBatch(events ?? new EventBatch(), finished));
-        }
-
-        private void ShowEventCue(SimulationEvent item)
-        {
-            VisualElement cell;
-            if (item.HasCell && _boardCells.TryGetValue(item.Cell, out cell))
-            {
-                if (item.Type == SimulationEventType.GemsMatched ||
-                    item.Type == SimulationEventType.GemCleared ||
-                    item.Type == SimulationEventType.SpecialActivated)
-                {
-                    _playerAttackOrigin = cell.worldBound.center;
-                    _hasPlayerAttackOrigin = true;
-                }
-                SetBorder(cell, item.Type == SimulationEventType.StatusAdded ? Danger : Cyan, 5);
-                cell.schedule.Execute(() => SetBorder(cell, Hex("#41516B"), 2)).StartingIn(160);
-            }
-            if (item.Type == SimulationEventType.DamageApplied)
-            {
-                ApplyPresentedDamage(item);
-                LaunchDamageParticles(item);
-                LaunchFloatingDamageNumber(item);
-            }
-            else if (item.Type == SimulationEventType.EnemyBarrierChanged && item.Amount < 0)
-            {
-                LaunchDamageParticles(item, true);
-                LaunchFloatingDamageNumber(item, true);
-            }
-            if (_message == null) return;
-            if (item.Type == SimulationEventType.DamageApplied)
-                SetMessage("«" + PresentationText.Name(item.SourceId) + "» наносит " + item.Amount + " урона.", Danger);
-            else if (item.Type == SimulationEventType.EnemyIntentStarted)
-                SetMessage("Враг применяет «" + PresentationText.Name(item.SourceId) + "».", Danger);
-            else if (item.Type == SimulationEventType.SpecialCreated)
-                SetMessage("Создан особый кристалл «" + PresentationText.Name(item.SourceId) + "»!", Gold);
-            else if (item.Type == SimulationEventType.StatusAdded)
-                SetMessage("Наложено состояние «" + PresentationText.Name(item.SourceId) + "».", Danger);
-            else if (item.Type == SimulationEventType.StatusRemoved)
-                SetMessage("Состояние «" + PresentationText.Name(item.SourceId) + "» снято.", Success);
-            else if (item.Type == SimulationEventType.BoardReshuffled)
-                SetMessage("Не осталось возможных ходов — поле перемешано.", Gold);
-            else if (item.Type == SimulationEventType.GemTransmuted)
-                SetMessage("Кристалл изменён: «" + PresentationText.Name(item.SourceId) + "».", Cyan);
-            else if (item.Type == SimulationEventType.EnemyBarrierChanged)
-                SetMessage(item.Amount > 0 ? "Враг получает барьер: " + item.Amount + "." : "Барьер врага поглощает урон.", Gold);
-            else if (item.Type == SimulationEventType.ActiveJammed)
-                SetMessage("Помеха увеличивает перезарядку «" + PresentationText.Name(item.RelatedId) + "».", Danger);
-            else if (item.Type == SimulationEventType.BossPhaseChanged)
-                SetMessage("Босс переходит во вторую фазу!", Danger);
-            else if (item.Type == SimulationEventType.StatusTicked)
-                SetMessage("Отравление срабатывает: " + item.Amount + " зар.", Success);
-
-            var feedbackKey = item.Type == SimulationEventType.GemCleared ? "feedback.clear"
-                : item.Type == SimulationEventType.SpecialCreated || item.Type == SimulationEventType.SpecialActivated
-                    ? "feedback.special"
-                : item.Type == SimulationEventType.DamageApplied ? "feedback.hit"
-                : item.Type == SimulationEventType.StatusAdded ? "feedback.status_added"
-                : item.Type == SimulationEventType.EnemyDefeated ? "ui.victory"
-                : item.Type == SimulationEventType.RunEnded ? "ui.defeat"
-                : string.Empty;
-            ShowFeedbackSprite(feedbackKey, item);
-        }
-
-        private void InitializePresentedHealth(EventBatch events)
-        {
-            if (_director.State == null) return;
-            _presentedEnemyHealth = _director.State.Enemy == null ? 0 : _director.State.Enemy.Health;
-            _presentedPlayerHealth = _director.State.Player == null ? 0 : _director.State.Player.Health;
-            foreach (var item in events.Events)
-            {
-                if (item.Type != SimulationEventType.DamageApplied) continue;
-                if (Targets(item, "enemy")) _presentedEnemyHealth += item.Amount;
-                else if (Targets(item, "player")) _presentedPlayerHealth += item.Amount;
-            }
-            _presentedEnemyHealth = Mathf.Clamp(_presentedEnemyHealth, 0, _presentedEnemyMaxHealth);
-            _presentedPlayerHealth = Mathf.Clamp(_presentedPlayerHealth, 0, PlayerState.MaxHealth);
-            RefreshPresentedHealth();
-        }
-
-        private void ApplyPresentedDamage(SimulationEvent item)
-        {
-            if (Targets(item, "enemy"))
-                _presentedEnemyHealth = Mathf.Max(0, _presentedEnemyHealth - item.Amount);
-            else if (Targets(item, "player"))
-                _presentedPlayerHealth = Mathf.Max(0, _presentedPlayerHealth - item.Amount);
-            RefreshPresentedHealth();
-        }
-
-        private void RefreshPresentedHealth()
-        {
-            if (_enemyHealthFill != null)
-                _enemyHealthFill.style.width = Length.Percent(_presentedEnemyMaxHealth <= 0
-                    ? 0f
-                    : Mathf.Clamp01((float)_presentedEnemyHealth / _presentedEnemyMaxHealth) * 100f);
-            if (_enemyHealthLabel != null)
-                _enemyHealthLabel.text = "ЗДОРОВЬЕ " + _presentedEnemyHealth + " / " + _presentedEnemyMaxHealth;
-            if (_playerHealthLabel != null)
-                _playerHealthLabel.text = "ЗДОР.\n" + _presentedPlayerHealth + "/" + PlayerState.MaxHealth;
-            if (_playerHealthChip != null)
-                _playerHealthChip.tooltip = "ЗДОР.: " + _presentedPlayerHealth + " из " + PlayerState.MaxHealth;
-        }
-
-        private static bool Targets(SimulationEvent item, string target)
-        {
-            return item.Detail != null &&
-                   item.Detail.IndexOf("target=" + target, StringComparison.Ordinal) >= 0;
-        }
-
-        private void LaunchDamageParticles(SimulationEvent item, bool forceEnemyTarget = false)
-        {
-            if (_root == null) return;
-            var targetsEnemy = forceEnemyTarget || Targets(item, "enemy");
-            var targetAnchor = targetsEnemy ? _enemyFeedbackAnchor : _playerFeedbackAnchor;
-            if (targetAnchor == null || targetAnchor.parent == null) return;
-
-            var startAnchor = targetsEnemy ? _playerFeedbackAnchor : _enemyFeedbackAnchor;
-            var start = targetsEnemy && _hasPlayerAttackOrigin
-                ? _playerAttackOrigin
-                : startAnchor != null && startAnchor.parent != null
-                    ? startAnchor.worldBound.center
-                    : targetAnchor.worldBound.center;
-            var end = targetAnchor.worldBound.center;
-            var rootOrigin = _root.worldBound.position;
-            start -= rootOrigin;
-            end -= rootOrigin;
-
-            var color = DamageParticleColor(item.SourceId, targetsEnemy);
-            var count = _reducedMotion ? 1 : 6;
-            for (var index = 0; index < count; index++)
-            {
-                var size = index == 0 ? 18f : Mathf.Lerp(8f, 13f, (index % 3) / 2f);
-                var particle = new VisualElement { name = "damage-particle" };
-                particle.pickingMode = PickingMode.Ignore;
-                particle.style.position = Position.Absolute;
-                particle.style.width = size;
-                particle.style.height = size;
-                particle.style.borderTopLeftRadius = size;
-                particle.style.borderTopRightRadius = size;
-                particle.style.borderBottomLeftRadius = size;
-                particle.style.borderBottomRightRadius = size;
-                particle.style.backgroundColor = color;
-                particle.style.opacity = 0.95f;
-                particle.style.left = start.x - size * 0.5f;
-                particle.style.top = start.y - size * 0.5f;
-                _root.Add(particle);
-                var delay = _reducedMotion ? 0f : index * 0.018f;
-                var arc = (index % 2 == 0 ? 1f : -1f) * (18f + index * 3f);
-                StartCoroutine(AnimateDamageParticle(particle, start, end,
-                    _reducedMotion ? 0.08f : 0.28f, delay, arc, size));
-            }
-        }
-
-        private static IEnumerator AnimateDamageParticle(
-            VisualElement particle,
-            Vector2 start,
-            Vector2 end,
-            float duration,
-            float delay,
-            float arc,
-            float size)
-        {
-            if (delay > 0f) yield return new WaitForSecondsRealtime(delay);
-            var elapsed = 0f;
-            while (particle != null && particle.parent != null && elapsed < duration)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                var progress = Mathf.Clamp01(elapsed / duration);
-                var eased = EaseInOutCubic(progress);
-                var position = Vector2.Lerp(start, end, eased);
-                position.y -= Mathf.Sin(progress * Mathf.PI) * arc;
-                particle.style.left = position.x - size * 0.5f;
-                particle.style.top = position.y - size * 0.5f;
-                particle.style.opacity = 1f - Mathf.Max(0f, progress - 0.72f) / 0.28f;
-                var scale = Mathf.Lerp(0.65f, 1.15f, Mathf.Sin(progress * Mathf.PI));
-                particle.style.scale = new Scale(new Vector3(scale, scale, 1f));
-                yield return null;
-            }
-            if (particle != null && particle.parent != null) particle.RemoveFromHierarchy();
-        }
-
-        private static Color DamageParticleColor(ContentId sourceId, bool targetsEnemy)
-        {
-            var source = sourceId.Value ?? string.Empty;
-            if (source.IndexOf("ember", StringComparison.Ordinal) >= 0 ||
-                source.IndexOf("spark", StringComparison.Ordinal) >= 0) return Hex("#FF7A59");
-            if (source.IndexOf("tide", StringComparison.Ordinal) >= 0 ||
-                source.IndexOf("current", StringComparison.Ordinal) >= 0) return Cyan;
-            if (source.IndexOf("venom", StringComparison.Ordinal) >= 0 ||
-                source.IndexOf("poison", StringComparison.Ordinal) >= 0) return Success;
-            if (source.IndexOf("volt", StringComparison.Ordinal) >= 0 ||
-                source.IndexOf("charge", StringComparison.Ordinal) >= 0) return Gold;
-            return targetsEnemy ? TextColor : Danger;
-        }
-
-        private void LaunchFloatingDamageNumber(SimulationEvent item, bool barrierDamage = false)
-        {
-            if (_root == null || (!barrierDamage && item.Amount <= 0)) return;
-            var targetsEnemy = barrierDamage || Targets(item, "enemy");
-            var targetAnchor = targetsEnemy ? _enemyFeedbackAnchor : _playerFeedbackAnchor;
-            if (targetAnchor == null || targetAnchor.parent == null) return;
-
-            var amount = Mathf.Abs(item.Amount);
-            var text = barrierDamage ? "ЩИТ −" + amount : "−" + amount;
-            var color = barrierDamage ? Gold : DamageParticleColor(item.SourceId, targetsEnemy);
-            var number = LabelText(text, barrierDamage ? 23 : 30, color, TextAnchor.MiddleCenter);
-            number.name = "floating-damage-number";
-            number.pickingMode = PickingMode.Ignore;
-            number.style.position = Position.Absolute;
-            number.style.unityFontStyleAndWeight = FontStyle.Bold;
-            number.style.backgroundColor = new Color(0.04f, 0.06f, 0.11f, 0.82f);
-            number.style.paddingLeft = 8;
-            number.style.paddingRight = 8;
-            number.style.paddingTop = 3;
-            number.style.paddingBottom = 3;
-            number.style.borderTopLeftRadius = 9;
-            number.style.borderTopRightRadius = 9;
-            number.style.borderBottomLeftRadius = 9;
-            number.style.borderBottomRightRadius = 9;
-
-            var rootOrigin = _root.worldBound.position;
-            var anchorCenter = targetAnchor.worldBound.center - rootOrigin;
-            var horizontalOffset = ((item.Sequence % 3) - 1) * 18f;
-            var startTop = anchorCenter.y - 24f;
-            number.style.left = anchorCenter.x + horizontalOffset - 42f;
-            number.style.top = startTop;
-            number.style.width = 84f;
-            number.style.opacity = 1f;
-            number.style.scale = new Scale(new Vector3(0.72f, 0.72f, 1f));
-            _root.Add(number);
-            StartCoroutine(AnimateFloatingDamageNumber(number, startTop, _reducedMotion ? 0f : 48f,
-                _reducedMotion ? 0.24f : 0.62f));
-        }
-
-        private static IEnumerator AnimateFloatingDamageNumber(
-            VisualElement number,
-            float startTop,
-            float lift,
-            float duration)
-        {
-            var elapsed = 0f;
-            while (number != null && number.parent != null && elapsed < duration)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                var progress = Mathf.Clamp01(elapsed / duration);
-                number.style.top = startTop - EaseOutCubic(progress) * lift;
-                var scale = Mathf.Lerp(0.72f, 1.08f, Mathf.Clamp01(progress * 4f));
-                number.style.scale = new Scale(new Vector3(scale, scale, 1f));
-                number.style.opacity = 1f - Mathf.Clamp01((progress - 0.58f) / 0.42f);
-                yield return null;
-            }
-            if (number != null && number.parent != null) number.RemoveFromHierarchy();
-        }
-
-        private void ShowFeedbackSprite(string key, SimulationEvent item)
-        {
-            if (string.IsNullOrEmpty(key) || _root == null || _catalog == null || _catalog.GetSprite(key) == null) return;
-            const float defaultSize = 150f;
-            var size = defaultSize;
-            var center = new Vector2(
-                _root.worldBound.xMin + _root.worldBound.width * 0.5f,
-                _root.worldBound.yMin + _root.worldBound.height * 0.42f);
-
-            VisualElement cell = null;
-            var hasBoardAnchor = item.HasCell && _boardCells.TryGetValue(item.Cell, out cell);
-            if (!hasBoardAnchor && item.HasTargetCell)
-                hasBoardAnchor = _boardCells.TryGetValue(item.TargetCell, out cell);
-            if (hasBoardAnchor)
-            {
-                center = cell.worldBound.center;
-                size = Mathf.Clamp(Mathf.Min(cell.worldBound.width, cell.worldBound.height) * 1.2f, 46f, 110f);
-            }
-            else if (item.Type == SimulationEventType.DamageApplied)
-            {
-                var damageAnchor = item.Detail.IndexOf("target=enemy", StringComparison.Ordinal) >= 0
-                    ? _enemyFeedbackAnchor
-                    : item.Detail.IndexOf("target=player", StringComparison.Ordinal) >= 0
-                        ? _playerFeedbackAnchor
-                        : null;
-                if (damageAnchor != null && damageAnchor.parent != null)
-                {
-                    center = damageAnchor.worldBound.center;
-                    size = Mathf.Clamp(
-                        Mathf.Min(damageAnchor.worldBound.width, damageAnchor.worldBound.height) * 0.8f,
-                        64f,
-                        defaultSize);
-                }
-            }
-
-            var image = Icon(key, size);
-            image.name = "feedback-cue-" + key.Replace('.', '-') + "-" + item.Sequence + "-" + Time.frameCount;
-            image.pickingMode = PickingMode.Ignore;
-            image.style.position = Position.Absolute;
-            image.style.left = center.x - _root.worldBound.xMin - size * 0.5f;
-            image.style.top = center.y - _root.worldBound.yMin - size * 0.5f;
-            image.style.opacity = 1f;
-            image.style.scale = new Scale(new Vector3(0.55f, 0.55f, 1f));
-            _root.Add(image);
-            StartCoroutine(AnimateFeedbackSprite(image, _reducedMotion ? 0.08f : 0.23f));
-        }
-
-        private static IEnumerator AnimateFeedbackSprite(VisualElement image, float duration)
-        {
-            var elapsed = 0f;
-            while (image != null && image.parent != null && elapsed < duration)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                var progress = Mathf.Clamp01(elapsed / duration);
-                var scale = Mathf.Lerp(0.55f, 1.25f, EaseOutCubic(progress));
-                image.style.scale = new Scale(new Vector3(scale, scale, 1f));
-                image.style.opacity = 1f - progress;
-                yield return null;
-            }
-            if (image != null && image.parent != null) image.RemoveFromHierarchy();
-        }
-
         private void PlayEventSound(SimulationEvent item, HashSet<string> played)
         {
             var key = item.Type == SimulationEventType.SwapAccepted ? "feedback.swap"
@@ -2483,7 +1703,8 @@ namespace ThreeInARow.Presentation
             {
                 var selected = (_selectedCell.HasValue && _selectedCell.Value.Equals(entry.Key)) ||
                                _skillTargets.Exists(value => value.Equals(entry.Key));
-                SetBorder(entry.Value, selected ? Gold : Hex("#41516B"), selected ? 5 : 2);
+                SetBorder(entry.Value, selected ? Gold : Hex("#29434A"), 2);
+                entry.Value.style.backgroundColor = selected ? Hex("#2B453D") : Hex("#11252B");
             }
         }
 
@@ -2529,16 +1750,9 @@ namespace ThreeInARow.Presentation
             element.style.paddingBottom = 10;
             element.style.marginTop = 6;
             element.style.marginBottom = 6;
-            element.style.borderTopLeftRadius = 14;
-            element.style.borderTopRightRadius = 14;
-            element.style.borderBottomLeftRadius = 14;
-            element.style.borderBottomRightRadius = 14;
-            var sprite = _catalog == null ? null : _catalog.GetSprite(skinKey);
-            if (sprite != null)
-            {
-                element.style.backgroundColor = Color.clear;
-                element.style.backgroundImage = new StyleBackground(sprite);
-            }
+            SetBorder(element, Hex("#355054"), 1);
+            element.style.borderTopWidth = 2;
+            element.style.borderTopColor = Hex("#8B7955");
             return element;
         }
 
@@ -2609,19 +1823,7 @@ namespace ThreeInARow.Presentation
 
         private void SkinButton(Button button, string normalKey, string pressedKey)
         {
-            button.style.backgroundColor = Color.clear;
-            button.style.borderLeftWidth = 0;
-            button.style.borderRightWidth = 0;
-            button.style.borderTopWidth = 0;
-            button.style.borderBottomWidth = 0;
-            SetButtonSprite(button, normalKey);
-            button.RegisterCallback<PointerDownEvent>(_ =>
-            {
-                if (button.enabledInHierarchy) SetButtonSprite(button, pressedKey);
-            });
-            button.RegisterCallback<PointerUpEvent>(_ => SetButtonSprite(button, normalKey));
-            button.RegisterCallback<PointerCancelEvent>(_ => SetButtonSprite(button, normalKey));
-            button.RegisterCallback<PointerLeaveEvent>(_ => SetButtonSprite(button, normalKey));
+            StyleGameButton(button, normalKey.Contains("primary"));
         }
 
         private void SetButtonSprite(Button button, string key)
@@ -2658,13 +1860,17 @@ namespace ThreeInARow.Presentation
         {
             var chip = Row();
             chip.style.flexGrow = 1;
+            chip.style.flexBasis = 0;
+            chip.style.minWidth = 0;
             chip.style.marginLeft = 2;
             chip.style.marginRight = 2;
             chip.style.paddingLeft = 5;
             chip.style.paddingRight = 5;
             chip.style.paddingTop = 5;
             chip.style.paddingBottom = 5;
-            chip.style.backgroundColor = Panel;
+            chip.style.backgroundColor = Hex("#102329");
+            chip.style.borderBottomWidth = 2;
+            chip.style.borderBottomColor = color;
             chip.style.alignItems = Align.Center;
             chip.tooltip = label + ": " + value + (maximum >= 0 ? " из " + maximum : string.Empty);
             chip.Add(Icon(iconKey, 30));
@@ -2678,8 +1884,9 @@ namespace ThreeInARow.Presentation
         private static VisualElement Bar(string label, float fraction, Color color)
         {
             var back = new VisualElement();
-            back.style.height = 34;
-            back.style.backgroundColor = Hex("#111827");
+            back.style.height = 28;
+            SetBorder(back, Hex("#553C40"), 1);
+            back.style.backgroundColor = Hex("#091419");
             back.style.marginTop = 5;
             var fill = new VisualElement();
             fill.name = "bar-fill";
@@ -2923,16 +2130,6 @@ namespace ThreeInARow.Presentation
             yield return telegraphKey;
             if (telegraphKey == "intent.crush") yield return "status.cracked";
             if (telegraphKey == "intent.freeze_anchor") yield return "status.anchored";
-        }
-
-        private static bool IsPacedEvent(SimulationEventType type)
-        {
-            return type == SimulationEventType.SwapAccepted || type == SimulationEventType.GemCleared ||
-                   type == SimulationEventType.SpecialActivated || type == SimulationEventType.DamageApplied ||
-                   type == SimulationEventType.StatusAdded || type == SimulationEventType.StatusRemoved ||
-                   type == SimulationEventType.EnemyIntentStarted || type == SimulationEventType.EnemyDefeated ||
-                   type == SimulationEventType.GemTransmuted || type == SimulationEventType.EnemyBarrierChanged ||
-                   type == SimulationEventType.ActiveJammed || type == SimulationEventType.BossPhaseChanged;
         }
 
         private static int PositiveModulo(int value, int modulus)

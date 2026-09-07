@@ -2,10 +2,24 @@
 
 Button {
     -unity-text-align: middle-center;
-    transition-duration: 0.08s;
-    transition-property: opacity;
+    transition-duration: 0.1s;
+    transition-property: opacity, background-color;
 }
 
 Button:disabled {
-    opacity: 0.72;
+    opacity: 0.55;
+}
+
+.game-button:hover:enabled {
+    border-left-color: rgb(121, 226, 210);
+    border-right-color: rgb(121, 226, 210);
+}
+
+.game-button:focus {
+    border-top-color: rgb(121, 226, 210);
+    border-bottom-color: rgb(121, 226, 210);
+}
+
+.reduced-motion {
+    transition-duration: 0s;
 }

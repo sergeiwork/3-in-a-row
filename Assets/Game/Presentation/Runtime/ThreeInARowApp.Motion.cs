@@ -19,12 +19,12 @@ namespace ThreeInARow.Presentation
 {
     public sealed partial class ThreeInARowApp
     {
-        private const float SwapDuration = 0.17f;
-        private const float ClearDuration = 0.16f;
-        private const float MinimumDropDuration = 0.18f;
-        private const float MaximumDropDuration = 0.34f;
-        private const float LandingDuration = 0.075f;
-        private const float MaximumAnimationFrameDelta = 1f / 15f;
+        private const float SwapDuration = 0.22f;
+        private const float ClearDuration = 0.21f;
+        private const float MinimumDropDuration = 0.23f;
+        private const float MaximumDropDuration = 0.42f;
+        private const float LandingDuration = 0.13f;
+        private const float MaximumAnimationFrameDelta = 1f / 30f;
         private VisualElement _feedbackLayer;
 
         private IEnumerator AnimateBatch(EventBatch events, Action finished)
@@ -173,16 +173,18 @@ namespace ThreeInARow.Presentation
                 {
                     elapsed += AnimationDeltaTime();
                     var progress = Mathf.Clamp01(elapsed / ClearDuration);
-                    // A brief inhale connects contact to the burst; most of the clear is a
-                    // quick release, leaving room for the next fall without an empty pause.
-                    var release = Mathf.Clamp01((progress - 0.24f) / 0.76f);
-                    var scale = progress < 0.24f
-                        ? Mathf.Lerp(1f, 1.12f, EaseOutCubic(progress / 0.24f))
-                        : Mathf.Lerp(1.12f, 0.18f, EaseInOutCubic(release));
+                    // Keep the anticipation restrained and join both phases at zero velocity.
+                    // This preserves the match beat without a visible pop before gravity begins.
+                    const float anticipationEnd = 0.32f;
+                    var anticipation = SmootherStep(Mathf.Clamp01(progress / anticipationEnd));
+                    var release = SmootherStep(Mathf.Clamp01((progress - anticipationEnd) / (1f - anticipationEnd)));
+                    var scale = progress < anticipationEnd
+                        ? Mathf.Lerp(1f, 1.045f, anticipation)
+                        : Mathf.Lerp(1.045f, 0.72f, release);
                     foreach (var visual in visuals)
                     {
                         visual.style.scale = new Scale(new Vector3(scale, scale, 1f));
-                        visual.style.opacity = 1f - SmootherStep(release);
+                        visual.style.opacity = 1f - release;
                     }
                     yield return null;
                 }
@@ -390,14 +392,17 @@ namespace ThreeInARow.Presentation
                     SetTranslation(motion.Visual, Vector3.LerpUnclamped(motion.Start, motion.End, eased));
                     if (curve == MotionCurve.Drop)
                     {
-                        // Travel stretches very slightly; a local squash absorbs the landing.
-                        // Position never overshoots its cell, so chained falls cannot cross.
-                        var stretch = Mathf.Sin(progress * Mathf.PI) * 0.045f;
+                        // Squared sine envelopes give travel and landing zero-rate joins. The
+                        // gem arrives exactly on its cell, then settles without snapping scale.
+                        var travelEnvelope = Mathf.Sin(progress * Mathf.PI);
+                        var stretch = travelEnvelope * travelEnvelope * 0.025f;
                         var landing = Mathf.Clamp01((elapsed - motion.Duration) / LandingDuration);
-                        var squash = elapsed < motion.Duration ? 0f : Mathf.Sin(landing * Mathf.PI) * 0.07f;
+                        var landingEnvelope = Mathf.Sin(landing * Mathf.PI);
+                        var squash = elapsed < motion.Duration ? 0f : landingEnvelope * landingEnvelope * 0.035f;
                         motion.Visual.style.scale = new Scale(new Vector3(1f - stretch + squash, 1f + stretch - squash, 1f));
                     }
-                    if (motion.FadeIn) motion.Visual.style.opacity = Mathf.Lerp(0.35f, 1f, EaseOutCubic(Mathf.Clamp01(progress * 2.5f)));
+                    if (motion.FadeIn)
+                        motion.Visual.style.opacity = Mathf.Lerp(0.55f, 1f, SmootherStep(Mathf.Clamp01(progress / 0.48f)));
                 }
                 yield return null;
             }
@@ -411,17 +416,17 @@ namespace ThreeInARow.Presentation
 
         private static float EaseGravity(float progress)
         {
-            // Asymmetric cubic Bezier: build speed early, then spend a short final interval
-            // settling. Unlike a symmetric S-curve, each refill doesn't seem to hover.
+            // Bias a zero-slope S-curve toward the start. Falls gain speed early while still
+            // entering and leaving motion continuously at cascade boundaries.
             var value = Mathf.Clamp01(progress);
-            return value * value * (3f - 2f * value) + 0.45f * value * (1f - value) * (1f - value);
+            return SmootherStep(Mathf.Pow(value, 0.82f));
         }
 
         private static float DropDuration(int travelRows)
         {
             // Square-root scaling keeps long falls readable without making large cascades drag.
             return Mathf.Clamp(
-                0.12f + Mathf.Sqrt(Mathf.Max(1, travelRows)) * 0.075f,
+                0.15f + Mathf.Sqrt(Mathf.Max(1, travelRows)) * 0.09f,
                 MinimumDropDuration,
                 MaximumDropDuration);
         }
@@ -688,7 +693,7 @@ namespace ThreeInARow.Presentation
                 var delay = _reducedMotion ? 0f : index * 0.018f;
                 var arc = _reducedMotion ? 0f : (index % 2 == 0 ? 1f : -1f) * (18f + index * 3f);
                 AnimateDamageParticle(particle, start, end,
-                    _reducedMotion ? 0.12f : 0.28f, delay, arc, size, _reducedMotion);
+                    _reducedMotion ? 0.12f : 0.36f, delay, arc, size, _reducedMotion);
             }
         }
 
@@ -706,10 +711,15 @@ namespace ThreeInARow.Presentation
             {
                 var eased = EaseInOutCubic(progress);
                 var position = Vector2.Lerp(start, end, eased);
-                position.y -= Mathf.Sin(progress * Mathf.PI) * arc;
+                var arcEnvelope = Mathf.Sin(progress * Mathf.PI);
+                position.y -= arcEnvelope * arcEnvelope * arc;
                 SetTranslation(particle, (Vector3)(position - start));
-                particle.style.opacity = 1f - Mathf.Max(0f, progress - 0.72f) / 0.28f;
-                var scale = reducedMotion ? 1f : Mathf.Lerp(0.65f, 1.15f, Mathf.Sin(progress * Mathf.PI));
+                var fadeIn = SmootherStep(Mathf.Clamp01(progress / 0.16f));
+                var fadeOut = SmootherStep(Mathf.Clamp01((progress - 0.68f) / 0.32f));
+                particle.style.opacity = fadeIn * (1f - fadeOut);
+                var pulse = Mathf.Sin(progress * Mathf.PI);
+                pulse *= pulse;
+                var scale = reducedMotion ? 1f : Mathf.Lerp(0.82f, 1.06f, pulse);
                 particle.style.scale = new Scale(new Vector3(scale, scale, 1f));
             }, delay);
         }
@@ -760,8 +770,8 @@ namespace ThreeInARow.Presentation
             number.style.left = anchorCenter.x + horizontalOffset - 42f;
             number.style.top = startTop;
             number.style.width = 84f;
-            number.style.opacity = 1f;
-            number.style.scale = new Scale(_reducedMotion ? Vector3.one : new Vector3(0.72f, 0.72f, 1f));
+            number.style.opacity = 0f;
+            number.style.scale = new Scale(_reducedMotion ? Vector3.one : new Vector3(0.86f, 0.86f, 1f));
             AddFeedback(number);
             AnimateFloatingDamageNumber(number, _reducedMotion ? 0f : 48f,
                 _reducedMotion ? 0.32f : 0.62f);
@@ -774,10 +784,12 @@ namespace ThreeInARow.Presentation
         {
             AnimateFeedback(number, duration, progress =>
             {
-                SetTranslation(number, new Vector3(0f, -EaseOutCubic(progress) * lift, 0f));
-                var scale = lift == 0f ? 1f : Mathf.Lerp(0.72f, 1f, EaseOutCubic(Mathf.Clamp01(progress * 5f)));
+                SetTranslation(number, new Vector3(0f, -SmootherStep(progress) * lift, 0f));
+                var scale = lift == 0f ? 1f : Mathf.Lerp(0.86f, 1f, SmootherStep(Mathf.Clamp01(progress / 0.3f)));
                 number.style.scale = new Scale(new Vector3(scale, scale, 1f));
-                number.style.opacity = 1f - Mathf.Clamp01((progress - 0.58f) / 0.42f);
+                var fadeIn = SmootherStep(Mathf.Clamp01(progress / 0.12f));
+                var fadeOut = SmootherStep(Mathf.Clamp01((progress - 0.55f) / 0.45f));
+                number.style.opacity = fadeIn * (1f - fadeOut);
             });
         }
 
@@ -823,19 +835,43 @@ namespace ThreeInARow.Presentation
             image.style.left = center.x - _root.worldBound.xMin - size * 0.5f;
             image.style.top = center.y - _root.worldBound.yMin - size * 0.5f;
             image.style.opacity = 1f;
-            image.style.scale = new Scale(_reducedMotion ? Vector3.one : new Vector3(0.55f, 0.55f, 1f));
+            image.style.scale = new Scale(_reducedMotion ? Vector3.one : new Vector3(0.82f, 0.82f, 1f));
             AddFeedback(image);
-            AnimateFeedbackSprite(image, _reducedMotion ? 0.12f : 0.23f, _reducedMotion);
+            AnimateFeedbackSprite(image, _reducedMotion ? 0.12f : 0.32f, _reducedMotion);
         }
 
         private static void AnimateFeedbackSprite(VisualElement image, float duration, bool reducedMotion)
         {
             AnimateFeedback(image, duration, progress =>
             {
-                var scale = reducedMotion ? 1f : Mathf.Lerp(0.55f, 1.25f, EaseOutCubic(progress));
+                var arrival = SmootherStep(Mathf.Clamp01(progress / 0.42f));
+                var settle = SmootherStep(Mathf.Clamp01((progress - 0.42f) / 0.58f));
+                var scale = reducedMotion ? 1f : Mathf.Lerp(Mathf.Lerp(0.82f, 1.045f, arrival), 1f, settle);
                 image.style.scale = new Scale(new Vector3(scale, scale, 1f));
-                image.style.opacity = 1f - progress;
+                var fadeIn = SmootherStep(Mathf.Clamp01(progress / 0.12f));
+                var fadeOut = SmootherStep(Mathf.Clamp01((progress - 0.5f) / 0.5f));
+                image.style.opacity = fadeIn * (1f - fadeOut);
             });
+        }
+
+        private IEnumerator AnimateInvalidNudge()
+        {
+            if (_board == null) yield break;
+            var board = _board;
+            const float duration = 0.2f;
+            const float amplitude = 6f;
+            var elapsed = 0f;
+            while (elapsed < duration && board != null && board.parent != null)
+            {
+                elapsed += AnimationDeltaTime();
+                var progress = Mathf.Clamp01(elapsed / duration);
+                var envelope = Mathf.Sin(progress * Mathf.PI);
+                envelope *= envelope;
+                var offset = Mathf.Sin(progress * Mathf.PI * 2f) * envelope * amplitude;
+                SetTranslation(board, new Vector3(offset, 0f, 0f));
+                yield return null;
+            }
+            if (board != null && board.parent != null) SetTranslation(board, Vector3.zero);
         }
 
         private void ClearScreenPreservingFeedback()

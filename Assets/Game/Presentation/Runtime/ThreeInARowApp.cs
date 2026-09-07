@@ -1139,6 +1139,14 @@ namespace ThreeInARow.Presentation
         private void SkillPressed(SkillDefinition definition)
         {
             if (_inputLocked) return;
+            if (_targetingSkill.HasValue)
+            {
+                var cancel = _targetingSkill.Value.Equals(definition.Id);
+                CancelSkillTargeting();
+                if (cancel) return;
+            }
+            _selectedCell = null;
+            RefreshCellSelections();
             if (definition.TargetPolicy == SkillTargetPolicy.UpToThreeStatusGems)
             {
                 _targetingSkill = definition.Id;
@@ -1164,6 +1172,16 @@ namespace ThreeInARow.Presentation
                 return;
             }
             ExecuteSkill(definition.Id, null);
+        }
+
+        private void CancelSkillTargeting()
+        {
+            if (_inputLocked) return;
+            _targetingSkill = null;
+            _skillTargets.Clear();
+            _skillOption = "content.none";
+            _selectedCell = null;
+            BuildEncounter();
         }
 
         private void ShowSkillDetails(SkillDefinition skill)
@@ -1233,12 +1251,7 @@ namespace ThreeInARow.Presentation
                 ExecuteSkill(definition.Id, _skillTargets);
             }, true);
             confirm.style.flexGrow = 1;
-            var cancel = ActionButton("ОТМЕНА", () =>
-            {
-                _targetingSkill = null;
-                _skillTargets.Clear();
-                BuildEncounter();
-            }, false);
+            var cancel = ActionButton("ОТМЕНА", CancelSkillTargeting, false);
             cancel.style.flexGrow = 1;
             controls.Add(confirm);
             controls.Add(cancel);
@@ -1260,12 +1273,7 @@ namespace ThreeInARow.Presentation
                 ExecuteSkill(definition.Id, _skillTargets);
             }, true);
             confirm.style.flexGrow = 1;
-            var cancel = ActionButton("ОТМЕНА", () =>
-            {
-                _targetingSkill = null;
-                _skillTargets.Clear();
-                BuildEncounter();
-            }, false);
+            var cancel = ActionButton("ОТМЕНА", CancelSkillTargeting, false);
             cancel.style.flexGrow = 1;
             controls.Add(confirm);
             controls.Add(cancel);
@@ -1307,13 +1315,7 @@ namespace ThreeInARow.Presentation
                 ExecuteSkill(definition.Id, _skillTargets, _skillOption);
             }, true);
             confirm.style.flexGrow = 1;
-            var cancel = ActionButton("ОТМЕНА", () =>
-            {
-                _targetingSkill = null;
-                _skillTargets.Clear();
-                _skillOption = "content.none";
-                BuildEncounter();
-            }, false);
+            var cancel = ActionButton("ОТМЕНА", CancelSkillTargeting, false);
             cancel.style.flexGrow = 1;
             controls.Add(confirm);
             controls.Add(cancel);
@@ -1386,7 +1388,14 @@ namespace ThreeInARow.Presentation
                 card.Add(Icon(optionId.Value, 100));
                 var text = new VisualElement();
                 text.style.flexGrow = 1;
+                text.style.minWidth = 0;
                 text.style.marginLeft = 20;
+                var active = skill.SlotType == SkillSlotType.Active;
+                var category = LabelText(active ? "АКТИВНЫЙ НАВЫК" : "ПАССИВНОЕ УЛУЧШЕНИЕ",
+                    17, active ? Cyan : Success);
+                category.style.whiteSpace = WhiteSpace.Normal;
+                category.style.marginBottom = 4;
+                text.Add(category);
                 text.Add(Title(PresentationText.Name(optionId), 30, Gold));
                 var description = LabelText(PresentationText.SkillDescription(skill), 20, TextColor);
                 description.style.whiteSpace = WhiteSpace.Normal;
@@ -1693,8 +1702,7 @@ namespace ThreeInARow.Presentation
             SetMessage(text, Danger);
             PlayOneShot("feedback.invalid_swap");
             if (_reducedMotion || _board == null) return;
-            SetTranslation(_board, new Vector3(-10, 0, 0));
-            _board.schedule.Execute(() => SetTranslation(_board, Vector3.zero)).StartingIn(100);
+            StartCoroutine(AnimateInvalidNudge());
         }
 
         private void RefreshCellSelections()

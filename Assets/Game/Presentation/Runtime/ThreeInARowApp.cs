@@ -51,6 +51,10 @@ namespace ThreeInARow.Presentation
         private VisualElement _gemMotionLayer;
         private VisualElement _enemyFeedbackAnchor;
         private VisualElement _playerFeedbackAnchor;
+        private VisualElement _enemyHealthFill;
+        private Label _enemyHealthLabel;
+        private VisualElement _playerHealthChip;
+        private Label _playerHealthLabel;
         private Label _message;
         private readonly Dictionary<GridCell, VisualElement> _boardCells = new Dictionary<GridCell, VisualElement>();
         private readonly Dictionary<GridCell, VisualElement> _gemVisuals = new Dictionary<GridCell, VisualElement>();
@@ -66,6 +70,11 @@ namespace ThreeInARow.Presentation
         private ContentId? _targetingSkill;
         private readonly List<GridCell> _skillTargets = new List<GridCell>();
         private ContentId _skillOption = "content.none";
+        private int _presentedEnemyHealth;
+        private int _presentedEnemyMaxHealth;
+        private int _presentedPlayerHealth;
+        private bool _hasPlayerAttackOrigin;
+        private Vector2 _playerAttackOrigin;
 
         private void Awake()
         {
@@ -150,8 +159,13 @@ namespace ThreeInARow.Presentation
             _gemMotionLayer = null;
             _enemyFeedbackAnchor = null;
             _playerFeedbackAnchor = null;
+            _enemyHealthFill = null;
+            _enemyHealthLabel = null;
+            _playerHealthChip = null;
+            _playerHealthLabel = null;
             _message = null;
             _inputLocked = false;
+            _hasPlayerAttackOrigin = false;
 
             _safeArea = new VisualElement { name = "safe-area" };
             _safeArea.style.flexGrow = 1;
@@ -664,8 +678,13 @@ namespace ThreeInARow.Presentation
             var enemyInfo = new VisualElement();
             enemyInfo.style.flexGrow = 1;
             enemyInfo.Add(Title(PresentationText.Name(enemy.Id), 31, TextColor));
-            enemyInfo.Add(Bar("ЗДОРОВЬЕ " + state.Enemy.Health + " / " + enemy.MaxHealth,
-                enemy.MaxHealth <= 0 ? 0 : (float)state.Enemy.Health / enemy.MaxHealth, Danger));
+            var enemyHealthBar = Bar("ЗДОРОВЬЕ " + state.Enemy.Health + " / " + enemy.MaxHealth,
+                enemy.MaxHealth <= 0 ? 0 : (float)state.Enemy.Health / enemy.MaxHealth, Danger);
+            _enemyHealthFill = enemyHealthBar.Q<VisualElement>("bar-fill");
+            _enemyHealthLabel = enemyHealthBar.Q<Label>("bar-label");
+            _presentedEnemyHealth = state.Enemy.Health;
+            _presentedEnemyMaxHealth = enemy.MaxHealth;
+            enemyInfo.Add(enemyHealthBar);
             if (state.Enemy.Barrier > 0)
                 enemyInfo.Add(InlineIconLabel("ui.shield", "Барьер врага: " + state.Enemy.Barrier,
                     "Временное здоровье поглощает урон раньше здоровья врага."));
@@ -1041,7 +1060,10 @@ namespace ThreeInARow.Presentation
             var resources = Row();
             resources.style.justifyContent = Justify.SpaceBetween;
             resources.style.marginTop = 7;
-            resources.Add(ResourceChip("ui.player_health", "ЗДОР.", state.Player.Health, PlayerState.MaxHealth, Danger));
+            _playerHealthChip = ResourceChip("ui.player_health", "ЗДОР.", state.Player.Health, PlayerState.MaxHealth, Danger);
+            _playerHealthLabel = _playerHealthChip.Q<Label>("resource-value");
+            _presentedPlayerHealth = state.Player.Health;
+            resources.Add(_playerHealthChip);
             resources.Add(ResourceChip("ui.focus", "ФОКУС", state.Player.Focus, 9, Cyan));
             resources.Add(ResourceChip("ui.toxic", "ТОКСИН", state.Player.Toxic, 9, Success));
             resources.Add(ResourceChip("ui.shield", "ЩИТ", state.Player.Shield, -1, Gold));
@@ -1511,6 +1533,8 @@ namespace ThreeInARow.Presentation
         private IEnumerator AnimateBatch(EventBatch events, Action finished)
         {
             _inputLocked = true;
+            InitializePresentedHealth(events);
+            _hasPlayerAttackOrigin = false;
             var played = new HashSet<string>(StringComparer.Ordinal);
             var paced = 0;
             var cascadeStep = 0;
@@ -1547,28 +1571,25 @@ namespace ThreeInARow.Presentation
                         var resolutionEvent = events.Events[eventIndex];
                         resolutionEvents.Add(resolutionEvent);
                         if (resolutionEvent.Type == SimulationEventType.GemCleared)
-                        {
-                            ShowEventCue(resolutionEvent);
                             clearEvents.Add(resolutionEvent);
-                        }
                         eventIndex++;
                     }
                     eventIndex--;
 
                     cascadeStep++;
                     PlayClearSound(clearEvents, cascadeStep);
-                    yield return AnimateClears(clearEvents);
 
-                    // Combat consequences retain their deterministic order, but no longer hold
-                    // gravity back with a separate pause after every cleared gem.
+                    // Present combat consequences at the instant the matched gems fire. The
+                    // clear, projectile, and hit effects then overlap instead of making damage
+                    // wait for the full disappearance animation.
                     foreach (var resolutionEvent in resolutionEvents)
                     {
-                        if (resolutionEvent.Type == SimulationEventType.GemCleared) continue;
                         if (resolutionEvent.Type == SimulationEventType.SpecialCreated)
                             ApplySpecialVisual(resolutionEvent);
                         ShowEventCue(resolutionEvent);
                         PlayEventSound(resolutionEvent, played);
                     }
+                    yield return AnimateClears(clearEvents);
                     continue;
                 }
                 if (item.Type == SimulationEventType.SpecialCreated)
@@ -2001,8 +2022,26 @@ namespace ThreeInARow.Presentation
             VisualElement cell;
             if (item.HasCell && _boardCells.TryGetValue(item.Cell, out cell))
             {
+                if (item.Type == SimulationEventType.GemsMatched ||
+                    item.Type == SimulationEventType.GemCleared ||
+                    item.Type == SimulationEventType.SpecialActivated)
+                {
+                    _playerAttackOrigin = cell.worldBound.center;
+                    _hasPlayerAttackOrigin = true;
+                }
                 SetBorder(cell, item.Type == SimulationEventType.StatusAdded ? Danger : Cyan, 5);
                 cell.schedule.Execute(() => SetBorder(cell, Hex("#41516B"), 2)).StartingIn(160);
+            }
+            if (item.Type == SimulationEventType.DamageApplied)
+            {
+                ApplyPresentedDamage(item);
+                LaunchDamageParticles(item);
+                LaunchFloatingDamageNumber(item);
+            }
+            else if (item.Type == SimulationEventType.EnemyBarrierChanged && item.Amount < 0)
+            {
+                LaunchDamageParticles(item, true);
+                LaunchFloatingDamageNumber(item, true);
             }
             if (_message == null) return;
             if (item.Type == SimulationEventType.DamageApplied)
@@ -2037,6 +2076,196 @@ namespace ThreeInARow.Presentation
                 : item.Type == SimulationEventType.RunEnded ? "ui.defeat"
                 : string.Empty;
             ShowFeedbackSprite(feedbackKey, item);
+        }
+
+        private void InitializePresentedHealth(EventBatch events)
+        {
+            if (_director.State == null) return;
+            _presentedEnemyHealth = _director.State.Enemy == null ? 0 : _director.State.Enemy.Health;
+            _presentedPlayerHealth = _director.State.Player == null ? 0 : _director.State.Player.Health;
+            foreach (var item in events.Events)
+            {
+                if (item.Type != SimulationEventType.DamageApplied) continue;
+                if (Targets(item, "enemy")) _presentedEnemyHealth += item.Amount;
+                else if (Targets(item, "player")) _presentedPlayerHealth += item.Amount;
+            }
+            _presentedEnemyHealth = Mathf.Clamp(_presentedEnemyHealth, 0, _presentedEnemyMaxHealth);
+            _presentedPlayerHealth = Mathf.Clamp(_presentedPlayerHealth, 0, PlayerState.MaxHealth);
+            RefreshPresentedHealth();
+        }
+
+        private void ApplyPresentedDamage(SimulationEvent item)
+        {
+            if (Targets(item, "enemy"))
+                _presentedEnemyHealth = Mathf.Max(0, _presentedEnemyHealth - item.Amount);
+            else if (Targets(item, "player"))
+                _presentedPlayerHealth = Mathf.Max(0, _presentedPlayerHealth - item.Amount);
+            RefreshPresentedHealth();
+        }
+
+        private void RefreshPresentedHealth()
+        {
+            if (_enemyHealthFill != null)
+                _enemyHealthFill.style.width = Length.Percent(_presentedEnemyMaxHealth <= 0
+                    ? 0f
+                    : Mathf.Clamp01((float)_presentedEnemyHealth / _presentedEnemyMaxHealth) * 100f);
+            if (_enemyHealthLabel != null)
+                _enemyHealthLabel.text = "ЗДОРОВЬЕ " + _presentedEnemyHealth + " / " + _presentedEnemyMaxHealth;
+            if (_playerHealthLabel != null)
+                _playerHealthLabel.text = "ЗДОР.\n" + _presentedPlayerHealth + "/" + PlayerState.MaxHealth;
+            if (_playerHealthChip != null)
+                _playerHealthChip.tooltip = "ЗДОР.: " + _presentedPlayerHealth + " из " + PlayerState.MaxHealth;
+        }
+
+        private static bool Targets(SimulationEvent item, string target)
+        {
+            return item.Detail != null &&
+                   item.Detail.IndexOf("target=" + target, StringComparison.Ordinal) >= 0;
+        }
+
+        private void LaunchDamageParticles(SimulationEvent item, bool forceEnemyTarget = false)
+        {
+            if (_root == null) return;
+            var targetsEnemy = forceEnemyTarget || Targets(item, "enemy");
+            var targetAnchor = targetsEnemy ? _enemyFeedbackAnchor : _playerFeedbackAnchor;
+            if (targetAnchor == null || targetAnchor.parent == null) return;
+
+            var startAnchor = targetsEnemy ? _playerFeedbackAnchor : _enemyFeedbackAnchor;
+            var start = targetsEnemy && _hasPlayerAttackOrigin
+                ? _playerAttackOrigin
+                : startAnchor != null && startAnchor.parent != null
+                    ? startAnchor.worldBound.center
+                    : targetAnchor.worldBound.center;
+            var end = targetAnchor.worldBound.center;
+            var rootOrigin = _root.worldBound.position;
+            start -= rootOrigin;
+            end -= rootOrigin;
+
+            var color = DamageParticleColor(item.SourceId, targetsEnemy);
+            var count = _reducedMotion ? 1 : 6;
+            for (var index = 0; index < count; index++)
+            {
+                var size = index == 0 ? 18f : Mathf.Lerp(8f, 13f, (index % 3) / 2f);
+                var particle = new VisualElement { name = "damage-particle" };
+                particle.pickingMode = PickingMode.Ignore;
+                particle.style.position = Position.Absolute;
+                particle.style.width = size;
+                particle.style.height = size;
+                particle.style.borderTopLeftRadius = size;
+                particle.style.borderTopRightRadius = size;
+                particle.style.borderBottomLeftRadius = size;
+                particle.style.borderBottomRightRadius = size;
+                particle.style.backgroundColor = color;
+                particle.style.opacity = 0.95f;
+                particle.style.left = start.x - size * 0.5f;
+                particle.style.top = start.y - size * 0.5f;
+                _root.Add(particle);
+                var delay = _reducedMotion ? 0f : index * 0.018f;
+                var arc = (index % 2 == 0 ? 1f : -1f) * (18f + index * 3f);
+                StartCoroutine(AnimateDamageParticle(particle, start, end,
+                    _reducedMotion ? 0.08f : 0.28f, delay, arc, size));
+            }
+        }
+
+        private static IEnumerator AnimateDamageParticle(
+            VisualElement particle,
+            Vector2 start,
+            Vector2 end,
+            float duration,
+            float delay,
+            float arc,
+            float size)
+        {
+            if (delay > 0f) yield return new WaitForSecondsRealtime(delay);
+            var elapsed = 0f;
+            while (particle != null && particle.parent != null && elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.Clamp01(elapsed / duration);
+                var eased = EaseInOutCubic(progress);
+                var position = Vector2.Lerp(start, end, eased);
+                position.y -= Mathf.Sin(progress * Mathf.PI) * arc;
+                particle.style.left = position.x - size * 0.5f;
+                particle.style.top = position.y - size * 0.5f;
+                particle.style.opacity = 1f - Mathf.Max(0f, progress - 0.72f) / 0.28f;
+                var scale = Mathf.Lerp(0.65f, 1.15f, Mathf.Sin(progress * Mathf.PI));
+                particle.style.scale = new Scale(new Vector3(scale, scale, 1f));
+                yield return null;
+            }
+            if (particle != null && particle.parent != null) particle.RemoveFromHierarchy();
+        }
+
+        private static Color DamageParticleColor(ContentId sourceId, bool targetsEnemy)
+        {
+            var source = sourceId.Value ?? string.Empty;
+            if (source.IndexOf("ember", StringComparison.Ordinal) >= 0 ||
+                source.IndexOf("spark", StringComparison.Ordinal) >= 0) return Hex("#FF7A59");
+            if (source.IndexOf("tide", StringComparison.Ordinal) >= 0 ||
+                source.IndexOf("current", StringComparison.Ordinal) >= 0) return Cyan;
+            if (source.IndexOf("venom", StringComparison.Ordinal) >= 0 ||
+                source.IndexOf("poison", StringComparison.Ordinal) >= 0) return Success;
+            if (source.IndexOf("volt", StringComparison.Ordinal) >= 0 ||
+                source.IndexOf("charge", StringComparison.Ordinal) >= 0) return Gold;
+            return targetsEnemy ? TextColor : Danger;
+        }
+
+        private void LaunchFloatingDamageNumber(SimulationEvent item, bool barrierDamage = false)
+        {
+            if (_root == null || (!barrierDamage && item.Amount <= 0)) return;
+            var targetsEnemy = barrierDamage || Targets(item, "enemy");
+            var targetAnchor = targetsEnemy ? _enemyFeedbackAnchor : _playerFeedbackAnchor;
+            if (targetAnchor == null || targetAnchor.parent == null) return;
+
+            var amount = Mathf.Abs(item.Amount);
+            var text = barrierDamage ? "ЩИТ −" + amount : "−" + amount;
+            var color = barrierDamage ? Gold : DamageParticleColor(item.SourceId, targetsEnemy);
+            var number = LabelText(text, barrierDamage ? 23 : 30, color, TextAnchor.MiddleCenter);
+            number.name = "floating-damage-number";
+            number.pickingMode = PickingMode.Ignore;
+            number.style.position = Position.Absolute;
+            number.style.unityFontStyleAndWeight = FontStyle.Bold;
+            number.style.backgroundColor = new Color(0.04f, 0.06f, 0.11f, 0.82f);
+            number.style.paddingLeft = 8;
+            number.style.paddingRight = 8;
+            number.style.paddingTop = 3;
+            number.style.paddingBottom = 3;
+            number.style.borderTopLeftRadius = 9;
+            number.style.borderTopRightRadius = 9;
+            number.style.borderBottomLeftRadius = 9;
+            number.style.borderBottomRightRadius = 9;
+
+            var rootOrigin = _root.worldBound.position;
+            var anchorCenter = targetAnchor.worldBound.center - rootOrigin;
+            var horizontalOffset = ((item.Sequence % 3) - 1) * 18f;
+            var startTop = anchorCenter.y - 24f;
+            number.style.left = anchorCenter.x + horizontalOffset - 42f;
+            number.style.top = startTop;
+            number.style.width = 84f;
+            number.style.opacity = 1f;
+            number.style.scale = new Scale(new Vector3(0.72f, 0.72f, 1f));
+            _root.Add(number);
+            StartCoroutine(AnimateFloatingDamageNumber(number, startTop, _reducedMotion ? 0f : 48f,
+                _reducedMotion ? 0.24f : 0.62f));
+        }
+
+        private static IEnumerator AnimateFloatingDamageNumber(
+            VisualElement number,
+            float startTop,
+            float lift,
+            float duration)
+        {
+            var elapsed = 0f;
+            while (number != null && number.parent != null && elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.Clamp01(elapsed / duration);
+                number.style.top = startTop - EaseOutCubic(progress) * lift;
+                var scale = Mathf.Lerp(0.72f, 1.08f, Mathf.Clamp01(progress * 4f));
+                number.style.scale = new Scale(new Vector3(scale, scale, 1f));
+                number.style.opacity = 1f - Mathf.Clamp01((progress - 0.58f) / 0.42f);
+                yield return null;
+            }
+            if (number != null && number.parent != null) number.RemoveFromHierarchy();
         }
 
         private void ShowFeedbackSprite(string key, SimulationEvent item)
@@ -2440,6 +2669,7 @@ namespace ThreeInARow.Presentation
             chip.tooltip = label + ": " + value + (maximum >= 0 ? " из " + maximum : string.Empty);
             chip.Add(Icon(iconKey, 30));
             var text = LabelText(label + "\n" + value + (maximum >= 0 ? "/" + maximum : string.Empty), 15, color, TextAnchor.MiddleCenter);
+            text.name = "resource-value";
             text.style.flexGrow = 1;
             chip.Add(text);
             return chip;
@@ -2452,6 +2682,7 @@ namespace ThreeInARow.Presentation
             back.style.backgroundColor = Hex("#111827");
             back.style.marginTop = 5;
             var fill = new VisualElement();
+            fill.name = "bar-fill";
             fill.style.position = Position.Absolute;
             fill.style.left = 0;
             fill.style.top = 0;
@@ -2460,6 +2691,7 @@ namespace ThreeInARow.Presentation
             fill.style.backgroundColor = color;
             back.Add(fill);
             var text = LabelText(label, 17, TextColor, TextAnchor.MiddleCenter);
+            text.name = "bar-label";
             text.style.position = Position.Absolute;
             text.style.left = 0;
             text.style.right = 0;

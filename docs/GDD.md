@@ -128,7 +128,7 @@ A valid player swap causes exactly one complete board-resolution phase and, unle
 
 `Validate swap → detect all matches → create specials (Prism has priority) → clear matched cells and activated-special targets → emit GemCleared events in deterministic row-major order → resolve each effect → gravity/spawn → repeat cascade`
 
-Damage visuals may wait until the cascade stabilizes, but the simulation applies effects immediately in the documented event order.
+Damage is presented as soon as its ordered `DamageApplied` event is reached: the health display updates at launch while directional particles travel from the matched/cleared gem to the enemy, or from the enemy to the player. Clear, projectile, and hit animations may overlap; presentation must not hold damage feedback until the full cascade animation completes. The simulation still applies effects immediately in the documented event order.
 
 For a player-created special, the destination cell is preferred, then the source cell, then the first non-special matched cell in row-major order. The creation cell becomes the special and is not also cleared. A T/L intersection or a line of five or more creates Prism; otherwise a line of four creates the color's match-4 special. Simultaneous disconnected matches each resolve as their own row-major match group.
 
@@ -542,6 +542,7 @@ Balance R1–R4 across standard and weekly seeded routes, verify the expanded su
 - Active skills are selected before the player's swap. A used skill remains marked for that turn so its cooldown does not tick when the following swap and automatic enemy response complete.
 - The presentation automatically completes the pending enemy response after the player-resolution animation. The former Enemy Response button and player-facing post-cascade skill window are removed.
 - `SwapAccepted`, `GemCleared`, `GemMoved`, and `GemSpawned` events drive visible swap, disappearance, gravity, and refill animations. Swaps use a zero-velocity start/end curve; gravity/refill timing scales sublinearly with travel distance and eases into its landing. Moving gems are temporarily hosted by the board foreground layer and docked into their destination cells when motion completes, preventing transform accumulation between cascades. Reduced-motion mode applies the same event reconciliation without travel animation.
+- `DamageApplied` updates the visible target health immediately when the event is presented. Procedural directional particles overlap board clearing: player damage travels from the current matched/cleared cell toward the enemy, while enemy damage travels from the enemy portrait toward the player resource row. A floating colored damage number appears at the target at the same time; enemy Barrier absorption is shown separately as a gold `ЩИТ −N` number. Reduced-motion mode collapses each stream to one short particle and fades the number in place without delaying the health update.
 - All player-facing runtime labels, descriptions, status rules, errors, tooltips, credits, and combat feedback are Russian. Stable content IDs, save fields, and simulation event details remain language-neutral.
 
 ## Changed contracts — R1 build identity and encounter variety

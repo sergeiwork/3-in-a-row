@@ -105,7 +105,7 @@ namespace ThreeInARow.Application
     /// </summary>
     public sealed class RunDirector
     {
-        public const int EncounterCount = 7;
+        public const int EncounterCount = 21;
 
         private readonly ICheckpointStore _checkpoints;
         private readonly IProfileStore _profiles;
@@ -362,8 +362,19 @@ namespace ThreeInARow.Application
                 MapSimulation.CompleteCurrentNode(State, events);
                 if (node != null && node.Type == MapNodeType.Boss)
                 {
-                    Screen = RunScreen.Victory;
-                    CompleteProfileRun(true);
+                    if (State.RegionIndex < MapSimulation.RegionCount - 1)
+                    {
+                        State.RegionIndex++;
+                        events.Append(MapSimulation.Generate(State));
+                        Screen = State.PendingChoice != null && State.PendingChoice.IsPending
+                            ? RunScreen.Reward
+                            : RunScreen.Map;
+                    }
+                    else
+                    {
+                        Screen = RunScreen.Victory;
+                        CompleteProfileRun(true);
+                    }
                 }
                 else if (State.PendingChoice != null && State.PendingChoice.IsPending)
                     Screen = RunScreen.Reward;
@@ -393,7 +404,8 @@ namespace ThreeInARow.Application
             if (State.Enemy != null && State.Enemy.Health <= 0)
             {
                 var completedNode = MapSimulation.GetCurrentNode(State);
-                if (completedNode != null && completedNode.Type == MapNodeType.Boss) return RunScreen.Victory;
+                if (completedNode != null && completedNode.Type == MapNodeType.Boss &&
+                    State.RegionIndex >= MapSimulation.RegionCount - 1) return RunScreen.Victory;
                 return RunScreen.Map;
             }
             // Stable checkpoints are never written during this window. Completing it here protects older/debug saves.

@@ -13,8 +13,8 @@ namespace ThreeInARow.Domain.State
     [Serializable]
     public sealed class RunState
     {
-        public const int CurrentSchemaVersion = 8;
-        public const string CurrentContentVersion = "0.8.0";
+        public const int CurrentSchemaVersion = 9;
+        public const string CurrentContentVersion = "0.9.0";
 
         public int SchemaVersion = CurrentSchemaVersion;
         public string ContentVersion = CurrentContentVersion;
@@ -23,6 +23,8 @@ namespace ThreeInARow.Domain.State
         public int ResolvedTurnCount;
         public int Experience;
         public int Level = 1;
+        // Zero-based region index. Each region owns a separate portrait-sized map.
+        public int RegionIndex;
         public PlayerState Player = new PlayerState();
         public EnemyState Enemy = new EnemyState();
         public BoardState Board = new BoardState();

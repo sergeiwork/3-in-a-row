@@ -313,7 +313,9 @@ namespace ThreeInARow.Domain.Meta
         private static bool Satisfied(ProfileState profile, RunCompletionSignals signals, UnlockConditionType condition)
         {
             if (condition == UnlockConditionType.DefeatCrystalWarden)
-                return signals.Victory && signals.BossId.Equals("enemy.crystal_warden");
+                // A fresh standard run cannot roll Facet Engine until this goal is complete,
+                // so reaching the new final boss proves Crystal Warden was defeated in Region 1.
+                return signals.Victory && !signals.IsChallengeRun;
             if (condition == UnlockConditionType.WinWithThreeEmberSkills)
                 return signals.Victory && signals.EmberSkillsLearned >= 3;
             if (condition == UnlockConditionType.PoisonTwoStacksInResponse)

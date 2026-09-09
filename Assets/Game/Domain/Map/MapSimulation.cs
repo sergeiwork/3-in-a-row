@@ -55,6 +55,8 @@ namespace ThreeInARow.Domain.Map
     /// <summary>Owns deterministic map generation, reachability, event outcomes, and pending encounter modifiers.</summary>
     public static class MapSimulation
     {
+        public const int RegionCount = 3;
+
         private static readonly MapNodeType[][] RowTypes =
         {
             new[] { MapNodeType.NormalCombat },
@@ -70,16 +72,21 @@ namespace ThreeInARow.Domain.Map
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
             combatCatalog = combatCatalog ?? MvpCombatContentCatalog.Instance;
+            if (state.RegionIndex < 0 || state.RegionIndex >= RegionCount)
+                throw new ArgumentOutOfRangeException(nameof(state.RegionIndex));
             if (state.RandomStreams == null || state.RandomStreams.Count == 0)
                 state.RandomStreams = RandomStreams.Create(state.Seed);
 
             var mapRandom = RandomStreams.Restore(RandomStream.MapGeneration, state.RandomStreams);
             var encounterRandom = RandomStreams.Restore(RandomStream.EncounterSelection, state.RandomStreams);
             var map = new MapState();
-            map.BossEnemyId = MasteryRules.HasAvailableContent(state, CombatContentIds.FacetEngine) &&
-                              mapRandom.NextInt(2) != 0
-                ? CombatContentIds.FacetEngine
-                : CombatContentIds.CrystalWarden;
+            if (state.RegionIndex == 0)
+                map.BossEnemyId = MasteryRules.HasAvailableContent(state, CombatContentIds.FacetEngine) &&
+                                  mapRandom.NextInt(2) != 0
+                    ? CombatContentIds.FacetEngine
+                    : CombatContentIds.CrystalWarden;
+            else
+                map.BossEnemyId = combatCatalog.GetRegionBossEncounter(state.RegionIndex).Enemy.Id;
 
             var eventsPool = new List<ContentId>
             {
@@ -90,7 +97,8 @@ namespace ThreeInARow.Domain.Map
                 eventsPool.Add(MapContentIds.PrismaticArchive);
             var usedEnemies = new List<ContentId>();
             var usedPressures = new List<ContentId>();
-            state.SelectedEncounterIds = new List<ContentId>();
+            if (state.SelectedEncounterIds == null || state.RegionIndex == 0)
+                state.SelectedEncounterIds = new List<ContentId>();
 
             for (var row = 0; row < RowTypes.Length; row++)
             {
@@ -99,7 +107,7 @@ namespace ThreeInARow.Domain.Map
                     var type = RowTypes[row][column];
                     var node = new MapNodeState
                     {
-                        Id = (ContentId)("map.node.r" + row + ".c" + column),
+                        Id = (ContentId)("map.region" + (state.RegionIndex + 1) + ".node.r" + row + ".c" + column),
                         Row = row,
                         Column = column,
                         Type = type
@@ -108,7 +116,9 @@ namespace ThreeInARow.Domain.Map
                     if (type == MapNodeType.NormalCombat)
                     {
                         var tuningDepth = row == 0 ? 1 : row == 1 ? 2 : row == 2 ? 3 : 4;
-                        var encounter = PickEncounter(combatCatalog.GetNormalPool(tuningDepth), encounterRandom, usedEnemies, usedPressures);
+                        var encounter = PickEncounter(
+                            combatCatalog.GetNormalPool(state.RegionIndex, tuningDepth),
+                            encounterRandom, usedEnemies, usedPressures);
                         node.ContentId = encounter.Id;
                         node.PressureId = encounter.Enemy.DominantPressureId;
                         usedEnemies.Add(encounter.Enemy.Id);
@@ -117,7 +127,7 @@ namespace ThreeInARow.Domain.Map
                     }
                     else if (type == MapNodeType.EliteCombat)
                     {
-                        var elitePool = combatCatalog.EliteEncounters;
+                        var elitePool = combatCatalog.GetElitePool(state.RegionIndex);
                         var encounter = elitePool[encounterRandom.NextInt(elitePool.Count)];
                         node.ContentId = encounter.Id;
                         node.PressureId = encounter.Enemy.DominantPressureId;
@@ -160,7 +170,8 @@ namespace ThreeInARow.Domain.Map
 
             var events = new EventBatch();
             events.Add(SimulationEventType.MapGenerated, MapContentIds.SystemMap,
-                "rows=7;boss=" + map.BossEnemyId, map.Nodes.Count, null, null, map.BossEnemyId);
+                "region=" + state.RegionIndex + ";rows=7;boss=" + map.BossEnemyId,
+                map.Nodes.Count, null, null, map.BossEnemyId);
             return events;
         }
 

@@ -224,7 +224,7 @@ namespace ThreeInARow.Presentation
             menu.style.paddingTop = 16;
             menu.style.paddingBottom = 16;
             var start = ActionButton("НАЧАТЬ ЗАБЕГ", StartRun, true);
-            start.tooltip = "Начать новый забег по карте из семи этапов.";
+            start.tooltip = "Начать новый забег через три региона по семь этапов.";
             menu.Add(start);
             if (_director.CanResume)
             {
@@ -606,7 +606,9 @@ namespace ThreeInARow.Presentation
             top.Add(heading);
             top.Add(SmallButton("?", () => BuildHelp(BuildForCurrentScreen)));
             _safeArea.Add(top);
-            var mapHint = LabelText("Маршрут к цели: " + PresentationText.Name(state.Map.BossEnemyId) +
+            var mapHint = LabelText(PresentationText.RegionName(state.RegionIndex) + " · ОБЛАСТЬ " +
+                (state.RegionIndex + 1) + " / " + MapSimulation.RegionCount + "\n" +
+                "Цель: " + PresentationText.Name(state.Map.BossEnemyId) +
                 " · сложность " + state.DifficultyTier +
                 (state.IsChallengeRun ? " · недельное испытание" : string.Empty) +
                 " · выберите доступный путь", 20, Muted, TextAnchor.MiddleCenter);
@@ -839,7 +841,9 @@ namespace ThreeInARow.Presentation
             var top = Row();
             top.style.alignItems = Align.Center;
             var currentNode = MapSimulation.GetCurrentNode(state);
-            var encounterLabel = LabelText("ЭТАП " + (currentNode == null ? 1 : currentNode.Row + 1) + " / 7", 19, Muted);
+            var encounterLabel = LabelText("ОБЛАСТЬ " + (state.RegionIndex + 1) + " / " +
+                MapSimulation.RegionCount + " · ЭТАП " +
+                (currentNode == null ? 1 : currentNode.Row + 1) + " / 7", 19, Muted);
             encounterLabel.style.flexGrow = 1;
             top.Add(encounterLabel);
             var settings = SmallButton("⚙", BuildSettingsFromRun);
@@ -902,7 +906,7 @@ namespace ThreeInARow.Presentation
             intentPanel.style.marginTop = 7;
             intentPanel.style.marginBottom = 7;
             intentPanel.style.alignItems = Align.Center;
-            foreach (var intentIcon in IntentAssetKeys(intent.TelegraphKey))
+            foreach (var intentIcon in IntentAssetKeys(intent))
                 intentPanel.Add(Icon(intentIcon, 36));
             var intentDescription = PresentationText.IntentDescription(intent,
                 MasteryContentCatalog.Instance.Get(state.DifficultyTier).EnemyDirectDamageBonus);
@@ -2364,11 +2368,32 @@ namespace ThreeInARow.Presentation
             return "Действие недоступно.";
         }
 
-        private static IEnumerable<string> IntentAssetKeys(string telegraphKey)
+        private static IEnumerable<string> IntentAssetKeys(IntentDefinition intent)
         {
-            yield return telegraphKey;
-            if (telegraphKey == "intent.crush") yield return "status.cracked";
-            if (telegraphKey == "intent.freeze_anchor") yield return "status.anchored";
+            var telegraphKey = intent.TelegraphKey;
+            if (telegraphKey == "intent.chip" || telegraphKey == "intent.crack" ||
+                telegraphKey == "intent.chill" || telegraphKey == "intent.needle" ||
+                telegraphKey == "intent.crush" || telegraphKey == "intent.bolt" ||
+                telegraphKey == "intent.drain" || telegraphKey == "intent.seal" ||
+                telegraphKey == "intent.shardstorm" || telegraphKey == "intent.freeze_anchor" ||
+                telegraphKey == "intent.bite" || telegraphKey == "intent.freeze_hit" ||
+                telegraphKey == "intent.claw" || telegraphKey == "intent.barrier" ||
+                telegraphKey == "intent.jam" || telegraphKey == "intent.thorns")
+            {
+                yield return telegraphKey;
+                if (telegraphKey == "intent.crush") yield return "status.cracked";
+                if (telegraphKey == "intent.freeze_anchor") yield return "status.anchored";
+                yield break;
+            }
+
+            foreach (var effect in intent.Effects)
+            {
+                if (effect.Type == IntentEffectType.DamagePlayer) yield return "intent.bolt";
+                else if (effect.Type == IntentEffectType.ApplyBoardStatus) yield return effect.StatusId.Value;
+                else if (effect.Type == IntentEffectType.DrainResources) yield return "intent.drain";
+                else if (effect.Type == IntentEffectType.GainEnemyBarrier) yield return "intent.barrier";
+                else if (effect.Type == IntentEffectType.JamActiveSkill) yield return "intent.jam";
+            }
         }
 
         private static int PositiveModulo(int value, int modulus)

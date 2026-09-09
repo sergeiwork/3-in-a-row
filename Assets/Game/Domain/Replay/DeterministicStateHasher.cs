@@ -18,6 +18,7 @@ namespace ThreeInARow.Domain.Replay
             text.Append(state.SchemaVersion).Append('|').Append(state.ContentVersion).Append('|')
                 .Append(state.Seed).Append('|').Append(state.EncounterIndex).Append('|').Append(state.ResolvedTurnCount).Append('|')
                 .Append(state.Experience).Append('|').Append(state.Level).Append('|')
+                .Append("region:").Append(state.RegionIndex).Append('|')
                 .Append("difficulty:").Append(state.DifficultyTier).Append(':').Append(state.DifficultyId).Append('|')
                 .Append("unlock:").Append(state.UnlockPolicyId).Append('|')
                 .Append("challenge:").Append(state.IsChallengeRun).Append(':').Append(state.ChallengeId).Append(':')

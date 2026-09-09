@@ -1,6 +1,6 @@
 # Three in a Row: Roguelike Crystals
 
-**Status:** Mobile presentation implementation v0.6
+**Status:** Multi-region implementation v0.9
 **Engine / platform:** Unity, C#, portrait mobile  
 **Canonical format:** This Markdown file is the sole editable source of truth; focused Markdown documents may link back here when this file becomes too large.
 
@@ -47,7 +47,7 @@ A portrait-mobile match-3 roguelike where every cleared crystal becomes a weapon
 ### Non-goals for this MVP
 
 - No persistent/meta progression, economy, crafting, PvP, live ops, social features, ads, or real-money store.
-- The first procedural map is compact and portrait-sized. Shops, relic inventory, multiple simultaneous enemies, and positional combat remain out of scope.
+- Each procedural region map is compact and portrait-sized. Shops, relic inventory, multiple simultaneous enemies, and positional combat remain out of scope.
 - No dependency on final art, audio, localization, cloud saves, or backend before validating the core run.
 
 ---
@@ -56,16 +56,16 @@ A portrait-mobile match-3 roguelike where every cleared crystal becomes a weapon
 
 | Area | MVP commitment | Explicitly out of scope |
 | --- | --- | --- |
-| Run structure | One seeded seven-row region with normal combat, events, rest, one optional elite, and one of two bosses | Shops, multiple acts |
+| Run structure | Three sequential seeded seven-row regions; each has normal combat, events, rest, one optional elite, and a boss | Shops, endless mode |
 | Board | 7×7 board, match-3+, cascades, four normal gem types and one Prism special | Terrain, hex grid, extra blockers |
 | Combat | Player HP, enemy HP/intent, one enemy response per valid player turn, typed effects and statuses | Multiple enemies and allied units |
 | Progression | Run XP, three standard upgrade picks, twelve-node skill tree, two equipped active skills, and at most one elite keystone | Persistent account levels and a relic inventory |
-| Content | Depth pools, eleven enemies, twelve branch passives, five active skills, four elite keystones, six events, rest, and three board statuses | Full launch content volume |
+| Content | Regional depth pools, twenty-two enemies, twelve branch passives, five active skills, four elite keystones, six events, rest, and four board statuses | Full launch content volume |
 | Technology | ScriptableObject content, deterministic simulation, local run checkpoint | Backend, remote config, production analytics |
 
 ### Vertical-slice pass condition
 
-A fresh player can complete a seven-row run in **10–15 minutes**, understands why the enemy takes damage, compares at least one route tradeoff, makes at least **three meaningful build choices**, and experiences no progression-ending defect in ten consecutive test runs.
+A fresh player can clear the first seven-row region in **10–15 minutes** and complete the three-region run in roughly **30–45 minutes**, understands why the enemy takes damage, compares route tradeoffs, makes at least **three meaningful build choices**, and experiences no progression-ending defect in ten consecutive test runs.
 
 ---
 
@@ -82,7 +82,7 @@ A fresh player can complete a seven-row run in **10–15 minutes**, understands 
 
 ### Run loop
 
-`Start Run → seeded map → selected node outcome → reward when eligible → map → row 7 boss → run summary`
+`Start Run → Region 1 map → boss → Region 2 map → boss → Region 3 map → final boss → run summary`
 
 Defeat ends the run and returns to the title screen. The MVP has no persistent reward.
 
@@ -166,6 +166,7 @@ Initial numbers should result in a normal enemy defeat in **5–7 valid turns** 
 | **Frozen** | Gem cannot be swapped but can still match and clear normally | Match through it, Prism it, or use Cleanse |
 | **Cracked** | Gem clears normally but does not produce its normal gem effect; still contributes to a match | Clear it quickly or color-clear it |
 | **Anchored** | Gem cannot fall or be swapped for one player turn; it can clear when matched | Plan a match including it |
+| **Thorned** | Gem remains matchable; clearing it deals 2 health damage, capped at 6 per board-resolution batch | Cleanse it, avoid mass-clearing it, or prepare Shield |
 
 Every status requires a distinct icon, a tap-tooltipped rule, a duration counter when relevant, and a distinct removal animation. A status must never silently change a gem color or invalidate a legal match.
 
@@ -189,11 +190,17 @@ Intent effects execute in definition order. The current intent advances only aft
 
 R1 replaces fixed non-boss advancement with persisted depth pools selected through `EncounterSelection`: depth 1 uses Geode Mite/Crystal Tick; depth 2 uses Frost Oracle/Crystal Tick/Rime Moth; depth 3 uses Geode Mite Elite/Rime Moth/Anchor Crab; depth 4 uses Prism Stalker/Anchor Crab/Hollow Idol. Selection avoids duplicate enemies while possible and caps one dominant pressure family at two planned normal encounters while alternatives remain.
 
-R2 adds Fracture Golem (112 HP) and Stormglass Roc (108 HP) as elite definitions, plus Facet Engine (132 HP) as the alternate boss. Every definition composes the existing generic damage, drain, Frozen, Cracked, and Anchored intent effects; no enemy-specific resolver branch is allowed.
+R2 adds Fracture Golem (112 HP) and Stormglass Roc (108 HP) as elite definitions, plus Facet Engine (132 HP) as the alternate Region 1 boss.
+
+After either Region 1 boss falls, the run continues into **Cinderbloom Wilds**. Its roster is Briar Wisp (112 HP; Thorned/Jam), Ashback Boar (126 HP; damage/Cracked/Barrier), Cinder Nymph (118 HP; Barrier/Thorned/Jam), Thornbound Stag elite (154 HP; Thorned/Anchored/burst), and Pyreheart Treant boss (188 HP; two-phase Thorned, Jam, Cracked, Barrier, drain, and burst cycle).
+
+After Pyreheart Treant falls, the run continues into **Voidglass Depths**. Its roster is Nullwing Bat (142 HP; Jam/Frozen), Mirror Eel (150 HP; Barrier/drain), Rift Weaver (164 HP; Anchored/Thorned/Cracked/Jam), Eclipse Chimera elite (198 HP; Barrier/Jam/Anchored), and Astral Devourer final boss (260 HP; two-phase drain, Jam, Anchored, Thorned, Barrier, Frozen, Cracked, and burst cycle).
+
+All twenty-two enemy definitions compose the generic damage, resource drain, board-status, Barrier, and Jam intent effects. No enemy-specific resolver branch is allowed. The named attacks are content definitions with stable intent IDs; their icon strip is derived from their ordered generic effects.
 
 ### Seeded region map
 
-The complete seven-row topology, content assignments, pressure hints, connections, visit/completion state, current node, and boss are generated once through `MapGeneration` and persisted in `MapState`. Rows are: mandatory normal; normal/event; mandatory normal; normal/elite/rest; event/rest; mandatory normal; boss. All nodes connect to every node in the next row, the full map fits one portrait screen, and only connected next-row nodes are selectable. Combat nodes reveal enemy family and dominant pressure before selection.
+Each region generates a fresh seven-row topology through the continuing `MapGeneration` and `EncounterSelection` RNG streams. Rows are: mandatory normal; normal/event; mandatory normal; normal/elite/rest; event/rest; mandatory normal; boss. Region-local normal and elite pools prevent later-region enemies from appearing early. All nodes connect to every node in the next row, the current region fits one portrait screen, and only connected next-row nodes are selectable. Stable node IDs include the one-based region number. `RunState.RegionIndex`, the current regional map, all selected encounter IDs across regions, and RNG states are persisted. Defeating a non-final boss increments `RegionIndex`, replaces `MapState` with the next generated map, and preserves the player build, board, HP, resources, cooldowns, statistics, and deterministic streams. Only Astral Devourer ends a victorious run.
 
 Event choices show exact outcomes and resolve through generic effect definitions. The initial set is Faceted Altar, Quiet Pool, Static Loom, Prism Echo, Frozen Reliquary, and Cracked Cache. Rest offers either 12 HP or a full board cleanse plus 2 cooldown reduction. “Next encounter” effects are stored in `PendingEncounterModifiers`, never presentation state. A node is checkpointed immediately after selection and again after its outcome begins.
 
@@ -563,7 +570,7 @@ Balance R1–R4 across standard and weekly seeded routes, verify the expanded su
 - New commands are `SelectMapNodeCommand` and `SelectEventChoiceCommand`. New events are `MapGenerated`, `MapNodeSelected`, `MapNodeCompleted`, `EventChoiceSelected`, and `PendingModifierAdded`. A selected node is checkpointed before combat/event initialization, then checkpointed again at the stable outcome boundary.
 - Six events and rest resolve through generic choice/effect definitions. Pending next-encounter Cracked/Shield effects persist as `(modifierId, amount)` entries and are consumed only when the next combat begins. Event choice state is authoritative and persisted.
 - Fracture Golem and Stormglass Roc are elite encounters; Facet Engine is the alternate boss. An elite sets a queued keystone reward after XP processing. Elite keystones are tagged passive skill definitions rather than a separate relic inventory, and only the single elite node can award one in the initial map.
-- `RunDirector` derives `Map`, `Event`, and `Rest` screens from authoritative state. Route node IDs and event choices join run statistics. A combat node completes on enemy defeat; event/rest completes after its choice; the boss node ends the run.
+- `RunDirector` derives `Map`, `Event`, and `Rest` screens from authoritative state. Route node IDs and event choices join run statistics. A combat node completes on enemy defeat; event/rest completes after its choice; an intermediate boss advances the region and only the Region 3 boss ends the run.
 
 ## Changed contracts — R3 reasons to return
 
@@ -580,12 +587,19 @@ Balance R1–R4 across standard and weekly seeded routes, verify the expanded su
 
 - Difficulty is an immutable five-step cumulative catalog stored as `DifficultyTier` plus a matching stable `DifficultyId`: `difficulty.1.sharp_edges` adds 1 to every enemy direct-damage effect; `difficulty.2.unstable_grid` starts every encounter with two deterministic Cracked gems; `difficulty.3.long_road` changes base victory healing from 4 to 2; `difficulty.4.hostile_pattern` adds one Thorned-gem application to an elite's final intent; and `difficulty.5.perfect_facet` enables each boss's explicit second intent cycle at 50% HP. Tier 0 is `difficulty.0.standard`.
 - Tier 1 unlocks after standard-run wins whose dominant damage records cover Ember, Tide, Venom, and Volt. A branch is dominant when its mapped sources tie for the greatest total branch damage in a victorious run; every branch tied for the lead is credited toward the tier-1 goal, while the first branch in stable Ember/Tide/Venom/Volt order remains the single branch stored in legacy run-record fields. Thereafter, a standard-run victory at the profile's highest unlocked tier unlocks exactly the next tier, to a maximum of 5. Weekly challenge victories do not contribute to or skip the ladder.
-- `WeeklyChallenge.ForUtcDate` pins a Monday–Sunday UTC challenge ID (`challenge.weekly.YYYY-MM-DD`), FNV-1a-derived nonzero seed, content version `0.8.0`, all-content unlock policy, generated map, and difficulty tier 3. Local challenge records rank lower valid-turn count first, then higher remaining HP, higher largest cascade, and finally the ordinal dominant-branch ID; there is no network leaderboard or account dependency.
+- `WeeklyChallenge.ForUtcDate` pins a Monday–Sunday UTC challenge ID (`challenge.weekly.YYYY-MM-DD`), FNV-1a-derived nonzero seed, content version `0.9.0`, all-content unlock policy, generated regional maps, and difficulty tier 3. Local challenge records rank lower valid-turn count first, then higher remaining HP, higher largest cascade, and finally the ordinal dominant-branch ID; there is no network leaderboard or account dependency.
 - `EnemyState.Barrier` is encounter-scoped temporary HP that absorbs damage before enemy HP and emits `EnemyBarrierChanged`. `Jammed` is the generic `JamActiveSkill` intent effect: the target equipped skill is selected through `IntentVariation` when the intent is telegraphed, persisted in `EnemyState.TelegraphedTargetId`, shown with its amount, and excluded from that response's normal cooldown tick so +1 remains +1. `ActiveJammed` and `CooldownChanged` expose execution.
 - `status.thorned` remains matchable and cleanseable. Each cleared Thorned gem deals 2 health damage to the player, capped at 6 per board-resolution batch, and its pre-clear status snapshot makes the result independent of presentation timing. Cleanse removes Thorned through the same generic status-removal path as Frozen, Cracked, and Anchored.
 - At difficulty 5, crossing a boss definition's 50% threshold sets `EnemyState.Phase = 1`, resets its intent index, and emits `BossPhaseChanged` followed by the first phase-two `EnemyIntentTelegraphed` before that intent can execute. Crystal Warden's second phase introduces Barrier and Jam; Facet Engine's introduces Thorned and Barrier, keeping no more than two unfamiliar mechanics per boss.
 - The new intent effect vocabulary is `GainEnemyBarrier` and `JamActiveSkill`; Thorned and boss phase reuse generic status and phase definitions. All amounts, targets, tier extras, barrier, and current phase are visible in the encounter UI. Counters remain available through burst damage, Volt/Charge/Flashfire cooldown reduction, Cleanse, and the threshold telegraph.
-- The combined R3/R4 domain save schema is `8` and content version is `0.8.0`; schema `7` was reserved during combined implementation and was never shipped. Checkpoint loading rejects mismatched schema/content, invalid difficulty ID/tier pairs, malformed challenge headers, incomplete unlock snapshots, incomplete boards/maps, and mid-response states. All R3/R4 run fields, hybrid counters, Barrier, phase, telegraphed Jam target, and new event payloads participate in the state hash.
+- The multi-region domain save schema is `9` and content version is `0.9.0`; older checkpoints are rejected. Checkpoint loading rejects mismatched schema/content, invalid difficulty ID/tier pairs, malformed challenge headers, incomplete unlock snapshots, incomplete boards/maps, and mid-response states. `RegionIndex`, all R3/R4 run fields, hybrid counters, Barrier, phase, telegraphed Jam target, and new event payloads participate in the state hash.
+
+## Changed contracts — v0.9 multi-region run
+
+- A standard or weekly run now contains three sequential seven-row maps: Crystal Spire, Cinderbloom Wilds, and Voidglass Depths. Each map keeps the established portrait topology and draws combat nodes from region-local normal, elite, and boss pools.
+- Region 1 retains its Crystal Warden/Facet Engine assignment rule. Region 2 always ends with Pyreheart Treant; Region 3 always ends with Astral Devourer. Intermediate bosses grant ordinary boss XP/healing and discovery credit, then generate the next region instead of completing the profile run.
+- `RunState.RegionIndex` is zero-based and authoritative. Regional node IDs use `map.region{N}.node.r{row}.c{column}`. `SelectedEncounterIds` is an append-only ledger across the run and is reset only when Region 1 is generated for a new run.
+- Ten original enemy portraits were generated with the built-in OpenAI ImageGen tool and imported with transparent alpha. Attack telegraphs reuse the existing licensed icon vocabulary and derive their icon strip from generic ordered intent effects when a bespoke telegraph sprite is absent.
 
 ## Changed contracts — build distribution
 

@@ -64,6 +64,7 @@ namespace ThreeInARow.Infrastructure
                     state.Board == null || state.Board.Gems == null ||
                     state.Board.Gems.Count != BoardState.Width * BoardState.Height ||
                     state.Map == null || state.Map.Nodes == null || state.Map.Nodes.Count == 0 ||
+                    state.RegionIndex < 0 || state.RegionIndex >= ThreeInARow.Domain.Map.MapSimulation.RegionCount ||
                     state.AvailableContentIds == null || !ValidMasteryHeader(state) ||
                     (state.PendingCombatTurn != null && state.PendingCombatTurn.AwaitingEnemyResponse))
                     return false;
@@ -119,6 +120,7 @@ namespace ThreeInARow.Infrastructure
             public int resolvedTurnCount;
             public int experience;
             public int level;
+            public int regionIndex;
             public PlayerDto player;
             public EnemyDto enemy;
             public List<GemDto> gems = new List<GemDto>();
@@ -151,6 +153,7 @@ namespace ThreeInARow.Infrastructure
                     resolvedTurnCount = state.ResolvedTurnCount,
                     experience = state.Experience,
                     level = state.Level,
+                    regionIndex = state.RegionIndex,
                     player = PlayerDto.FromDomain(state.Player),
                     enemy = EnemyDto.FromDomain(state.Enemy),
                     pendingChoice = ChoiceDto.FromDomain(state.PendingChoice),
@@ -203,6 +206,7 @@ namespace ThreeInARow.Infrastructure
                     ResolvedTurnCount = resolvedTurnCount,
                     Experience = experience,
                     Level = level,
+                    RegionIndex = regionIndex,
                     Player = player == null ? new PlayerState() : player.ToDomain(),
                     Enemy = enemy == null ? new EnemyState() : enemy.ToDomain(),
                     Board = new BoardState(),

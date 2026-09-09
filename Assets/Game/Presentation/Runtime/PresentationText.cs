@@ -27,6 +27,12 @@ namespace ThreeInARow.Presentation
             { "enemy.anchor_crab", "Якорный краб" }, { "enemy.hollow_idol", "Полый идол" },
             { "enemy.fracture_golem", "Голем разлома" }, { "enemy.stormglass_roc", "Громостеклянный рух" },
             { "enemy.facet_engine", "Гранёный механизм" },
+            { "enemy.briar_wisp", "Шипастый огонёк" }, { "enemy.ashback_boar", "Пеплоспинный вепрь" },
+            { "enemy.cinder_nymph", "Угольная нимфа" }, { "enemy.thornbound_stag", "Терновый олень" },
+            { "enemy.pyreheart_treant", "Огнесердный древень" },
+            { "enemy.nullwing_bat", "Пустокрылая мышь" }, { "enemy.mirror_eel", "Зеркальный угорь" },
+            { "enemy.rift_weaver", "Ткач разлома" }, { "enemy.eclipse_chimera", "Химера затмения" },
+            { "enemy.astral_devourer", "Астральный пожиратель" },
             { "skill.kindling", "Растопка" }, { "skill.backdraft", "Обратная тяга" },
             { "skill.flow_state", "Состояние потока" }, { "skill.undertow", "Обратное течение" },
             { "skill.corrosive", "Разъедание" }, { "skill.overcharge", "Перегрузка" },
@@ -51,12 +57,32 @@ namespace ThreeInARow.Presentation
             { "event.prismatic_archive", "Призматический архив" },
             { "pressure.crack", "Трещины" }, { "pressure.freeze", "Заморозка" },
             { "pressure.anchor", "Якоря" }, { "pressure.drain", "Истощение" }, { "pressure.mixed", "Смешанное давление" },
+            { "pressure.thorns", "Шипы" }, { "pressure.jam", "Помехи" }, { "pressure.barrier", "Барьеры" },
             { "intent.chip", "Скол" }, { "intent.crack", "Трещина" }, { "intent.chill", "Холод" },
             { "intent.needle", "Игла" }, { "intent.crush", "Сокрушение" }, { "intent.bolt", "Разряд" },
             { "intent.drain", "Истощение" }, { "intent.seal", "Печать" },
             { "intent.shardstorm", "Буря осколков" }, { "intent.freeze_anchor", "Заморозка и якорь" },
             { "intent.bite", "Укус" }, { "intent.freeze_hit", "Морозный удар" }, { "intent.claw", "Клешня" },
             { "intent.barrier", "Барьер" }, { "intent.jam", "Помеха" }, { "intent.thorns", "Шипы" },
+            { "intent.thorn_kiss", "Поцелуй шипов" }, { "intent.needleflare", "Игловспышка" },
+            { "intent.bramble_burst", "Взрыв терна" }, { "intent.cinder_charge", "Угольный таран" },
+            { "intent.faultline", "Линия разлома" }, { "intent.magma_hide", "Магмовая шкура" },
+            { "intent.ember_veil", "Угольная завеса" }, { "intent.wildfire", "Дикий огонь" },
+            { "intent.hexflare", "Проклятое пламя" }, { "intent.antler_sweep", "Взмах рогов" },
+            { "intent.root_snare", "Корневая хватка" }, { "intent.heartfire", "Огонь сердца" },
+            { "intent.bramble_crown", "Терновый венец" }, { "intent.furnace_roar", "Рёв горнила" },
+            { "intent.rootquake", "Корнелом" }, { "intent.ember_bark", "Угольная кора" },
+            { "intent.sapping_flame", "Истощающее пламя" }, { "intent.inferno", "Инферно" },
+            { "intent.null_screech", "Нулевой визг" }, { "intent.void_bite", "Укус пустоты" },
+            { "intent.nightglass", "Ночное стекло" }, { "intent.reflection", "Отражение" },
+            { "intent.prism_lash", "Призматическая плеть" }, { "intent.siphon_glide", "Скользящий сифон" },
+            { "intent.rift_tether", "Узы разлома" }, { "intent.rupture", "Разрыв" },
+            { "intent.entropy_thread", "Нить энтропии" }, { "intent.eclipse_veil", "Завеса затмения" },
+            { "intent.umbra_talon", "Коготь умбры" }, { "intent.gravity_knot", "Узел гравитации" },
+            { "intent.singularity_drag", "Тяга сингулярности" }, { "intent.event_horizon", "Горизонт событий" },
+            { "intent.starfall", "Звездопад" }, { "intent.void_carapace", "Панцирь пустоты" },
+            { "intent.collapse", "Коллапс" }, { "intent.gravity_lock", "Гравитационный замок" },
+            { "intent.devour", "Пожирание" },
             { "difficulty.0.standard", "Обычная" }, { "difficulty.1.sharp_edges", "Острые грани" },
             { "difficulty.2.unstable_grid", "Нестабильная сетка" }, { "difficulty.3.long_road", "Долгий путь" },
             { "difficulty.4.hostile_pattern", "Враждебный узор" }, { "difficulty.5.perfect_facet", "Идеальная грань" },
@@ -84,6 +110,13 @@ namespace ThreeInARow.Presentation
         {
             string value;
             return Names.TryGetValue(id.Value ?? string.Empty, out value) ? value : Humanize(id.Value);
+        }
+
+        public static string RegionName(int zeroBasedRegionIndex)
+        {
+            if (zeroBasedRegionIndex == 0) return "Хрустальный шпиль";
+            if (zeroBasedRegionIndex == 1) return "Пеплоцветные дебри";
+            return "Глубины пустостекла";
         }
 
         public static string Name(string id)

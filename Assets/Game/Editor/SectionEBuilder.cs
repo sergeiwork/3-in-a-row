@@ -85,6 +85,16 @@ namespace ThreeInARow.Editor
             AddSprite(sprites, "enemy.fracture_golem", "Enemies/Generated/enemy_geode_mite_elite.png");
             AddSprite(sprites, "enemy.stormglass_roc", "Enemies/Generated/enemy_frost_oracle.png");
             AddSprite(sprites, "enemy.facet_engine", "Enemies/Generated/enemy_crystal_warden.png");
+            AddSprite(sprites, "enemy.briar_wisp", "Enemies/Generated/enemy_briar_wisp.png");
+            AddSprite(sprites, "enemy.ashback_boar", "Enemies/Generated/enemy_ashback_boar.png");
+            AddSprite(sprites, "enemy.cinder_nymph", "Enemies/Generated/enemy_cinder_nymph.png");
+            AddSprite(sprites, "enemy.thornbound_stag", "Enemies/Generated/enemy_thornbound_stag.png");
+            AddSprite(sprites, "enemy.pyreheart_treant", "Enemies/Generated/enemy_pyreheart_treant.png");
+            AddSprite(sprites, "enemy.nullwing_bat", "Enemies/Generated/enemy_nullwing_bat.png");
+            AddSprite(sprites, "enemy.mirror_eel", "Enemies/Generated/enemy_mirror_eel.png");
+            AddSprite(sprites, "enemy.rift_weaver", "Enemies/Generated/enemy_rift_weaver.png");
+            AddSprite(sprites, "enemy.eclipse_chimera", "Enemies/Generated/enemy_eclipse_chimera.png");
+            AddSprite(sprites, "enemy.astral_devourer", "Enemies/Generated/enemy_astral_devourer.png");
 
             AddIcon(sprites, "intent.chip", "rock.png");
             AddIcon(sprites, "intent.crack", "cracked-glass.png");
@@ -213,7 +223,7 @@ namespace ThreeInARow.Editor
 
             PlayerSettings.productName = "Three in a Row: Roguelike Crystals";
             PlayerSettings.companyName = "Three in a Row";
-            PlayerSettings.bundleVersion = "0.8.0";
+            PlayerSettings.bundleVersion = "0.9.0";
             PlayerSettings.defaultScreenWidth = 1080;
             PlayerSettings.defaultScreenHeight = 1920;
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
@@ -234,7 +244,7 @@ namespace ThreeInARow.Editor
                 scenes = new[] { ScenePath },
                 locationPathName = outputDirectory + "/ThreeInARow.exe",
                 target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.Development
+                options = BuildOptions.None
             });
             if (report.summary.result != BuildResult.Succeeded)
                 throw new InvalidOperationException("Session E build failed: " + report.summary.result);

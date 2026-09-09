@@ -336,12 +336,13 @@ Each new effect needs a distinct icon, rule tooltip, event payload, AI/intent te
 
 Begin this stage only if D7 behavior shows players want more run length and world variety. Evaluate the following as separate investments rather than one bundle.
 
-### Recommended first: second region
+### Implemented in v0.9: two additional regions
 
-- Add one new visual region after the existing boss, with a checkpointed continue/stop choice if total session length exceeds 20 minutes.
-- Reuse the four normal gem colors and established player build.
-- Add 4–6 normal enemies, 2 elites, 2 bosses, 6 events, and one new board-status mechanic.
-- Use regional encounter/event pools and map visuals; do not duplicate skill systems.
+- The run now chains three portrait-sized maps: Crystal Spire, Cinderbloom Wilds, and Voidglass Depths. The first two bosses advance the region; Astral Devourer ends the run.
+- The four normal gem colors, active slots, progression catalog, board state, resources, HP, and cooldowns carry through the whole run.
+- Ten enemies were added: three normal enemies, one elite, and one boss per new region. Cinderbloom makes the existing Thorned mechanic part of normal encounter pressure; Voidglass combines Jam, Barrier, drain, and mobility statuses at higher intensity.
+- Encounter and elite pools are region-local. Events currently reuse the established generic pool so the expansion adds combat breadth without duplicating the event or skill systems.
+- A continue/stop checkpoint prompt remains a follow-up pacing option if observed full-run sessions make the automatic transition feel too long.
 
 ### Evaluate independently
 

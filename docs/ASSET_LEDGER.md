@@ -2,7 +2,7 @@
 
 This ledger is the source of truth for temporary vertical-slice assets selected for Session E0. The game design and asset requirements remain canonical in [GDD.md](GDD.md).
 
-**Acquisition dates:** 2026-09-03 (visual/E0 placeholders); 2026-09-06 (sound-design pass)
+**Acquisition dates:** 2026-09-03 (visual/E0 placeholders); 2026-09-06 (sound-design pass); 2026-09-09 (regional enemy portraits)
 **Project asset root:** `Assets/Game/Presentation/Art/E0`
 
 ## Required attribution
@@ -84,6 +84,16 @@ Status images remain separate UI layers so a gem can display multiple statuses w
 | `enemy.fracture_golem` | Temporary reuse: `Enemies/Generated/enemy_geode_mite_elite.png` |
 | `enemy.stormglass_roc` | Temporary reuse: `Enemies/Generated/enemy_frost_oracle.png` |
 | `enemy.facet_engine` | Temporary reuse: `Enemies/Generated/enemy_crystal_warden.png` |
+| `enemy.briar_wisp` | `Enemies/Generated/enemy_briar_wisp.png` |
+| `enemy.ashback_boar` | `Enemies/Generated/enemy_ashback_boar.png` |
+| `enemy.cinder_nymph` | `Enemies/Generated/enemy_cinder_nymph.png` |
+| `enemy.thornbound_stag` | `Enemies/Generated/enemy_thornbound_stag.png` |
+| `enemy.pyreheart_treant` | `Enemies/Generated/enemy_pyreheart_treant.png` |
+| `enemy.nullwing_bat` | `Enemies/Generated/enemy_nullwing_bat.png` |
+| `enemy.mirror_eel` | `Enemies/Generated/enemy_mirror_eel.png` |
+| `enemy.rift_weaver` | `Enemies/Generated/enemy_rift_weaver.png` |
+| `enemy.eclipse_chimera` | `Enemies/Generated/enemy_eclipse_chimera.png` |
+| `enemy.astral_devourer` | `Enemies/Generated/enemy_astral_devourer.png` |
 
 ### Intent telegraphs
 
@@ -294,6 +304,34 @@ Composition/framing: centered, generous transparent padding, no ground plane
 Lighting/mood: cold blue internal glow, dramatic rim light, monumental and threatening
 Constraints: genuinely transparent background; no text; no frame; no logo; no watermark; no weapon; no extra characters; no recognizable franchise styling
 ```
+
+### Cinderbloom Wilds and Voidglass Depths
+
+The ten regional portraits were generated with the built-in OpenAI ImageGen tool on 2026-09-09. They are project-generated originals: no third-party character, franchise, logo, or source image was requested, and no external attribution is required. Every generation used this shared production prompt, with the subject lines below.
+
+```text
+Use case: stylized-concept
+Asset type: square mobile-game enemy portrait with genuinely transparent background
+Style/medium: polished stylized 2D fantasy game illustration, chunky readable silhouette, moderate detail, matching a colorful match-3 roguelike
+Composition/framing: one enemy only, centered, front three-quarter view, whole creature visible, generous transparent padding, no ground plane
+Lighting/mood: dramatic game lighting, threatening but not gruesome
+Constraints: actual transparent alpha; no text; no frame; no logo; no watermark; no extra creatures; no recognizable franchise styling; no checkerboard background
+```
+
+| File | Subject request |
+| --- | --- |
+| `enemy_briar_wisp.png` | Hovering seed-spirit wrapped in dark thorn vines, emerald crystal face, three ember-orange eyes, leaf-like fins |
+| `enemy_ashback_boar.png` | Stocky boar of volcanic bark and cracked charcoal stone, amber crystal tusks, smoldering back |
+| `enemy_cinder_nymph.png` | Floating fire-and-flower spirit with faceted crimson mask, petal flame mantle, thornlike limbs |
+| `enemy_thornbound_stag.png` | Corrupted forest guardian with dark bark body, branching crystal-thorn antlers, molten chest core |
+| `enemy_pyreheart_treant.png` | Colossal tree monster split by a furnace heart, burning crystal crown, root arms and thorn claws |
+| `enemy_nullwing_bat.png` | Obsidian and violet-glass cave bat, angular wings, hollow circular face with one cyan eye |
+| `enemy_mirror_eel.png` | Floating serpentine eel with silver-blue mirror scales, translucent fins, prism eyes, S silhouette |
+| `enemy_rift_weaver.png` | Alien six-legged black-glass crystal construct with magenta energy threads |
+| `enemy_eclipse_chimera.png` | Leonine obsidian elite with crescent crystal horns, dark-glass wings, violet chest core |
+| `enemy_astral_devourer.png` | Cosmic leviathan of black crystal around a star-filled void, singularity jaws, four heavy claws |
+
+The elite and boss prompts additionally requested a more imposing full stance and preserved the same transparent-background and single-subject constraints.
 
 ## Import policy
 

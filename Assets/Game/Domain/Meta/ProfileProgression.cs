@@ -159,6 +159,7 @@ namespace ThreeInARow.Domain.Meta
         public int ValidTurnCount;
         public int LargestCascade;
         public ContentId DominantBranchId = "branch.none";
+        public List<ContentId> DominantBranchIds = new List<ContentId>();
         public int EmberSkillsLearned;
         public int MaxPoisonStacksInResponse;
         public int MaxCleanseStatusKinds;
@@ -175,6 +176,10 @@ namespace ThreeInARow.Domain.Meta
     {
         public readonly List<ContentId> CompletedChallenges = new List<ContentId>();
         public readonly List<ContentId> UnlockedContent = new List<ContentId>();
+        public readonly List<ContentId> CountedDominantBranches = new List<ContentId>();
+        public readonly List<ContentId> NewDominantBranchWins = new List<ContentId>();
+        public int DifficultyBefore;
+        public int DifficultyAfter;
     }
 
     public static class ProfileProgression
@@ -189,6 +194,17 @@ namespace ThreeInARow.Domain.Meta
             return new ProfileState();
         }
 
+        public static IReadOnlyList<ContentId> DamageBranches => Branches;
+
+        public static int DominantBranchWinCount(ProfileState profile)
+        {
+            Normalize(profile);
+            var count = 0;
+            foreach (var branch in Branches)
+                if (Contains(profile.DominantBranchWins, branch)) count++;
+            return count;
+        }
+
         public static ProfileUpdateResult CompleteRun(ProfileState profile, RunCompletionSignals signals,
             ProfileContentCatalog catalog = null)
         {
@@ -196,13 +212,28 @@ namespace ThreeInARow.Domain.Meta
             if (signals == null) throw new ArgumentNullException(nameof(signals));
             catalog = catalog ?? ProfileContentCatalog.Instance;
             Normalize(profile);
-            var result = new ProfileUpdateResult();
+            var result = new ProfileUpdateResult
+            {
+                DifficultyBefore = profile.BestDifficultyUnlocked,
+                DifficultyAfter = profile.BestDifficultyUnlocked
+            };
 
             if (signals.Victory)
             {
                 profile.Aggregate.RunsWon++;
-                if (!signals.DominantBranchId.Equals("branch.none"))
-                    AddUnique(profile.DominantBranchWins, signals.DominantBranchId);
+                var countedBranches = signals.DominantBranchIds != null && signals.DominantBranchIds.Count > 0
+                    ? signals.DominantBranchIds
+                    : new List<ContentId> { signals.DominantBranchId };
+                foreach (var branch in countedBranches)
+                {
+                    if (signals.IsChallengeRun || !Contains(Branches, branch)) continue;
+                    AddUnique(result.CountedDominantBranches, branch);
+                    if (!Contains(profile.DominantBranchWins, branch))
+                    {
+                        profile.DominantBranchWins.Add(branch);
+                        result.NewDominantBranchWins.Add(branch);
+                    }
+                }
                 UpdateRecord(profile, signals);
                 if (!signals.IsChallengeRun && signals.DifficultyTier > 0 &&
                     signals.DifficultyTier == profile.BestDifficultyUnlocked &&
@@ -226,6 +257,7 @@ namespace ThreeInARow.Domain.Meta
                 if (challenge.Condition == UnlockConditionType.EliteWithoutHealthDamage)
                     Discover(profile, CodexCategory.Elite, ProfileContentIds.FlawlessChallengeCard);
             }
+            result.DifficultyAfter = profile.BestDifficultyUnlocked;
             return result;
         }
 

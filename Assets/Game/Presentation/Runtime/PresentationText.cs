@@ -13,6 +13,8 @@ namespace ThreeInARow.Presentation
         {
             { "gem.ember", "Пламя" }, { "gem.tide", "Прилив" }, { "gem.venom", "Яд" },
             { "gem.volt", "Разряд" }, { "gem.prism", "Призма" },
+            { "branch.ember", "Пламя" }, { "branch.tide", "Прилив" },
+            { "branch.venom", "Яд" }, { "branch.volt", "Разряд" },
             { "special.spark", "Искра" }, { "special.current", "Поток" },
             { "special.spore", "Спора" }, { "special.charge", "Заряд" }, { "special.prism", "Призма" },
             { "status.frozen", "Заморозка" }, { "status.cracked", "Трещина" },

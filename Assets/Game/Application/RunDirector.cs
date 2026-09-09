@@ -476,6 +476,7 @@ namespace ThreeInARow.Application
         {
             if (_profileRunCompleted || State == null || Statistics == null) return;
             _profileRunCompleted = true;
+            var dominantBranches = DominantDamageBranches(Statistics.DamageBySource);
             var signals = new RunCompletionSignals
             {
                 Victory = victory,
@@ -484,7 +485,8 @@ namespace ThreeInARow.Application
                 RemainingHealth = State.Player.Health,
                 ValidTurnCount = State.ResolvedTurnCount,
                 LargestCascade = Statistics.BiggestCascade,
-                DominantBranchId = DominantDamageBranch(),
+                DominantBranchId = dominantBranches.Count == 0 ? (ContentId)"branch.none" : dominantBranches[0],
+                DominantBranchIds = dominantBranches,
                 EmberSkillsLearned = CountLearnedBranch("ember"),
                 MaxPoisonStacksInResponse = Statistics.MaxPoisonStacksInResponse,
                 MaxCleanseStatusKinds = Statistics.MaxCleanseStatusKinds,
@@ -515,26 +517,29 @@ namespace ThreeInARow.Application
             return count;
         }
 
-        private ContentId DominantDamageBranch()
+        public static List<ContentId> DominantDamageBranches(IEnumerable<DamageStatistic> damageBySource)
         {
             var totals = new Dictionary<string, int>(StringComparer.Ordinal)
             {
                 { "branch.ember", 0 }, { "branch.tide", 0 }, { "branch.venom", 0 }, { "branch.volt", 0 }
             };
-            foreach (var damage in Statistics.DamageBySource)
+            if (damageBySource != null)
             {
-                var branch = BranchForDamageSource(damage.SourceId);
-                if (branch != null) totals[branch] += damage.Amount;
+                foreach (var damage in damageBySource)
+                {
+                    var branch = BranchForDamageSource(damage.SourceId);
+                    if (branch != null) totals[branch] += damage.Amount;
+                }
             }
-            var best = "branch.none";
-            var amount = 0;
-            foreach (var pair in totals)
+            var maximum = 0;
+            foreach (var amount in totals.Values) maximum = Math.Max(maximum, amount);
+            var result = new List<ContentId>();
+            if (maximum <= 0) return result;
+            foreach (var branch in new[] { "branch.ember", "branch.tide", "branch.venom", "branch.volt" })
             {
-                if (pair.Value <= amount) continue;
-                best = pair.Key;
-                amount = pair.Value;
+                if (totals[branch] == maximum) result.Add((ContentId)branch);
             }
-            return (ContentId)best;
+            return result;
         }
 
         private static string BranchForDamageSource(string sourceId)

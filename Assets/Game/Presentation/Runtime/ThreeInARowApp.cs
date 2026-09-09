@@ -232,7 +232,8 @@ namespace ThreeInARow.Presentation
                 resume.tooltip = "Продолжить с последней сохранённой контрольной точки.";
                 menu.Add(resume);
             }
-            menu.Add(ActionButton("КОДЕКС И ЦЕЛИ", BuildCodex, false));
+            menu.Add(DifficultyGoalCard(true));
+            menu.Add(ActionButton("ЦЕЛИ, КОДЕКС И РЕКОРДЫ", BuildCodex, false));
             menu.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildTitle), false));
             menu.Add(ActionButton("НАСТРОЙКИ И АВТОРЫ", BuildSettings, false));
             _safeArea.Add(menu);
@@ -352,9 +353,13 @@ namespace ThreeInARow.Presentation
                     modal.Add(ActionButton("СЛОЖНОСТЬ " + tier + " · " + PresentationText.Name(definition.Id).ToUpperInvariant(),
                         () => StartStandardRun(captured), tier == _director.Profile.BestDifficultyUnlocked));
                 }
+                if (_director.Profile.BestDifficultyUnlocked < 5)
+                    modal.Add(DifficultyGoalCard(true));
                 var weekly = WeeklyChallenge.ForUtcDate(DateTime.UtcNow);
                 modal.Add(ActionButton("НЕДЕЛЬНОЕ ИСПЫТАНИЕ · " + weekly.WeekStartUtc,
                     () => StartWeeklyRun(weekly), false));
+                modal.Add(LabelText("Недельное испытание использует фиксированную сложность 3 и не открывает следующий уровень сложности.",
+                    16, Muted, TextAnchor.MiddleCenter));
             });
         }
 
@@ -381,12 +386,29 @@ namespace ThreeInARow.Presentation
         private void BuildCodex()
         {
             BeginScreen();
-            _safeArea.Add(Title("КОДЕКС И ЦЕЛИ", 42, Gold));
+            _safeArea.Add(Title("ЦЕЛИ, КОДЕКС И РЕКОРДЫ", 38, Gold));
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.flexGrow = 1;
-            scroll.Add(SectionHeading("СЛЕДУЮЩИЕ ЦЕЛИ"));
-            foreach (var goal in ProfileProgression.SuggestedGoals(_director.Profile))
-                scroll.Add(Paragraph(goal.CategoryText + ": " + goal.GoalText));
+            scroll.Add(SectionHeading("СЛЕДУЮЩАЯ СЛОЖНОСТЬ"));
+            scroll.Add(DifficultyGoalCard(false));
+            scroll.Add(SectionHeading("ДОСТУПНЫЕ ЦЕЛИ"));
+            var availableGoals = 0;
+            foreach (var goal in ProfileContentCatalog.Instance.Challenges)
+            {
+                if (goal.Id.Equals(ProfileContentIds.ChallengeDifficultyOne) || IsGoalComplete(goal)) continue;
+                scroll.Add(GoalCard(goal, false, false));
+                availableGoals++;
+            }
+            if (availableGoals == 0) scroll.Add(Paragraph("Все цели выполнены."));
+            scroll.Add(SectionHeading("ВЫПОЛНЕНО"));
+            var completedGoals = 0;
+            foreach (var goal in ProfileContentCatalog.Instance.Challenges)
+            {
+                if (!IsGoalComplete(goal)) continue;
+                scroll.Add(GoalCard(goal, true, false));
+                completedGoals++;
+            }
+            if (completedGoals == 0) scroll.Add(Paragraph("Пока выполненных целей нет."));
             scroll.Add(SectionHeading("ОТКРЫТЫЕ ЗАПИСИ"));
             if (_director.Profile.CodexEntries.Count == 0) scroll.Add(Paragraph("Пока записей нет."));
             foreach (var entry in _director.Profile.CodexEntries)
@@ -401,6 +423,167 @@ namespace ThreeInARow.Presentation
                     " · здоровье " + record.BestRemainingHealth + " · каскад " + record.LargestCascade));
             _safeArea.Add(scroll);
             _safeArea.Add(ActionButton("НАЗАД", BuildTitle, false));
+        }
+
+        private VisualElement DifficultyGoalCard(bool compact)
+        {
+            var card = Card();
+            card.name = "next-difficulty-goal";
+            var best = _director.Profile.BestDifficultyUnlocked;
+            if (best >= 5)
+            {
+                card.Add(LabelText("ВСЕ СЛОЖНОСТИ ОТКРЫТЫ", compact ? 17 : 21, Success,
+                    TextAnchor.MiddleCenter));
+                if (!compact)
+                    card.Add(LabelText("Максимум: сложность 5 · " + PresentationText.Name(MasteryContentIds.Difficulty5) + ".",
+                        18, TextColor, TextAnchor.MiddleCenter));
+                return card;
+            }
+
+            var next = best + 1;
+            var definition = MasteryContentCatalog.Instance.Get(next);
+            var heading = LabelText("СЛЕДУЮЩАЯ: СЛОЖНОСТЬ " + next + " · " +
+                PresentationText.Name(definition.Id).ToUpperInvariant(), compact ? 16 : 21, Gold,
+                TextAnchor.MiddleCenter);
+            heading.style.unityFontStyleAndWeight = FontStyle.Bold;
+            heading.style.whiteSpace = WhiteSpace.Normal;
+            card.Add(heading);
+
+            var requirement = best == 0
+                ? "Как открыть: побеждайте, нанося больше всего урона каждым из четырёх источников. При равенстве засчитываются все лидирующие источники."
+                : "Как открыть: победите в обычном забеге на сложности " + best +
+                  ". Недельное испытание не засчитывается.";
+            var body = LabelText(requirement, compact ? 15 : 18, TextColor, TextAnchor.MiddleCenter);
+            body.style.whiteSpace = WhiteSpace.Normal;
+            body.style.marginTop = 5;
+            card.Add(body);
+
+            if (best == 0)
+            {
+                var progress = LabelText(DominantBranchProgressText(), compact ? 15 : 18, Cyan,
+                    TextAnchor.MiddleCenter);
+                progress.style.whiteSpace = WhiteSpace.Normal;
+                progress.style.marginTop = 5;
+                card.Add(progress);
+            }
+            else
+            {
+                var progress = LabelText("Прогресс: 0/1", compact ? 15 : 18, Cyan, TextAnchor.MiddleCenter);
+                progress.style.marginTop = 5;
+                card.Add(progress);
+            }
+
+            if (!compact)
+            {
+                var reward = LabelText("Откроется правило: " + DifficultyRuleText(next), 17, Muted,
+                    TextAnchor.MiddleCenter);
+                reward.style.whiteSpace = WhiteSpace.Normal;
+                reward.style.marginTop = 5;
+                card.Add(reward);
+            }
+            return card;
+        }
+
+        private string DominantBranchProgressText()
+        {
+            var parts = new List<string>();
+            foreach (var branch in ProfileProgression.DamageBranches)
+                parts.Add(PresentationText.Name(branch) + " " +
+                    (Contains(_director.Profile.DominantBranchWins, branch) ? "✓" : "—"));
+            return string.Join(" · ", parts.ToArray()) + "\nПрогресс: " +
+                ProfileProgression.DominantBranchWinCount(_director.Profile) + "/4";
+        }
+
+        private static string DifficultyRuleText(int tier)
+        {
+            if (tier == 1) return "враги наносят +1 прямого урона";
+            if (tier == 2) return "каждый бой начинается с двух Трещин";
+            if (tier == 3) return "лечение после победы снижено до 2";
+            if (tier == 4) return "финальное намерение элиты накладывает Шипы";
+            if (tier == 5) return "боссы переходят во вторую фазу при 50% здоровья";
+            return "без дополнительных правил";
+        }
+
+        private bool IsGoalComplete(UnlockChallengeDefinition goal)
+        {
+            return goal != null && Contains(_director.Profile.CompletedChallengeIds, goal.Id);
+        }
+
+        private static UnlockChallengeDefinition FindGoal(ContentId id)
+        {
+            foreach (var goal in ProfileContentCatalog.Instance.Challenges)
+                if (goal.Id.Equals(id)) return goal;
+            return null;
+        }
+
+        private VisualElement GoalCard(UnlockChallengeDefinition goal, bool completed, bool useCurrentRun)
+        {
+            var card = Card();
+            var heading = LabelText(goal.CategoryText.ToUpperInvariant(), 18, completed ? Success : Gold);
+            heading.style.unityFontStyleAndWeight = FontStyle.Bold;
+            card.Add(heading);
+            card.Add(Paragraph(goal.GoalText));
+            var progress = LabelText(completed ? "Выполнено" : GoalProgressText(goal.Condition, useCurrentRun),
+                17, completed ? Success : Cyan);
+            progress.style.whiteSpace = WhiteSpace.Normal;
+            card.Add(progress);
+            var scope = LabelText(GoalScopeText(goal.Condition), 16, Muted);
+            scope.style.marginTop = 4;
+            card.Add(scope);
+            var reward = LabelText("Награда: " + PresentationText.Name(goal.UnlockContentId), 17, TextColor);
+            reward.style.marginTop = 4;
+            reward.style.whiteSpace = WhiteSpace.Normal;
+            card.Add(reward);
+            return card;
+        }
+
+        private string GoalProgressText(UnlockConditionType condition, bool useCurrentRun)
+        {
+            var statistics = useCurrentRun ? _director.Statistics : null;
+            if (condition == UnlockConditionType.DefeatCrystalWarden) return "Прогресс: 0/1 · требуется победа";
+            if (condition == UnlockConditionType.WinWithThreeEmberSkills)
+                return "Текущий забег: " + CurrentBranchSkillCount("ember", useCurrentRun) + "/3 · требуется победа";
+            if (condition == UnlockConditionType.PoisonTwoStacksInResponse)
+                return "Текущий забег: " + Math.Min(2, statistics == null ? 0 : statistics.MaxPoisonStacksInResponse) + "/2";
+            if (condition == UnlockConditionType.CleanseThreeStatusKinds)
+                return "Текущий забег: " + Math.Min(3, statistics == null ? 0 : statistics.MaxCleanseStatusKinds) + "/3";
+            if (condition == UnlockConditionType.EliteWithoutHealthDamage)
+                return "Текущий забег: " + Math.Min(1, statistics == null ? 0 : statistics.FlawlessEliteVictories) + "/1";
+            if (condition == UnlockConditionType.ActivateThreeSpecials)
+                return "Текущий забег: " + Math.Min(3, statistics == null ? 0 : statistics.SpecialActivations) + "/3";
+            if (condition == UnlockConditionType.ActivateThreeSparks)
+                return "Текущий забег: " + Math.Min(3, statistics == null ? 0 : statistics.SparkActivations) + "/3";
+            if (condition == UnlockConditionType.ConvertFocusFourTimes)
+                return "Текущий забег: " + Math.Min(4, statistics == null ? 0 : statistics.FocusConversions) + "/4";
+            if (condition == UnlockConditionType.FocusAndPoisonSameRun)
+                return "Концентрация " + (statistics != null && statistics.FocusConversions > 0 ? "✓" : "—") +
+                    " · яд " + (statistics != null && statistics.PoisonApplications > 0 ? "✓" : "—");
+            if (condition == UnlockConditionType.WinWithEveryDominantBranch)
+                return DominantBranchProgressText();
+            return "Прогресс: 0/1";
+        }
+
+        private int CurrentBranchSkillCount(string branch, bool useCurrentRun)
+        {
+            if (!useCurrentRun || _director.State == null) return 0;
+            var count = 0;
+            foreach (var skillId in _director.State.SelectedSkillIds)
+            {
+                try
+                {
+                    if (string.Equals(MvpProgressionContentCatalog.Instance.GetSkill(skillId).BranchTag,
+                        branch, StringComparison.Ordinal)) count++;
+                }
+                catch (KeyNotFoundException) { }
+            }
+            return count;
+        }
+
+        private static string GoalScopeText(UnlockConditionType condition)
+        {
+            return condition == UnlockConditionType.WinWithEveryDominantBranch
+                ? "Учитывается за несколько победных забегов."
+                : "Нужно выполнить в одном забеге.";
         }
 
         private void ResumeRun()
@@ -1511,6 +1694,11 @@ namespace ThreeInARow.Presentation
             _safeArea.Add(LabelText(victory ? PresentationText.Name(_director.State.Map.BossEnemyId) + " повержен." : "Кристаллы запомнят эту попытку.",
                 22, TextColor, TextAnchor.MiddleCenter));
 
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.flexGrow = 1;
+            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            _safeArea.Add(scroll);
+
             var summary = Card();
             summary.Add(StatLine("Побеждено врагов", statistics.EncountersCleared.ToString()));
             summary.Add(StatLine("Самая длинная цепочка", statistics.BiggestCascade.ToString()));
@@ -1523,34 +1711,77 @@ namespace ThreeInARow.Presentation
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             summary.Add(StatLine("Отладочное зерно", _director.State.Seed.ToString()));
 #endif
-            _safeArea.Add(summary);
+            scroll.Add(summary);
 
-            _safeArea.Add(SectionHeading("УРОН ПО ИСТОЧНИКАМ"));
+            scroll.Add(SectionHeading("УРОН ПО ИСТОЧНИКАМ"));
             foreach (var damage in statistics.DamageBySource)
-                _safeArea.Add(StatLine(PresentationText.Name(damage.SourceId), damage.Amount.ToString()));
-            _safeArea.Add(SectionHeading("ВЫБРАННЫЕ УЛУЧШЕНИЯ"));
+                scroll.Add(StatLine(PresentationText.Name(damage.SourceId), damage.Amount.ToString()));
+            scroll.Add(SectionHeading("ВЫБРАННЫЕ УЛУЧШЕНИЯ"));
             var upgrades = new List<string>();
             foreach (var id in _director.State.SelectedSkillIds)
             {
                 if (id.Value == "skill.sunder" || id.Value == "skill.cleanse") continue;
                 upgrades.Add(PresentationText.Name(id));
             }
-            _safeArea.Add(Paragraph(upgrades.Count == 0 ? "Нет" : string.Join(" · ", upgrades.ToArray())));
+            scroll.Add(Paragraph(upgrades.Count == 0 ? "Нет" : string.Join(" · ", upgrades.ToArray())));
 
             if (_director.LastProfileUpdate != null && _director.LastProfileUpdate.UnlockedContent.Count > 0)
             {
-                _safeArea.Add(SectionHeading("ОТКРЫТО"));
+                scroll.Add(SectionHeading("ОТКРЫТО"));
                 var unlocked = new List<string>();
                 foreach (var id in _director.LastProfileUpdate.UnlockedContent) unlocked.Add(PresentationText.Name(id));
-                _safeArea.Add(Paragraph(string.Join(" · ", unlocked.ToArray())));
+                scroll.Add(Paragraph(string.Join(" · ", unlocked.ToArray())));
             }
-            _safeArea.Add(SectionHeading("СЛЕДУЮЩИЕ ЦЕЛИ"));
-            foreach (var goal in ProfileProgression.SuggestedGoals(_director.Profile))
-                _safeArea.Add(Paragraph(goal.CategoryText + ": " + goal.GoalText));
-
-            var spacer = new VisualElement();
-            spacer.style.flexGrow = 1;
-            _safeArea.Add(spacer);
+            if (_director.LastProfileUpdate != null && _director.LastProfileUpdate.CompletedChallenges.Count > 0)
+            {
+                scroll.Add(SectionHeading("ВЫПОЛНЕННЫЕ ЦЕЛИ"));
+                foreach (var id in _director.LastProfileUpdate.CompletedChallenges)
+                {
+                    var goal = FindGoal(id);
+                    if (goal != null) scroll.Add(GoalCard(goal, true, true));
+                }
+            }
+            if (_director.LastProfileUpdate != null &&
+                _director.LastProfileUpdate.DifficultyAfter > _director.LastProfileUpdate.DifficultyBefore)
+            {
+                var tier = _director.LastProfileUpdate.DifficultyAfter;
+                var definition = MasteryContentCatalog.Instance.Get(tier);
+                var unlockedDifficulty = Card();
+                unlockedDifficulty.Add(Title("ОТКРЫТА СЛОЖНОСТЬ " + tier, 23, Success));
+                unlockedDifficulty.Add(LabelText(PresentationText.Name(definition.Id) + ": " +
+                    DifficultyRuleText(tier) + ".", 18, TextColor, TextAnchor.MiddleCenter));
+                scroll.Add(unlockedDifficulty);
+            }
+            scroll.Add(SectionHeading("ПРОГРЕСС СЛОЖНОСТИ"));
+            if (_director.LastProfileUpdate != null && _director.LastProfileUpdate.CountedDominantBranches.Count > 0)
+            {
+                var counted = new List<string>();
+                foreach (var branch in _director.LastProfileUpdate.CountedDominantBranches)
+                    counted.Add(PresentationText.Name(branch));
+                scroll.Add(Paragraph("Главные источники этого победного забега: " +
+                    string.Join(" · ", counted.ToArray()) + "."));
+                if (_director.LastProfileUpdate.NewDominantBranchWins.Count > 0)
+                {
+                    var gained = new List<string>();
+                    foreach (var branch in _director.LastProfileUpdate.NewDominantBranchWins)
+                        gained.Add(PresentationText.Name(branch));
+                    scroll.Add(LabelText("Новый прогресс: " + string.Join(" · ", gained.ToArray()), 18, Success));
+                }
+                else
+                {
+                    scroll.Add(LabelText("Эти источники уже были засчитаны ранее.", 18, Muted));
+                }
+            }
+            scroll.Add(DifficultyGoalCard(true));
+            scroll.Add(SectionHeading("СЛЕДУЮЩИЕ ЦЕЛИ"));
+            var shownGoals = 0;
+            foreach (var goal in ProfileProgression.SuggestedGoals(_director.Profile, 4))
+            {
+                if (goal.Id.Equals(ProfileContentIds.ChallengeDifficultyOne)) continue;
+                scroll.Add(GoalCard(goal, false, true));
+                shownGoals++;
+                if (shownGoals >= 2) break;
+            }
             _safeArea.Add(ActionButton("НОВЫЙ ЗАБЕГ", StartRun, true));
             _safeArea.Add(ActionButton("В ГЛАВНОЕ МЕНЮ", () =>
             {

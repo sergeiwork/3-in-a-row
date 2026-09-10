@@ -145,12 +145,23 @@ jobs:
       contents: write
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
       - name: Download packaged builds
         uses: actions/download-artifact@v4
         with:
           pattern: release-*
           path: release-assets
           merge-multiple: true
+
+      - name: Prepare Russian release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/extract_release_notes.py \
+            --tag "$GITHUB_REF_NAME" \
+            --output "$RUNNER_TEMP/release-notes.md"
 
       - name: Create or update release
         env:
@@ -163,9 +174,12 @@ jobs:
           set -euo pipefail
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "Three in a Row $GITHUB_REF_NAME" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
           else
             gh release create "$GITHUB_REF_NAME" release-assets/* \
               --verify-tag \
-              --generate-notes \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
               --title "Three in a Row $GITHUB_REF_NAME"
           fi

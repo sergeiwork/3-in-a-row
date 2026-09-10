@@ -1,4 +1,5 @@
 using System;
+using ThreeInARow.Application;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -19,6 +20,7 @@ namespace ThreeInARow.Presentation
             scroll.style.flexShrink = 1;
             scroll.style.width = Length.Percent(100);
             scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             _safeArea.Add(scroll);
 
             var body = new VisualElement { name = name + "-content" };
@@ -53,23 +55,30 @@ namespace ThreeInARow.Presentation
 
         private VisualElement TabStrip(string[] labels, int selected, Action<int> select)
         {
-            var strip = Row();
+            var strip = new VisualElement();
             strip.name = "section-tabs";
-            strip.style.flexWrap = Wrap.Wrap;
             strip.style.marginTop = 8;
             strip.style.marginBottom = 10;
+            var columns = labels.Length > 3 ? 2 : labels.Length;
+            VisualElement currentRow = null;
             for (var index = 0; index < labels.Length; index++)
             {
+                if (index % columns == 0)
+                {
+                    currentRow = Row();
+                    currentRow.name = "section-tab-row";
+                    strip.Add(currentRow);
+                }
                 var captured = index;
                 var button = SmallButton(labels[index], () => select(captured));
                 button.style.flexGrow = 1;
                 button.style.flexBasis = 0;
-                button.style.minWidth = labels.Length > 3 ? 150 : 190;
+                button.style.minWidth = 0;
                 button.style.marginTop = 4;
                 button.style.marginBottom = 4;
                 button.style.backgroundColor = index == selected ? Hex("#29524E") : Hex("#10252D");
                 button.style.color = index == selected ? Gold : TextColor;
-                strip.Add(button);
+                currentRow.Add(button);
             }
             return strip;
         }
@@ -79,7 +88,7 @@ namespace ThreeInARow.Presentation
             var button = new Button(action);
             button.style.flexGrow = 1;
             button.style.flexBasis = 0;
-            button.style.minWidth = 280;
+            button.style.minWidth = 0;
             button.style.minHeight = 94;
             button.style.height = StyleKeyword.Auto;
             button.style.marginLeft = 5;
@@ -114,6 +123,33 @@ namespace ThreeInARow.Presentation
             foreach (var action in actions) footer.Add(action);
             _safeArea.Add(footer);
             return footer;
+        }
+
+        private Button RunMenuButton()
+        {
+            var button = SmallButton("← МЕНЮ", ShowSaveAndExitConfirmation);
+            button.tooltip = "Сохранить забег и вернуться в главное меню";
+            return button;
+        }
+
+        private void ShowSaveAndExitConfirmation()
+        {
+            if (_inputLocked || _director.Screen == RunScreen.SkillWindow)
+            {
+                ShowModal("ХОД ЕЩЁ ВЫПОЛНЯЕТСЯ",
+                    "Дождитесь завершения анимации и ответа врага, затем откройте меню снова.");
+                return;
+            }
+
+            ShowModal("ВЕРНУТЬСЯ В ГЛАВНОЕ МЕНЮ?",
+                "Последняя безопасная точка забега сохранена. Его можно будет продолжить с главного экрана.", modal =>
+                {
+                    modal.Add(ActionButton("СОХРАНИТЬ И ВЫЙТИ", () =>
+                    {
+                        _director.ReturnToTitle(false);
+                        BuildTitle();
+                    }, true));
+                });
         }
     }
 }

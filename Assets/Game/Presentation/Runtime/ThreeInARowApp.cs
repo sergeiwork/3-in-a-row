@@ -220,7 +220,8 @@ namespace ThreeInARow.Presentation
             var content = CreateScrollBody("title-scroll");
             content.style.minHeight = Length.Percent(100);
             content.style.alignItems = Align.Center;
-            content.style.justifyContent = Justify.Center;
+            content.style.paddingTop = 12;
+            content.style.paddingBottom = 16;
 
             var crystal = Icon("gem.prism", 118);
             var crest = new DungeonOrnament(false);
@@ -248,15 +249,18 @@ namespace ThreeInARow.Presentation
             }
             content.Add(menu);
 
-            var navigation = Row();
+            var navigation = new VisualElement();
             navigation.name = "main-navigation";
             navigation.style.width = Length.Percent(100);
-            navigation.style.flexWrap = Wrap.Wrap;
             navigation.style.marginTop = 8;
-            navigation.Add(NavigationTile("ЦЕЛИ И КОДЕКС", "Прогресс, записи мира и архив забегов", BuildCodex));
-            navigation.Add(NavigationTile("ЭКСПЕДИЦИИ", "Ежедневные маршруты и постоянные испытания", BuildExpeditionBoard));
-            navigation.Add(NavigationTile("КАК ИГРАТЬ", "Правила поля, боя и активных навыков", () => BuildHelp(BuildTitle)));
-            navigation.Add(NavigationTile("НАСТРОЙКИ", "Звук, движение и сведения об авторах", BuildSettings));
+            var navigationTop = Row();
+            navigationTop.Add(NavigationTile("ЦЕЛИ И КОДЕКС", "Прогресс, записи мира и архив забегов", BuildCodex));
+            navigationTop.Add(NavigationTile("ЭКСПЕДИЦИИ", "Ежедневные маршруты и постоянные испытания", BuildExpeditionBoard));
+            navigation.Add(navigationTop);
+            var navigationBottom = Row();
+            navigationBottom.Add(NavigationTile("КАК ИГРАТЬ", "Правила поля, боя и активных навыков", () => BuildHelp(BuildTitle)));
+            navigationBottom.Add(NavigationTile("НАСТРОЙКИ", "Звук, движение и сведения об авторах", BuildSettings));
+            navigation.Add(navigationBottom);
             content.Add(navigation);
 
             var difficulty = DifficultyGoalCard(true);
@@ -330,6 +334,7 @@ namespace ThreeInARow.Presentation
             scroll.style.marginTop = 8;
             scroll.style.marginBottom = 8;
             scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
 
             scroll.Add(SectionHeading("ХОД БОЯ"));
             scroll.Add(Paragraph("1. До перестановки можно применить готовый активный навык.\n2. Поменяйте местами два соседних подвижных кристалла так, чтобы собрать ряд из трёх или больше. Неверная перестановка не расходует ход.\n3. Все совпадения и каскады срабатывают автоматически.\n4. Если враг выжил, он выполняет действие из панели «Далее»."));
@@ -590,7 +595,6 @@ namespace ThreeInARow.Presentation
                         card.Add(vowLabel);
                     }
                     var actions = Row();
-                    actions.style.flexWrap = Wrap.Wrap;
                     var copy = SmallButton("КОПИРОВАТЬ", () => GUIUtility.systemCopyBuffer = captured.Seed);
                     var replay = SmallButton("ПОВТОРИТЬ", () => ReplayArchivedRun(captured));
                     copy.style.flexGrow = 1;
@@ -833,16 +837,18 @@ namespace ThreeInARow.Presentation
             scroll.style.flexGrow = 1;
             scroll.style.width = Length.Percent(100);
             scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             _safeArea.Add(scroll);
 
             var content = new VisualElement { name = "map-content" };
             content.style.width = Length.Percent(100);
             content.style.minHeight = Length.Percent(100);
-            content.style.justifyContent = Justify.Center;
             content.style.flexShrink = 0;
             scroll.Add(content);
 
             var top = Row();
+            top.style.alignItems = Align.Center;
+            top.Add(RunMenuButton());
             var heading = Title("КАРТА РЕГИОНА", 38, Gold);
             heading.style.flexGrow = 1;
             top.Add(heading);
@@ -1068,7 +1074,10 @@ namespace ThreeInARow.Presentation
             var pending = _director.State.PendingEvent;
             var body = CreateScrollBody("event-scroll");
             body.style.minHeight = Length.Percent(100);
-            body.style.justifyContent = Justify.Center;
+            var eventToolbar = Row();
+            eventToolbar.style.justifyContent = Justify.FlexEnd;
+            eventToolbar.Add(RunMenuButton());
+            body.Add(eventToolbar);
             var icon = Icon(rest ? "ui.player_health" : "gem.prism", 82);
             icon.style.alignSelf = Align.Center;
             body.Add(icon);
@@ -1145,6 +1154,7 @@ namespace ThreeInARow.Presentation
 
             var top = Row();
             top.style.alignItems = Align.Center;
+            top.Add(RunMenuButton());
             var currentNode = MapSimulation.GetCurrentNode(state);
             var encounterLabel = LabelText(RegionProgressText(state) + " · ЭТАП " +
                 (currentNode == null ? 1 : currentNode.Row + 1) + " / 7", 19, Muted);
@@ -1879,6 +1889,10 @@ namespace ThreeInARow.Presentation
             BeginScreen();
             var state = _director.State;
             var body = CreateScrollBody("reward-scroll");
+            var rewardToolbar = Row();
+            rewardToolbar.style.justifyContent = Justify.FlexEnd;
+            rewardToolbar.Add(RunMenuButton());
+            body.Add(rewardToolbar);
             var rewardIcon = Icon("ui.level_up", 84);
             rewardIcon.style.alignSelf = Align.Center;
             body.Add(rewardIcon);
@@ -1977,7 +1991,6 @@ namespace ThreeInARow.Presentation
             var state = _director.State;
             var body = CreateScrollBody("sanctum-scroll");
             body.style.minHeight = Length.Percent(100);
-            body.style.justifyContent = Justify.Center;
             var sanctumIcon = Icon("ui.level_up", 92);
             sanctumIcon.style.alignSelf = Align.Center;
             body.Add(sanctumIcon);
@@ -2030,6 +2043,10 @@ namespace ThreeInARow.Presentation
             BeginScreen();
             var state = _director.State;
             var body = CreateScrollBody("between-encounters-scroll");
+            var betweenToolbar = Row();
+            betweenToolbar.style.justifyContent = Justify.FlexEnd;
+            betweenToolbar.Add(RunMenuButton());
+            body.Add(betweenToolbar);
             var victoryIcon = Icon("ui.victory", 92);
             victoryIcon.style.alignSelf = Align.Center;
             body.Add(victoryIcon);
@@ -2100,6 +2117,7 @@ namespace ThreeInARow.Presentation
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.flexGrow = 1;
             scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             _safeArea.Add(scroll);
 
             var summary = Card();
@@ -2374,6 +2392,7 @@ namespace ThreeInARow.Presentation
             modal.style.paddingBottom = 24;
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            scroll.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             scroll.Add(Title(heading, 36, Gold));
             if (!string.IsNullOrEmpty(body)) scroll.Add(Paragraph(body));
             addContent?.Invoke(scroll);

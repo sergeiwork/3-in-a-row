@@ -24,7 +24,3 @@ Button:disabled {
 .reduced-motion {
     transition-duration: 0s;
 }
-
-Scroller {
-    opacity: 0.76;
-}

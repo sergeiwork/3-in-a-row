@@ -200,21 +200,32 @@ namespace ThreeInARow.Presentation
         private void BuildTitle()
         {
             BeginScreen();
-            _safeArea.style.justifyContent = Justify.Center;
-            _safeArea.style.alignItems = Align.Center;
+            var scroll = new ScrollView(ScrollViewMode.Vertical) { name = "title-scroll" };
+            scroll.style.flexGrow = 1;
+            scroll.style.width = Length.Percent(100);
+            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            _safeArea.Add(scroll);
+
+            var content = new VisualElement { name = "title-content" };
+            content.style.width = Length.Percent(100);
+            content.style.minHeight = Length.Percent(100);
+            content.style.alignItems = Align.Center;
+            content.style.justifyContent = Justify.Center;
+            content.style.flexShrink = 0;
+            scroll.Add(content);
 
             var crystal = Icon("gem.prism", 170);
             var crest = new DungeonOrnament(false);
             crest.style.height = 44;
             crest.style.width = 240;
-            _safeArea.Add(crest);
+            content.Add(crest);
             crystal.style.marginBottom = 22;
-            _safeArea.Add(crystal);
-            _safeArea.Add(Title("ТРИ В РЯД", 54, Gold));
+            content.Add(crystal);
+            content.Add(Title("ТРИ В РЯД", 54, Gold));
             var subtitle = LabelText("КРИСТАЛЬНЫЙ РОГАЛИК", 24, Cyan, TextAnchor.MiddleCenter);
             subtitle.style.letterSpacing = 4;
             subtitle.style.marginBottom = 54;
-            _safeArea.Add(subtitle);
+            content.Add(subtitle);
 
             var menu = new VisualElement();
             menu.style.width = Length.Percent(100);
@@ -236,16 +247,18 @@ namespace ThreeInARow.Presentation
             menu.Add(ActionButton("ЦЕЛИ, КОДЕКС И РЕКОРДЫ", BuildCodex, false));
             menu.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildTitle), false));
             menu.Add(ActionButton("НАСТРОЙКИ И АВТОРЫ", BuildSettings, false));
-            _safeArea.Add(menu);
+            content.Add(menu);
 
             var profile = _director.Profile;
             var progress = LabelText("Побед: " + profile.Aggregate.RunsWon + " · открыто целей: " +
                 profile.CompletedChallengeIds.Count + " · сложность: " + profile.BestDifficultyUnlocked, 18, Muted, TextAnchor.MiddleCenter);
             progress.style.marginTop = 24;
-            _safeArea.Add(progress);
+            content.Add(progress);
             var version = LabelText("Контент R1–R4 · v0.8", 18, Muted, TextAnchor.MiddleCenter);
             version.style.marginTop = 36;
-            _safeArea.Add(version);
+            content.Add(version);
+
+            foreach (var child in content.Children()) child.style.flexShrink = 0;
         }
 
         private void BuildSettings()

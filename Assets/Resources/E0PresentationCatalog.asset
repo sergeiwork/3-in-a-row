@@ -45,48 +45,124 @@ MonoBehaviour:
     Sprite: {fileID: 21300000, guid: 704dc4dec463bef4b9d9f7214420bca3, type: 3}
   - Key: enemy.geode_mite
     Sprite: {fileID: 21300000, guid: 93a8f310154650b42baef6af48f89390, type: 3}
+  - Key: enemy.geode_mite.attack
+    Sprite: {fileID: 21300000, guid: 7bff3d65ba469df488a81338b461c6ac, type: 3}
   - Key: enemy.frost_oracle
     Sprite: {fileID: 21300000, guid: 9f15d581e5dde8e41bdacfdd3609849a, type: 3}
+  - Key: enemy.frost_oracle.attack
+    Sprite: {fileID: 21300000, guid: 04ec82d75c0112b4b9dcf05e5bc03437, type: 3}
   - Key: enemy.geode_mite_elite
     Sprite: {fileID: 21300000, guid: 2d7521da39d6d4749bfc0ee22da294c1, type: 3}
+  - Key: enemy.geode_mite_elite.attack
+    Sprite: {fileID: 21300000, guid: 71a988c1732e5c64096e19af867becf9, type: 3}
   - Key: enemy.prism_stalker
     Sprite: {fileID: 21300000, guid: 3d46088f74e5e1c4d915d2ec11d7e487, type: 3}
+  - Key: enemy.prism_stalker.attack
+    Sprite: {fileID: 21300000, guid: 932142c655702c04c98711fb4a421420, type: 3}
   - Key: enemy.crystal_warden
     Sprite: {fileID: 21300000, guid: e11046179296f6e45a818ab427b82d39, type: 3}
+  - Key: enemy.crystal_warden.attack
+    Sprite: {fileID: 21300000, guid: e2f9fa6e94dde4f459b83d2840ce947a, type: 3}
   - Key: enemy.crystal_tick
     Sprite: {fileID: 21300000, guid: 93a8f310154650b42baef6af48f89390, type: 3}
+  - Key: enemy.crystal_tick.attack
+    Sprite: {fileID: 21300000, guid: 7bff3d65ba469df488a81338b461c6ac, type: 3}
   - Key: enemy.rime_moth
     Sprite: {fileID: 21300000, guid: 9f15d581e5dde8e41bdacfdd3609849a, type: 3}
+  - Key: enemy.rime_moth.attack
+    Sprite: {fileID: 21300000, guid: 04ec82d75c0112b4b9dcf05e5bc03437, type: 3}
   - Key: enemy.anchor_crab
     Sprite: {fileID: 21300000, guid: 2d7521da39d6d4749bfc0ee22da294c1, type: 3}
+  - Key: enemy.anchor_crab.attack
+    Sprite: {fileID: 21300000, guid: 71a988c1732e5c64096e19af867becf9, type: 3}
   - Key: enemy.hollow_idol
     Sprite: {fileID: 21300000, guid: 3d46088f74e5e1c4d915d2ec11d7e487, type: 3}
+  - Key: enemy.hollow_idol.attack
+    Sprite: {fileID: 21300000, guid: 932142c655702c04c98711fb4a421420, type: 3}
   - Key: enemy.fracture_golem
     Sprite: {fileID: 21300000, guid: 2d7521da39d6d4749bfc0ee22da294c1, type: 3}
+  - Key: enemy.fracture_golem.attack
+    Sprite: {fileID: 21300000, guid: 71a988c1732e5c64096e19af867becf9, type: 3}
   - Key: enemy.stormglass_roc
     Sprite: {fileID: 21300000, guid: 9f15d581e5dde8e41bdacfdd3609849a, type: 3}
+  - Key: enemy.stormglass_roc.attack
+    Sprite: {fileID: 21300000, guid: 04ec82d75c0112b4b9dcf05e5bc03437, type: 3}
   - Key: enemy.facet_engine
     Sprite: {fileID: 21300000, guid: e11046179296f6e45a818ab427b82d39, type: 3}
+  - Key: enemy.facet_engine.attack
+    Sprite: {fileID: 21300000, guid: e2f9fa6e94dde4f459b83d2840ce947a, type: 3}
   - Key: enemy.briar_wisp
     Sprite: {fileID: 21300000, guid: c54c6f2aaa0c94e439c1e89ad1835737, type: 3}
+  - Key: enemy.briar_wisp.attack
+    Sprite: {fileID: 21300000, guid: a94dd9d259bbf7b4c8acb66350bf387f, type: 3}
   - Key: enemy.ashback_boar
     Sprite: {fileID: 21300000, guid: 2463bdd243fd5c745b590e48c1990cc3, type: 3}
+  - Key: enemy.ashback_boar.attack
+    Sprite: {fileID: 21300000, guid: 37856ec9dd95afa43b8b459b369645de, type: 3}
   - Key: enemy.cinder_nymph
     Sprite: {fileID: 21300000, guid: ae002bc352b0e204ea016b5cfa61b2e7, type: 3}
+  - Key: enemy.cinder_nymph.attack
+    Sprite: {fileID: 21300000, guid: 59cfdcb4638aeb548ae6b7caeb8450f9, type: 3}
   - Key: enemy.thornbound_stag
     Sprite: {fileID: 21300000, guid: 666070e0777edea4e9cfe1f47a10c2c9, type: 3}
+  - Key: enemy.thornbound_stag.attack
+    Sprite: {fileID: 21300000, guid: 738d83012db89c147aa8969b59eb40af, type: 3}
   - Key: enemy.pyreheart_treant
     Sprite: {fileID: 21300000, guid: 32bd3ebfa47c7d0408317aa68ea3b671, type: 3}
+  - Key: enemy.pyreheart_treant.attack
+    Sprite: {fileID: 21300000, guid: 2be6ae7a5109f2f4da8107f166f4bedc, type: 3}
+  - Key: enemy.sootcap_shaman
+    Sprite: {fileID: 21300000, guid: c54c6f2aaa0c94e439c1e89ad1835737, type: 3}
+  - Key: enemy.sootcap_shaman.attack
+    Sprite: {fileID: 21300000, guid: a94dd9d259bbf7b4c8acb66350bf387f, type: 3}
+  - Key: enemy.glassvine_serpent
+    Sprite: {fileID: 21300000, guid: ae002bc352b0e204ea016b5cfa61b2e7, type: 3}
+  - Key: enemy.glassvine_serpent.attack
+    Sprite: {fileID: 21300000, guid: 59cfdcb4638aeb548ae6b7caeb8450f9, type: 3}
+  - Key: enemy.ashen_dryad
+    Sprite: {fileID: 21300000, guid: 666070e0777edea4e9cfe1f47a10c2c9, type: 3}
+  - Key: enemy.ashen_dryad.attack
+    Sprite: {fileID: 21300000, guid: 738d83012db89c147aa8969b59eb40af, type: 3}
+  - Key: enemy.furnace_matriarch
+    Sprite: {fileID: 21300000, guid: 32bd3ebfa47c7d0408317aa68ea3b671, type: 3}
+  - Key: enemy.furnace_matriarch.attack
+    Sprite: {fileID: 21300000, guid: 2be6ae7a5109f2f4da8107f166f4bedc, type: 3}
   - Key: enemy.nullwing_bat
     Sprite: {fileID: 21300000, guid: 8639ccec8122fa042b197d2d430c9cf2, type: 3}
+  - Key: enemy.nullwing_bat.attack
+    Sprite: {fileID: 21300000, guid: 2228d75d4f6cfd74da2c2d0f9372234b, type: 3}
   - Key: enemy.mirror_eel
     Sprite: {fileID: 21300000, guid: 5aa78651408b32841bff0537fe9cf931, type: 3}
+  - Key: enemy.mirror_eel.attack
+    Sprite: {fileID: 21300000, guid: a9e5b7b83922fbc4aaf0bd8eb7d34e63, type: 3}
   - Key: enemy.rift_weaver
     Sprite: {fileID: 21300000, guid: d602557d38a0b52499b0d4b019a90e5c, type: 3}
+  - Key: enemy.rift_weaver.attack
+    Sprite: {fileID: 21300000, guid: 146ee2e884196c146888d224dd3b243a, type: 3}
   - Key: enemy.eclipse_chimera
     Sprite: {fileID: 21300000, guid: 4d1cb7f03c1d83c419e42fd28e43fbb8, type: 3}
+  - Key: enemy.eclipse_chimera.attack
+    Sprite: {fileID: 21300000, guid: 2cd9717487f462c48a271a335bcfd501, type: 3}
   - Key: enemy.astral_devourer
     Sprite: {fileID: 21300000, guid: 12b3360643086894c926aea6b916b365, type: 3}
+  - Key: enemy.astral_devourer.attack
+    Sprite: {fileID: 21300000, guid: 887688682ea1661468f12c120ed0c3a7, type: 3}
+  - Key: enemy.shard_leech
+    Sprite: {fileID: 21300000, guid: 5aa78651408b32841bff0537fe9cf931, type: 3}
+  - Key: enemy.shard_leech.attack
+    Sprite: {fileID: 21300000, guid: a9e5b7b83922fbc4aaf0bd8eb7d34e63, type: 3}
+  - Key: enemy.orbit_sentinel
+    Sprite: {fileID: 21300000, guid: d602557d38a0b52499b0d4b019a90e5c, type: 3}
+  - Key: enemy.orbit_sentinel.attack
+    Sprite: {fileID: 21300000, guid: 146ee2e884196c146888d224dd3b243a, type: 3}
+  - Key: enemy.parallax_knight
+    Sprite: {fileID: 21300000, guid: 4d1cb7f03c1d83c419e42fd28e43fbb8, type: 3}
+  - Key: enemy.parallax_knight.attack
+    Sprite: {fileID: 21300000, guid: 2cd9717487f462c48a271a335bcfd501, type: 3}
+  - Key: enemy.singularity_seraph
+    Sprite: {fileID: 21300000, guid: 12b3360643086894c926aea6b916b365, type: 3}
+  - Key: enemy.singularity_seraph.attack
+    Sprite: {fileID: 21300000, guid: 887688682ea1661468f12c120ed0c3a7, type: 3}
   - Key: intent.chip
     Sprite: {fileID: 21300000, guid: c48cf887b36110b4781eece0131c41b0, type: 3}
   - Key: intent.crack
@@ -196,6 +272,34 @@ MonoBehaviour:
   - Key: skill.keystone.rapid_casting
     Sprite: {fileID: 21300000, guid: 5183de26e3a8f814ea09e364203fd9c9, type: 3}
   - Key: skill.keystone.hard_light
+    Sprite: {fileID: 21300000, guid: 90fe8c7c145bddd4cb58cf58f7971b99, type: 3}
+  - Key: skill.evolution.sparkstorm
+    Sprite: {fileID: 21300000, guid: dbf98c5e327b47343bf53369f31f5e24, type: 3}
+  - Key: skill.evolution.ashen_aegis
+    Sprite: {fileID: 21300000, guid: 3fb045dab2fad24478ade2c9c0205d96, type: 3}
+  - Key: skill.evolution.deep_current
+    Sprite: {fileID: 21300000, guid: c890d678982fa6146bb8d189d92edec0, type: 3}
+  - Key: skill.evolution.tidal_memory
+    Sprite: {fileID: 21300000, guid: 3fb045dab2fad24478ade2c9c0205d96, type: 3}
+  - Key: skill.evolution.virulent_bloom
+    Sprite: {fileID: 21300000, guid: eaa56007797659d4c914702d70cab9e9, type: 3}
+  - Key: skill.evolution.patient_venom
+    Sprite: {fileID: 21300000, guid: eaa56007797659d4c914702d70cab9e9, type: 3}
+  - Key: skill.evolution.overclock
+    Sprite: {fileID: 21300000, guid: f6f69ca163e9e7a41887b9e788e0fd55, type: 3}
+  - Key: skill.evolution.storm_reserve
+    Sprite: {fileID: 21300000, guid: d6de1991ef8419d43b5d347ac3901bbf, type: 3}
+  - Key: skill.keystone.briarheart
+    Sprite: {fileID: 21300000, guid: cb30631d89e44e04f8b0bdc3983e88f8, type: 3}
+  - Key: skill.keystone.rootbreaker
+    Sprite: {fileID: 21300000, guid: 90fe8c7c145bddd4cb58cf58f7971b99, type: 3}
+  - Key: skill.keystone.emberseed
+    Sprite: {fileID: 21300000, guid: fea87270ed1902946ab87c94855b5eaa, type: 3}
+  - Key: skill.keystone.null_coil
+    Sprite: {fileID: 21300000, guid: 5183de26e3a8f814ea09e364203fd9c9, type: 3}
+  - Key: skill.keystone.mirror_shard
+    Sprite: {fileID: 21300000, guid: 3fb045dab2fad24478ade2c9c0205d96, type: 3}
+  - Key: skill.keystone.rift_lens
     Sprite: {fileID: 21300000, guid: 90fe8c7c145bddd4cb58cf58f7971b99, type: 3}
   - Key: ui.button.primary
     Sprite: {fileID: 21300000, guid: 7508fcd43dd91b945a2933f036378d15, type: 3}

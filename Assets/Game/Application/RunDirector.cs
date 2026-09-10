@@ -24,6 +24,7 @@ namespace ThreeInARow.Application
         Map,
         Event,
         Rest,
+        Sanctum,
         Victory,
         Defeat
     }
@@ -46,6 +47,8 @@ namespace ThreeInARow.Application
         public int SparkActivations;
         public int FocusConversions;
         public int PoisonApplications;
+        public int CompletedRouteVows;
+        public List<string> CompletedRouteVowIds = new List<string>();
     }
 
     [Serializable]
@@ -149,8 +152,22 @@ namespace ThreeInARow.Application
                 challenge.UnlockPolicyId, challenge.ContentVersion);
         }
 
+        public RunActionResult StartExpedition(ExpeditionDefinition expedition)
+        {
+            if (expedition == null) throw new ArgumentNullException(nameof(expedition));
+            if (!string.Equals(expedition.ContentVersion, RunState.CurrentContentVersion, StringComparison.Ordinal))
+                return RunActionResult.Reject("ChallengeContentVersionMismatch");
+            return StartRun(expedition.Seed, expedition.DifficultyTier, true, expedition.Id,
+                MasteryContentIds.AllContentUnlockPolicy, expedition.ContentVersion,
+                expedition.RegionIndex, expedition.RegionIndex, expedition.StartingSkillId,
+                expedition.StartingStatusId, expedition.StartingStatusCount);
+        }
+
         private RunActionResult StartRun(ulong seed, int difficultyTier, bool isChallenge,
-            ContentId challengeId, ContentId unlockPolicyId, string challengeContentVersion)
+            ContentId challengeId, ContentId unlockPolicyId, string challengeContentVersion,
+            int startRegionIndex = 0, int finalRegionIndex = 2,
+            ContentId startingSkillId = default(ContentId), ContentId startingStatusId = default(ContentId),
+            int startingStatusCount = 0)
         {
             _checkpoints.Clear();
             var difficulty = MasteryContentCatalog.Instance.Get(difficultyTier);
@@ -164,7 +181,9 @@ namespace ThreeInARow.Application
                 ChallengeId = challengeId,
                 UnlockPolicyId = unlockPolicyId,
                 ChallengeContentVersion = challengeContentVersion,
-                AvailableContentIds = new List<ContentId>()
+                AvailableContentIds = new List<ContentId>(),
+                RegionIndex = startRegionIndex,
+                FinalRegionIndex = finalRegionIndex
             };
             if (unlockPolicyId.Equals(MasteryContentIds.AllContentUnlockPolicy))
             {
@@ -182,9 +201,22 @@ namespace ThreeInARow.Application
             Profile.Aggregate.RunsStarted++;
             _profiles.Save(Profile);
             ProgressionSimulation.InitializeRun(State);
-
             var events = new EventBatch();
+            if (!string.IsNullOrEmpty(startingSkillId.Value))
+            {
+                ProgressionSimulation.LearnBonusSkill(State, startingSkillId);
+                var startingSkill = MvpProgressionContentCatalog.Instance.GetSkill(startingSkillId);
+                if (startingSkill.SlotType == SkillSlotType.Active)
+                {
+                    var equip = ProgressionSimulation.EquipActiveSkill(State,
+                        new EquipSkillCommand { SkillId = startingSkillId, SlotIndex = 0 });
+                    if (equip.Accepted) events.Append(equip.Events);
+                }
+            }
+
             events.Append(BoardSimulation.InitializeBoard(State));
+            if (startingStatusCount > 0 && !string.IsNullOrEmpty(startingStatusId.Value))
+                events.Append(MapSimulation.ApplyStartingStatus(State, startingStatusId, startingStatusCount));
             events.Append(MapSimulation.Generate(State));
             Screen = RunScreen.Map;
             Record(events, 0);
@@ -276,7 +308,7 @@ namespace ThreeInARow.Application
 
         public RunActionResult EquipSkill(ContentId skillId, int slotIndex)
         {
-            if (Screen != RunScreen.Map && Screen != RunScreen.BetweenEncounters)
+            if (Screen != RunScreen.Map && Screen != RunScreen.BetweenEncounters && Screen != RunScreen.Sanctum)
                 return RunActionResult.Reject("LoadoutLocked");
             var result = ProgressionSimulation.EquipActiveSkill(
                 State,
@@ -340,6 +372,32 @@ namespace ThreeInARow.Application
             return RunActionResult.Accept(result.Events);
         }
 
+        public RunActionResult PinRouteVow(ContentId vowId)
+        {
+            if (Screen != RunScreen.Map) return RunActionResult.Reject("VowUnavailable");
+            var result = MapSimulation.PinRouteVow(State, new PinRouteVowCommand { VowId = vowId });
+            if (!result.Accepted) return RunActionResult.Reject(result.Rejection);
+            Record(result.Events, 0);
+            SaveStableCheckpoint();
+            return RunActionResult.Accept(result.Events);
+        }
+
+        public RunActionResult ContinueFromSanctum()
+        {
+            if (Screen != RunScreen.Sanctum || State.Sanctum == null || !State.Sanctum.Active)
+                return RunActionResult.Reject("NoSanctum");
+            if (State.RegionIndex >= State.FinalRegionIndex) return RunActionResult.Reject("FinalRegionReached");
+            State.RegionIndex++;
+            State.Sanctum = new SanctumState();
+            var events = MapSimulation.Generate(State);
+            events.Add(SimulationEventType.RegionAdvanced, MapContentIds.SystemMap,
+                "region=" + State.RegionIndex, State.RegionIndex);
+            Screen = RunScreen.Map;
+            Record(events, 0);
+            SaveStableCheckpoint();
+            return RunActionResult.Accept(events);
+        }
+
         public void ReturnToTitle(bool abandonRun)
         {
             if (abandonRun) _checkpoints.Clear();
@@ -356,19 +414,47 @@ namespace ThreeInARow.Application
                 CompleteProfileRun(false);
                 return;
             }
+            if (State.Sanctum != null && State.Sanctum.Active)
+            {
+                if ((State.PendingChoice == null || !State.PendingChoice.IsPending) &&
+                    (State.Sanctum.ChosenEvolutionId.Value == null ||
+                     State.Sanctum.ChosenEvolutionId.Value == "skill.none"))
+                {
+                    var evolutionOptions = State.RouteVow != null && State.RouteVow.Completed ? 4 : 3;
+                    ProgressionSimulation.OfferEvolutionReward(State, evolutionOptions, events);
+                }
+                Screen = State.PendingChoice != null && State.PendingChoice.IsPending
+                    ? RunScreen.Reward
+                    : RunScreen.Sanctum;
+                return;
+            }
             if (State.Enemy.Health <= 0)
             {
                 var node = MapSimulation.GetCurrentNode(State);
                 MapSimulation.CompleteCurrentNode(State, events);
                 if (node != null && node.Type == MapNodeType.Boss)
                 {
-                    if (State.RegionIndex < MapSimulation.RegionCount - 1)
+                    if (MapSimulation.CompleteRouteVowAtBoss(State, events))
                     {
-                        State.RegionIndex++;
-                        events.Append(MapSimulation.Generate(State));
+                        Statistics.CompletedRouteVows++;
+                        var completedVowId = State.RouteVow.PinnedId.Value;
+                        if (!Statistics.CompletedRouteVowIds.Contains(completedVowId))
+                            Statistics.CompletedRouteVowIds.Add(completedVowId);
+                    }
+                    if (State.RegionIndex < State.FinalRegionIndex)
+                    {
+                        State.Sanctum = new SanctumState
+                        {
+                            Active = true,
+                            CompletedRegionIndex = State.RegionIndex
+                        };
+                        var evolutionOptions = State.RouteVow != null && State.RouteVow.Completed ? 4 : 3;
+                        ProgressionSimulation.OfferEvolutionReward(State, evolutionOptions, events);
+                        events.Add(SimulationEventType.SanctumEntered, node.ContentId,
+                            "region=" + State.RegionIndex, State.RegionIndex + 1);
                         Screen = State.PendingChoice != null && State.PendingChoice.IsPending
                             ? RunScreen.Reward
-                            : RunScreen.Map;
+                            : RunScreen.Sanctum;
                     }
                     else
                     {
@@ -396,6 +482,7 @@ namespace ThreeInARow.Application
         {
             if (State.Player.Health <= 0) return RunScreen.Defeat;
             if (State.PendingChoice != null && State.PendingChoice.IsPending) return RunScreen.Reward;
+            if (State.Sanctum != null && State.Sanctum.Active) return RunScreen.Sanctum;
             if (State.PendingEvent != null && State.PendingEvent.IsPending)
             {
                 var pendingNode = MapSimulation.GetCurrentNode(State);
@@ -405,7 +492,7 @@ namespace ThreeInARow.Application
             {
                 var completedNode = MapSimulation.GetCurrentNode(State);
                 if (completedNode != null && completedNode.Type == MapNodeType.Boss &&
-                    State.RegionIndex >= MapSimulation.RegionCount - 1) return RunScreen.Victory;
+                    State.RegionIndex >= State.FinalRegionIndex) return RunScreen.Victory;
                 return RunScreen.Map;
             }
             // Stable checkpoints are never written during this window. Completing it here protects older/debug saves.
@@ -440,6 +527,12 @@ namespace ThreeInARow.Application
                     Statistics.RouteNodeIds.Add(item.SourceId.Value);
                 if (item.Type == SimulationEventType.EventChoiceSelected)
                     Statistics.EventChoiceIds.Add(item.SourceId.Value);
+                if (item.Type == SimulationEventType.RouteVowCompleted)
+                {
+                    Statistics.CompletedRouteVows++;
+                    if (!Statistics.CompletedRouteVowIds.Contains(item.SourceId.Value))
+                        Statistics.CompletedRouteVowIds.Add(item.SourceId.Value);
+                }
                 if (item.Type == SimulationEventType.SpecialActivated)
                 {
                     Statistics.SpecialActivations++;
@@ -508,8 +601,18 @@ namespace ThreeInARow.Application
                 FocusConversions = Statistics.FocusConversions,
                 PoisonApplications = Statistics.PoisonApplications,
                 IsChallengeRun = State.IsChallengeRun,
-                ChallengeId = State.ChallengeId
+                ChallengeId = State.ChallengeId,
+                Seed = State.Seed,
+                FinalRegionIndex = State.FinalRegionIndex,
+                EventChoices = Statistics.EventChoiceIds == null ? 0 : Statistics.EventChoiceIds.Count,
+                CompletedRouteVows = Statistics.CompletedRouteVows,
+                IsExpedition = State.ChallengeId.Value != null && State.ChallengeId.Value.StartsWith("expedition.", StringComparison.Ordinal),
+                SkillIds = new List<ContentId>(State.SelectedSkillIds)
             };
+            if (Statistics.CompletedRouteVowIds != null)
+                foreach (var id in Statistics.CompletedRouteVowIds) signals.RouteVowIds.Add((ContentId)id);
+            if (Statistics.RouteNodeIds != null)
+                foreach (var id in Statistics.RouteNodeIds) signals.RouteNodeIds.Add((ContentId)id);
             LastProfileUpdate = ProfileProgression.CompleteRun(Profile, signals);
             _profiles.Save(Profile);
         }

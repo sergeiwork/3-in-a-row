@@ -2,7 +2,7 @@
 
 This ledger is the source of truth for temporary vertical-slice assets selected for Session E0. The game design and asset requirements remain canonical in [GDD.md](GDD.md).
 
-**Acquisition dates:** 2026-09-03 (visual/E0 placeholders); 2026-09-06 (sound-design pass); 2026-09-09 (regional enemy portraits)
+**Acquisition dates:** 2026-09-03 (visual/E0 placeholders); 2026-09-06 (sound-design pass); 2026-09-09 (regional enemy portraits); 2026-09-10 (enemy attack poses)
 **Project asset root:** `Assets/Game/Presentation/Art/E0`
 
 ## Required attribution
@@ -89,11 +89,21 @@ Status images remain separate UI layers so a gem can display multiple statuses w
 | `enemy.cinder_nymph` | `Enemies/Generated/enemy_cinder_nymph.png` |
 | `enemy.thornbound_stag` | `Enemies/Generated/enemy_thornbound_stag.png` |
 | `enemy.pyreheart_treant` | `Enemies/Generated/enemy_pyreheart_treant.png` |
+| `enemy.sootcap_shaman` | Temporary reuse: `Enemies/Generated/enemy_briar_wisp.png` |
+| `enemy.glassvine_serpent` | Temporary reuse: `Enemies/Generated/enemy_cinder_nymph.png` |
+| `enemy.ashen_dryad` | Temporary reuse: `Enemies/Generated/enemy_thornbound_stag.png` |
+| `enemy.furnace_matriarch` | Temporary reuse: `Enemies/Generated/enemy_pyreheart_treant.png` |
 | `enemy.nullwing_bat` | `Enemies/Generated/enemy_nullwing_bat.png` |
 | `enemy.mirror_eel` | `Enemies/Generated/enemy_mirror_eel.png` |
 | `enemy.rift_weaver` | `Enemies/Generated/enemy_rift_weaver.png` |
 | `enemy.eclipse_chimera` | `Enemies/Generated/enemy_eclipse_chimera.png` |
 | `enemy.astral_devourer` | `Enemies/Generated/enemy_astral_devourer.png` |
+| `enemy.shard_leech` | Temporary reuse: `Enemies/Generated/enemy_mirror_eel.png` |
+| `enemy.orbit_sentinel` | Temporary reuse: `Enemies/Generated/enemy_rift_weaver.png` |
+| `enemy.parallax_knight` | Temporary reuse: `Enemies/Generated/enemy_eclipse_chimera.png` |
+| `enemy.singularity_seraph` | Temporary reuse: `Enemies/Generated/enemy_astral_devourer.png` |
+
+Every unique portrait also has one generated attack pose at `Enemies/Generated/<base-name>_attack.png`. Its catalog key is `{enemyId}.attack`; enemy IDs that reuse a base portrait also reuse its matching attack pose. The procedural animation system falls back to the base portrait if an attack asset is absent.
 
 ### Intent telegraphs
 
@@ -156,6 +166,12 @@ Intent damage/status amounts are live text. Composite intents display multiple i
 | `skill.keystone.prismatic_start` | `Icons/GameIconsLorc/crystal-shine.png` |
 | `skill.keystone.rapid_casting` | `Icons/GameIconsLorc/magic-swirl.png` |
 | `skill.keystone.hard_light` | `Icons/GameIconsLorc/fire-shield.png` |
+| `skill.evolution.sparkstorm`, `skill.evolution.ashen_aegis` | `Icons/GameIconsLorc/small-fire.png`, `bordered-shield.png` |
+| `skill.evolution.deep_current`, `skill.evolution.tidal_memory` | `Icons/GameIconsLorc/big-wave.png`, `bordered-shield.png` |
+| `skill.evolution.virulent_bloom`, `skill.evolution.patient_venom` | `Icons/GameIconsLorc/poison-gas.png` |
+| `skill.evolution.overclock`, `skill.evolution.storm_reserve` | `Icons/GameIconsLorc/power-lightning.png`, `lightning-frequency.png` |
+| `skill.keystone.briarheart`, `skill.keystone.rootbreaker`, `skill.keystone.emberseed` | `Icons/GameIconsLorc/glass-heart.png`, `fire-shield.png`, `crystal-shine.png` |
+| `skill.keystone.null_coil`, `skill.keystone.mirror_shard`, `skill.keystone.rift_lens` | `Icons/GameIconsLorc/magic-swirl.png`, `bordered-shield.png`, `fire-shield.png` |
 | `ui.status_feedback`, `ui.clear_feedback` | `Icons/GameIconsLorc/circle-sparks.png` |
 
 The four level-up branch icons reuse `gem.ember`, `gem.tide`, `gem.venom`, and `gem.volt`. Reward cards reuse the selected skill icon. Cooldown, duration, HP, resource, and reward values are rendered as text.
@@ -332,6 +348,22 @@ Constraints: actual transparent alpha; no text; no frame; no logo; no watermark;
 | `enemy_astral_devourer.png` | Cosmic leviathan of black crystal around a star-filled void, singularity jaws, four heavy claws |
 
 The elite and boss prompts additionally requested a more imposing full stance and preserved the same transparent-background and single-subject constraints.
+
+### Enemy attack poses
+
+The fifteen attack poses were generated with the built-in OpenAI ImageGen tool on 2026-09-10 as identity-preserving edits of the corresponding base portraits. A second background-extraction pass replaced the generated preview checkerboard with genuine alpha; every final PNG was validated as 32-bit ARGB with transparent corner pixels.
+
+```text
+Use case: identity-preserve
+Asset type: alternate attack-pose frame for a mobile-game enemy portrait
+Input images: Image 1: edit target and exact character identity anchor
+Primary request: Repose the same enemy into a readable attack directed toward the viewer and lower edge; make its existing internal glow slightly brighter.
+Style/medium: preserve the same polished stylized 2D fantasy game illustration and rendering quality
+Composition/framing: preserve the square canvas, front three-quarter viewpoint, character scale, visual center, and generous transparent padding; keep the whole creature visible
+Constraints: preserve exact identity, anatomy, materials, palette, lighting direction, and detail; change only pose and attack energy; genuine transparent alpha; no checkerboard, background pixels, text, frame, ground, cast shadow, halo, logo, watermark, extra creature, added weapon, or cropping
+```
+
+The pose direction was adapted to each silhouette: mites lunge with front claws; the Oracle casts through its hand and staff; the Stalker and Chimera pounce; the Warden punches; the Wisp and Nymph sweep their limbs; the Boar and Stag charge; the Treant swings its root claws; the Bat dives; the Eel snaps; the Weaver thrusts its front legs; and the Devourer opens its singularity jaws and pulls with its claws.
 
 ## Import policy
 

@@ -11,7 +11,7 @@ namespace ThreeInARow.Domain.Mastery
     {
         public static readonly ContentId StandardRun = "challenge.none";
         public static readonly ContentId ProfileUnlockPolicy = "unlock_policy.profile_snapshot";
-        public static readonly ContentId AllContentUnlockPolicy = "unlock_policy.all_v0.8";
+        public static readonly ContentId AllContentUnlockPolicy = "unlock_policy.all_v1.0";
         public static readonly ContentId Difficulty0 = "difficulty.0.standard";
         public static readonly ContentId Difficulty1 = "difficulty.1.sharp_edges";
         public static readonly ContentId Difficulty2 = "difficulty.2.unstable_grid";
@@ -135,6 +135,93 @@ namespace ThreeInARow.Domain.Mastery
                 hash *= prime;
             }
             return hash == 0 ? 1UL : hash;
+        }
+    }
+
+    [Serializable]
+    public sealed class ExpeditionDefinition
+    {
+        public ContentId Id = "expedition.none";
+        public ulong Seed;
+        public string ContentVersion = RunState.CurrentContentVersion;
+        public int RegionIndex;
+        public int DifficultyTier;
+        public ContentId StartingSkillId = "skill.none";
+        public ContentId StartingStatusId = "status.none";
+        public int StartingStatusCount;
+        public string DateLabel = string.Empty;
+    }
+
+    public static class DailyExpedition
+    {
+        public static ExpeditionDefinition ForUtcDate(DateTime utcDate)
+        {
+            var day = (utcDate.Kind == DateTimeKind.Utc ? utcDate : utcDate.ToUniversalTime()).Date;
+            var serial = (long)(day - new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalDays;
+            var region = (int)((serial % 3 + 3) % 3);
+            var id = "expedition.daily." + day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var skills = new[] { "skill.kindling", "skill.flow_state", "skill.overcharge" };
+            var statuses = new[] { "status.cracked", "status.thorned", "status.frozen" };
+            return new ExpeditionDefinition
+            {
+                Id = id,
+                Seed = StableSeed(id + "|" + RunState.CurrentContentVersion),
+                RegionIndex = region,
+                DifficultyTier = Math.Min(3, region + 1),
+                StartingSkillId = skills[region],
+                StartingStatusId = statuses[region],
+                StartingStatusCount = 2,
+                DateLabel = day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            };
+        }
+
+        internal static ulong StableSeed(string value)
+        {
+            const ulong offset = 14695981039346656037UL;
+            const ulong prime = 1099511628211UL;
+            var hash = offset;
+            foreach (var character in value) { hash ^= character; hash *= prime; }
+            return hash == 0 ? 1UL : hash;
+        }
+    }
+
+    public static class TrialExpeditions
+    {
+        private static readonly List<ExpeditionDefinition> Definitions = Build();
+        public static IReadOnlyList<ExpeditionDefinition> All => Definitions;
+
+        private static List<ExpeditionDefinition> Build()
+        {
+            return new List<ExpeditionDefinition>
+            {
+                Trial("expedition.trial.ember", 0, 1, "skill.kindling", "status.cracked", 3),
+                Trial("expedition.trial.tide", 0, 1, "skill.flow_state", "status.frozen", 2),
+                Trial("expedition.trial.venom", 1, 1, "skill.concentrate", "status.thorned", 2),
+                Trial("expedition.trial.volt", 2, 2, "skill.overcharge", "status.anchored", 2),
+                Trial("expedition.trial.sparks", 0, 2, "skill.backdraft", "status.cracked", 4),
+                Trial("expedition.trial.cascades", 1, 2, "skill.infuse", "status.thorned", 3),
+                Trial("expedition.trial.cleanse", 2, 2, "skill.reweave", "status.frozen", 4),
+                Trial("expedition.trial.prism", 0, 3, "skill.infuse", "status.anchored", 3),
+                Trial("expedition.trial.warden", 0, 3, "skill.aegis", "status.cracked", 4),
+                Trial("expedition.trial.treant", 1, 3, "skill.catalyze", "status.thorned", 4),
+                Trial("expedition.trial.devourer", 2, 4, "skill.detonate", "status.frozen", 3),
+                Trial("expedition.trial.perfect_facet", 2, 5, "skill.transmute", "status.anchored", 3)
+            };
+        }
+
+        private static ExpeditionDefinition Trial(string id, int region, int difficulty,
+            string skill, string status, int statusCount)
+        {
+            return new ExpeditionDefinition
+            {
+                Id = id,
+                Seed = DailyExpedition.StableSeed(id + "|" + RunState.CurrentContentVersion),
+                RegionIndex = region,
+                DifficultyTier = difficulty,
+                StartingSkillId = skill,
+                StartingStatusId = status,
+                StartingStatusCount = statusCount
+            };
         }
     }
 

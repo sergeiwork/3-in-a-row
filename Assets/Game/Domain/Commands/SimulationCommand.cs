@@ -50,4 +50,10 @@ namespace ThreeInARow.Domain.Commands
     {
         public ContentId ChoiceId;
     }
+
+    [Serializable]
+    public sealed class PinRouteVowCommand : ISimulationCommand
+    {
+        public ContentId VowId;
+    }
 }

@@ -86,15 +86,12 @@ namespace ThreeInARow.Domain.Map
                     ? CombatContentIds.FacetEngine
                     : CombatContentIds.CrystalWarden;
             else
-                map.BossEnemyId = combatCatalog.GetRegionBossEncounter(state.RegionIndex).Enemy.Id;
-
-            var eventsPool = new List<ContentId>
             {
-                MapContentIds.FacetedAltar, MapContentIds.QuietPool, MapContentIds.StaticLoom,
-                MapContentIds.PrismEcho, MapContentIds.FrozenReliquary, MapContentIds.CrackedCache
-            };
-            if (MasteryRules.HasAvailableContent(state, MapContentIds.PrismaticArchive))
-                eventsPool.Add(MapContentIds.PrismaticArchive);
+                var bossPool = combatCatalog.GetBossPool(state.RegionIndex);
+                map.BossEnemyId = bossPool[mapRandom.NextInt(bossPool.Count)].Enemy.Id;
+            }
+
+            var eventsPool = EventPoolForRegion(state);
             var usedEnemies = new List<ContentId>();
             var usedPressures = new List<ContentId>();
             if (state.SelectedEncounterIds == null || state.RegionIndex == 0)
@@ -165,6 +162,10 @@ namespace ThreeInARow.Domain.Map
             state.Map = map;
             state.CurrentEncounterId = "encounter.none";
             state.PendingEvent = new PendingEventState();
+            if (state.StoryFlagIds == null) state.StoryFlagIds = new List<ContentId>();
+            state.RouteVow = new RouteVowState();
+            foreach (var vowId in RouteVowContent.ForRegion(state.RegionIndex))
+                state.RouteVow.OfferedIds.Add(vowId);
             RandomStreams.Store(RandomStream.MapGeneration, mapRandom, state.RandomStreams);
             RandomStreams.Store(RandomStream.EncounterSelection, encounterRandom, state.RandomStreams);
 
@@ -206,7 +207,9 @@ namespace ThreeInARow.Domain.Map
                 throw new InvalidOperationException("The current node is not an event or rest node.");
             var definition = catalog.GetEvent(node.ContentId);
             state.PendingEvent = new PendingEventState { EventId = definition.Id };
-            foreach (var choice in definition.Choices) state.PendingEvent.ChoiceIds.Add(choice.Id);
+            foreach (var choice in definition.Choices)
+                if (choice.RequiredStoryFlagId.Value == "story.none" || HasStoryFlag(state, choice.RequiredStoryFlagId))
+                    state.PendingEvent.ChoiceIds.Add(choice.Id);
             return new EventBatch();
         }
 
@@ -359,6 +362,96 @@ namespace ThreeInARow.Domain.Map
                 events.Add(SimulationEventType.PendingModifierAdded, effect.ContentId,
                     "amount=" + effect.Amount, effect.Amount, null, null, sourceId);
             }
+            else if (effect.Type == EventEffectType.AddStoryFlag)
+            {
+                if (state.StoryFlagIds == null) state.StoryFlagIds = new List<ContentId>();
+                if (!Contains(state.StoryFlagIds, effect.ContentId))
+                {
+                    state.StoryFlagIds.Add(effect.ContentId);
+                    events.Add(SimulationEventType.StoryFlagAdded, effect.ContentId, "event_story", 1,
+                        null, null, sourceId);
+                }
+            }
+        }
+
+        public static RouteActionResult PinRouteVow(RunState state, PinRouteVowCommand command)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (command == null) throw new ArgumentNullException(nameof(command));
+            if (state.RouteVow == null) state.RouteVow = new RouteVowState();
+            if (state.Map == null || state.Map.FurthestVisitedRow >= 0 ||
+                !Contains(state.RouteVow.OfferedIds, command.VowId))
+                return RouteActionResult.Reject("VowUnavailable");
+            state.RouteVow.PinnedId = command.VowId;
+            var events = new EventBatch();
+            events.Add(SimulationEventType.RouteVowPinned, command.VowId,
+                "region=" + state.RegionIndex, 1);
+            return RouteActionResult.Accept(events);
+        }
+
+        public static bool CompleteRouteVowAtBoss(RunState state, EventBatch events)
+        {
+            if (state == null || state.RouteVow == null || state.RouteVow.Completed ||
+                state.RouteVow.PinnedId.Value == null || state.RouteVow.PinnedId.Value == "vow.none") return false;
+            var definition = RouteVowContent.Get(state.RouteVow.PinnedId);
+            var eliteCompleted = false;
+            var restVisited = false;
+            var eventsVisited = 0;
+            foreach (var node in state.Map.Nodes)
+            {
+                if (node == null) continue;
+                if (node.Type == MapNodeType.EliteCombat && node.Completed) eliteCompleted = true;
+                if (node.Type == MapNodeType.Rest && node.Visited) restVisited = true;
+                if (node.Type == MapNodeType.Event && node.Completed) eventsVisited++;
+            }
+            var completed = definition.Condition == RouteVowCondition.DefeatElite ? eliteCompleted
+                : definition.Condition == RouteVowCondition.VisitNoRest ? !restVisited
+                : eventsVisited >= 2;
+            if (!completed) return false;
+            state.RouteVow.Completed = true;
+            if (events != null) events.Add(SimulationEventType.RouteVowCompleted, definition.Id,
+                "region=" + state.RegionIndex, 1);
+            return true;
+        }
+
+        public static EventBatch ApplyStartingStatus(RunState state, ContentId statusId, int count)
+        {
+            var events = new EventBatch();
+            if (state == null || string.IsNullOrEmpty(statusId.Value) || statusId.Value.EndsWith(".none", StringComparison.Ordinal))
+                return events;
+            ApplyRandomStatus(state, "system.expedition", statusId, count, events);
+            return events;
+        }
+
+        private static List<ContentId> EventPoolForRegion(RunState state)
+        {
+            if (state.RegionIndex == 1)
+                return new List<ContentId>
+                {
+                    MapContentIds.EmberOrchard, MapContentIds.AshenNursery,
+                    MapContentIds.StagTrail, MapContentIds.RootspeakerShrine,
+                    MapContentIds.QuietPool, MapContentIds.CrackedCache
+                };
+            if (state.RegionIndex == 2)
+                return new List<ContentId>
+                {
+                    MapContentIds.MirrorWell, MapContentIds.NullObservatory,
+                    MapContentIds.EchoPrison, MapContentIds.BrokenConstellation,
+                    MapContentIds.StaticLoom, MapContentIds.PrismEcho
+                };
+            var pool = new List<ContentId>
+            {
+                MapContentIds.FacetedAltar, MapContentIds.QuietPool, MapContentIds.StaticLoom,
+                MapContentIds.PrismEcho, MapContentIds.FrozenReliquary, MapContentIds.CrackedCache
+            };
+            if (MasteryRules.HasAvailableContent(state, MapContentIds.PrismaticArchive))
+                pool.Add(MapContentIds.PrismaticArchive);
+            return pool;
+        }
+
+        private static bool HasStoryFlag(RunState state, ContentId flagId)
+        {
+            return state != null && Contains(state.StoryFlagIds, flagId);
         }
 
         private static void ChangeResourceToZero(RunState state, ContentId sourceId, bool focus, EventBatch events)

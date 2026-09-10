@@ -42,6 +42,13 @@ namespace ThreeInARow.Editor
             AssetDatabase.SaveAssets();
         }
 
+        [MenuItem("Three in a Row/Refresh Runtime Assets")]
+        public static void RefreshRuntimeAssets()
+        {
+            AssetDatabase.Refresh();
+            PrepareRuntime();
+        }
+
         private static void PrepareRuntime()
         {
             EnsureFolder("Assets/Resources");
@@ -73,28 +80,36 @@ namespace ThreeInARow.Editor
             AddIcon(sprites, "status.poison", "poison-gas.png");
             AddIcon(sprites, "status.thorned", "shattered-sword.png");
 
-            AddSprite(sprites, "enemy.geode_mite", "Enemies/Generated/enemy_geode_mite.png");
-            AddSprite(sprites, "enemy.frost_oracle", "Enemies/Generated/enemy_frost_oracle.png");
-            AddSprite(sprites, "enemy.geode_mite_elite", "Enemies/Generated/enemy_geode_mite_elite.png");
-            AddSprite(sprites, "enemy.prism_stalker", "Enemies/Generated/enemy_prism_stalker.png");
-            AddSprite(sprites, "enemy.crystal_warden", "Enemies/Generated/enemy_crystal_warden.png");
-            AddSprite(sprites, "enemy.crystal_tick", "Enemies/Generated/enemy_geode_mite.png");
-            AddSprite(sprites, "enemy.rime_moth", "Enemies/Generated/enemy_frost_oracle.png");
-            AddSprite(sprites, "enemy.anchor_crab", "Enemies/Generated/enemy_geode_mite_elite.png");
-            AddSprite(sprites, "enemy.hollow_idol", "Enemies/Generated/enemy_prism_stalker.png");
-            AddSprite(sprites, "enemy.fracture_golem", "Enemies/Generated/enemy_geode_mite_elite.png");
-            AddSprite(sprites, "enemy.stormglass_roc", "Enemies/Generated/enemy_frost_oracle.png");
-            AddSprite(sprites, "enemy.facet_engine", "Enemies/Generated/enemy_crystal_warden.png");
-            AddSprite(sprites, "enemy.briar_wisp", "Enemies/Generated/enemy_briar_wisp.png");
-            AddSprite(sprites, "enemy.ashback_boar", "Enemies/Generated/enemy_ashback_boar.png");
-            AddSprite(sprites, "enemy.cinder_nymph", "Enemies/Generated/enemy_cinder_nymph.png");
-            AddSprite(sprites, "enemy.thornbound_stag", "Enemies/Generated/enemy_thornbound_stag.png");
-            AddSprite(sprites, "enemy.pyreheart_treant", "Enemies/Generated/enemy_pyreheart_treant.png");
-            AddSprite(sprites, "enemy.nullwing_bat", "Enemies/Generated/enemy_nullwing_bat.png");
-            AddSprite(sprites, "enemy.mirror_eel", "Enemies/Generated/enemy_mirror_eel.png");
-            AddSprite(sprites, "enemy.rift_weaver", "Enemies/Generated/enemy_rift_weaver.png");
-            AddSprite(sprites, "enemy.eclipse_chimera", "Enemies/Generated/enemy_eclipse_chimera.png");
-            AddSprite(sprites, "enemy.astral_devourer", "Enemies/Generated/enemy_astral_devourer.png");
+            AddEnemySprites(sprites, "enemy.geode_mite", "enemy_geode_mite");
+            AddEnemySprites(sprites, "enemy.frost_oracle", "enemy_frost_oracle");
+            AddEnemySprites(sprites, "enemy.geode_mite_elite", "enemy_geode_mite_elite");
+            AddEnemySprites(sprites, "enemy.prism_stalker", "enemy_prism_stalker");
+            AddEnemySprites(sprites, "enemy.crystal_warden", "enemy_crystal_warden");
+            AddEnemySprites(sprites, "enemy.crystal_tick", "enemy_geode_mite");
+            AddEnemySprites(sprites, "enemy.rime_moth", "enemy_frost_oracle");
+            AddEnemySprites(sprites, "enemy.anchor_crab", "enemy_geode_mite_elite");
+            AddEnemySprites(sprites, "enemy.hollow_idol", "enemy_prism_stalker");
+            AddEnemySprites(sprites, "enemy.fracture_golem", "enemy_geode_mite_elite");
+            AddEnemySprites(sprites, "enemy.stormglass_roc", "enemy_frost_oracle");
+            AddEnemySprites(sprites, "enemy.facet_engine", "enemy_crystal_warden");
+            AddEnemySprites(sprites, "enemy.briar_wisp", "enemy_briar_wisp");
+            AddEnemySprites(sprites, "enemy.ashback_boar", "enemy_ashback_boar");
+            AddEnemySprites(sprites, "enemy.cinder_nymph", "enemy_cinder_nymph");
+            AddEnemySprites(sprites, "enemy.thornbound_stag", "enemy_thornbound_stag");
+            AddEnemySprites(sprites, "enemy.pyreheart_treant", "enemy_pyreheart_treant");
+            AddEnemySprites(sprites, "enemy.sootcap_shaman", "enemy_briar_wisp");
+            AddEnemySprites(sprites, "enemy.glassvine_serpent", "enemy_cinder_nymph");
+            AddEnemySprites(sprites, "enemy.ashen_dryad", "enemy_thornbound_stag");
+            AddEnemySprites(sprites, "enemy.furnace_matriarch", "enemy_pyreheart_treant");
+            AddEnemySprites(sprites, "enemy.nullwing_bat", "enemy_nullwing_bat");
+            AddEnemySprites(sprites, "enemy.mirror_eel", "enemy_mirror_eel");
+            AddEnemySprites(sprites, "enemy.rift_weaver", "enemy_rift_weaver");
+            AddEnemySprites(sprites, "enemy.eclipse_chimera", "enemy_eclipse_chimera");
+            AddEnemySprites(sprites, "enemy.astral_devourer", "enemy_astral_devourer");
+            AddEnemySprites(sprites, "enemy.shard_leech", "enemy_mirror_eel");
+            AddEnemySprites(sprites, "enemy.orbit_sentinel", "enemy_rift_weaver");
+            AddEnemySprites(sprites, "enemy.parallax_knight", "enemy_eclipse_chimera");
+            AddEnemySprites(sprites, "enemy.singularity_seraph", "enemy_astral_devourer");
 
             AddIcon(sprites, "intent.chip", "rock.png");
             AddIcon(sprites, "intent.crack", "cracked-glass.png");
@@ -153,6 +168,20 @@ namespace ThreeInARow.Editor
             AddIcon(sprites, "skill.keystone.prismatic_start", "crystal-shine.png");
             AddIcon(sprites, "skill.keystone.rapid_casting", "magic-swirl.png");
             AddIcon(sprites, "skill.keystone.hard_light", "fire-shield.png");
+            AddIcon(sprites, "skill.evolution.sparkstorm", "small-fire.png");
+            AddIcon(sprites, "skill.evolution.ashen_aegis", "bordered-shield.png");
+            AddIcon(sprites, "skill.evolution.deep_current", "big-wave.png");
+            AddIcon(sprites, "skill.evolution.tidal_memory", "bordered-shield.png");
+            AddIcon(sprites, "skill.evolution.virulent_bloom", "poison-gas.png");
+            AddIcon(sprites, "skill.evolution.patient_venom", "poison-gas.png");
+            AddIcon(sprites, "skill.evolution.overclock", "power-lightning.png");
+            AddIcon(sprites, "skill.evolution.storm_reserve", "lightning-frequency.png");
+            AddIcon(sprites, "skill.keystone.briarheart", "glass-heart.png");
+            AddIcon(sprites, "skill.keystone.rootbreaker", "fire-shield.png");
+            AddIcon(sprites, "skill.keystone.emberseed", "crystal-shine.png");
+            AddIcon(sprites, "skill.keystone.null_coil", "magic-swirl.png");
+            AddIcon(sprites, "skill.keystone.mirror_shard", "bordered-shield.png");
+            AddIcon(sprites, "skill.keystone.rift_lens", "fire-shield.png");
 
             AddSprite(sprites, "ui.button.primary", "UI/KenneyRpg/buttonLong_blue.png");
             AddSprite(sprites, "ui.button.primary.pressed", "UI/KenneyRpg/buttonLong_blue_pressed.png");
@@ -223,7 +252,7 @@ namespace ThreeInARow.Editor
 
             PlayerSettings.productName = "Three in a Row: Roguelike Crystals";
             PlayerSettings.companyName = "Three in a Row";
-            PlayerSettings.bundleVersion = "0.9.0";
+            PlayerSettings.bundleVersion = "1.0.0";
             PlayerSettings.defaultScreenWidth = 1080;
             PlayerSettings.defaultScreenHeight = 1920;
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
@@ -254,6 +283,15 @@ namespace ThreeInARow.Editor
         private static void AddIcon(List<PresentationCatalog.SpriteEntry> destination, string key, string file)
         {
             AddSprite(destination, key, "Icons/GameIconsLorc/" + file);
+        }
+
+        private static void AddEnemySprites(
+            List<PresentationCatalog.SpriteEntry> destination,
+            string key,
+            string fileStem)
+        {
+            AddSprite(destination, key, "Enemies/Generated/" + fileStem + ".png");
+            AddSprite(destination, key + ".attack", "Enemies/Generated/" + fileStem + "_attack.png");
         }
 
         private static void AddSprite(List<PresentationCatalog.SpriteEntry> destination, string key, string relativePath)

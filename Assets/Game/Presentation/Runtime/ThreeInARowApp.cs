@@ -45,6 +45,12 @@ namespace ThreeInARow.Presentation
         private VisualElement _board;
         private VisualElement _gemMotionLayer;
         private VisualElement _enemyFeedbackAnchor;
+        private Image _enemyPortrait;
+        private Sprite _enemyPortraitIdleSprite;
+        private Sprite _enemyPortraitAttackSprite;
+        private Coroutine _enemyIdleRoutine;
+        private Coroutine _enemyDamageRoutine;
+        private EnemyMotionProfile _enemyMotionProfile;
         private VisualElement _playerFeedbackAnchor;
         private VisualElement _enemyHealthFill;
         private Label _enemyHealthLabel;
@@ -153,6 +159,11 @@ namespace ThreeInARow.Presentation
             _board = null;
             _gemMotionLayer = null;
             _enemyFeedbackAnchor = null;
+            _enemyPortrait = null;
+            _enemyPortraitIdleSprite = null;
+            _enemyPortraitAttackSprite = null;
+            _enemyIdleRoutine = null;
+            _enemyDamageRoutine = null;
             _playerFeedbackAnchor = null;
             _enemyHealthFill = null;
             _enemyHealthLabel = null;
@@ -192,6 +203,7 @@ namespace ThreeInARow.Presentation
                 case RunScreen.Map: BuildMap(); break;
                 case RunScreen.Event: BuildEvent(false); break;
                 case RunScreen.Rest: BuildEvent(true); break;
+                case RunScreen.Sanctum: BuildSanctum(); break;
                 case RunScreen.Victory: BuildSummary(true); break;
                 case RunScreen.Defeat: BuildSummary(false); break;
             }
@@ -245,6 +257,7 @@ namespace ThreeInARow.Presentation
             }
             menu.Add(DifficultyGoalCard(true));
             menu.Add(ActionButton("ЦЕЛИ, КОДЕКС И РЕКОРДЫ", BuildCodex, false));
+            menu.Add(ActionButton("ЭКСПЕДИЦИИ И ИСПЫТАНИЯ", BuildExpeditionBoard, false));
             menu.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildTitle), false));
             menu.Add(ActionButton("НАСТРОЙКИ И АВТОРЫ", BuildSettings, false));
             content.Add(menu);
@@ -254,7 +267,7 @@ namespace ThreeInARow.Presentation
                 profile.CompletedChallengeIds.Count + " · сложность: " + profile.BestDifficultyUnlocked, 18, Muted, TextAnchor.MiddleCenter);
             progress.style.marginTop = 24;
             content.Add(progress);
-            var version = LabelText("Контент R1–R4 · v0.8", 18, Muted, TextAnchor.MiddleCenter);
+            var version = LabelText("Контент R1–R8 · v" + RunState.CurrentContentVersion, 18, Muted, TextAnchor.MiddleCenter);
             version.style.marginTop = 36;
             content.Add(version);
 
@@ -321,6 +334,9 @@ namespace ThreeInARow.Presentation
             scroll.Add(Paragraph("1. До перестановки можно применить готовый активный навык.\n2. Поменяйте местами два соседних подвижных кристалла так, чтобы собрать ряд из трёх или больше. Неверная перестановка не расходует ход.\n3. Все совпадения и каскады срабатывают автоматически.\n4. Если враг выжил, он выполняет действие из панели «Далее»."));
             scroll.Add(Paragraph("Совпадение из четырёх создаёт особый кристалл того же цвета. Совпадение из пяти создаёт Призму. Нажмите на значок состояния прямо на поле, чтобы прочитать его правило."));
 
+            scroll.Add(SectionHeading("МАРШРУТ И СВЯТИЛИЩЕ"));
+            scroll.Add(Paragraph("В начале региона можно выбрать один необязательный обет пути. За провал нет штрафа, а выполненный обет добавляет четвёртый вариант в следующем выборе эволюции. После первых двух боссов Святилище позволяет осмотреть сборку, сменить активные навыки, продолжить или сохраниться и выйти."));
+
             scroll.Add(SectionHeading("КРИСТАЛЛЫ И РЕСУРСЫ"));
             scroll.Add(HelpRow("gem.ember", "ПЛАМЯ", "Каждый убранный кристалл наносит 4 прямого урона. Особая Искра наносит 16 урона."));
             scroll.Add(HelpRow("gem.tide", "ПРИЛИВ И КОНЦЕНТРАЦИЯ", "Каждый кристалл даёт 1 ед. концентрации. Каждые 3 ед. автоматически превращаются в 6 урона. Особый Поток даёт 5 ед."));
@@ -349,7 +365,7 @@ namespace ThreeInARow.Presentation
 
             scroll.Add(SectionHeading("СЛОЖНОСТЬ И ИСПЫТАНИЯ"));
             scroll.Add(Paragraph("Уровни складываются: 1 — прямой урон врагов +1; 2 — бой начинается с двух Трещин; 3 — лечение после победы снижено до 2; 4 — финальное намерение элиты получает дополнительный эффект; 5 — боссы переходят во вторую фазу при 50% здоровья."));
-            scroll.Add(Paragraph("Недельное испытание закрепляет версию контента, карту, сложность и полный набор открытий. Локальный рекорд сравнивает число ходов, затем оставшееся здоровье."));
+            scroll.Add(Paragraph("Ежедневные экспедиции и постоянные испытания — короткие забеги по одному региону с заданным начальным навыком и состояниями поля. Последние семь ежедневных маршрутов не исчезают сразу. Недельный маршрут проходит через все три региона. Серий входов и штрафов за пропуск нет."));
 
             _safeArea.Add(scroll);
             _safeArea.Add(ActionButton("НАЗАД", back, false));
@@ -396,6 +412,59 @@ namespace ThreeInARow.Presentation
             PlayBatch(result.Events, BuildForCurrentScreen);
         }
 
+        private void BuildExpeditionBoard()
+        {
+            BeginScreen();
+            _safeArea.Add(Title("ЭКСПЕДИЦИИ", 42, Gold));
+            _safeArea.Add(Paragraph("Короткие забеги проходят в одном регионе. Пропущенные ежедневные маршруты ещё семь дней остаются доступными без серии входов и штрафов."));
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.flexGrow = 1;
+            scroll.Add(SectionHeading("ЕЖЕДНЕВНЫЕ МАРШРУТЫ"));
+            for (var dayOffset = 0; dayOffset < 7; dayOffset++)
+            {
+                var expedition = DailyExpedition.ForUtcDate(DateTime.UtcNow.AddDays(-dayOffset));
+                var captured = expedition;
+                scroll.Add(ExpeditionCard(expedition, () => StartExpedition(captured)));
+            }
+            scroll.Add(SectionHeading("ПОСТОЯННЫЕ ИСПЫТАНИЯ"));
+            foreach (var expedition in TrialExpeditions.All)
+            {
+                var captured = expedition;
+                scroll.Add(ExpeditionCard(expedition, () => StartExpedition(captured)));
+            }
+            scroll.Add(SectionHeading("БОЛЬШОЙ НЕДЕЛЬНЫЙ МАРШРУТ"));
+            var weekly = WeeklyChallenge.ForUtcDate(DateTime.UtcNow);
+            scroll.Add(ActionButton("ТРИ РЕГИОНА · " + weekly.WeekStartUtc,
+                () => StartWeeklyRun(weekly), true));
+            _safeArea.Add(scroll);
+            _safeArea.Add(ActionButton("НАЗАД", BuildTitle, false));
+        }
+
+        private VisualElement ExpeditionCard(ExpeditionDefinition expedition, Action start)
+        {
+            var card = Card();
+            card.Add(Title(PresentationText.Name(expedition.Id), 23, Gold));
+            card.Add(LabelText(PresentationText.RegionName(expedition.RegionIndex) + " · сложность " +
+                expedition.DifficultyTier + " · стартовый навык: " + PresentationText.Name(expedition.StartingSkillId),
+                17, TextColor));
+            card.Add(LabelText("Начальное давление: " + PresentationText.Name(expedition.StartingStatusId) +
+                " ×" + expedition.StartingStatusCount, 16, Muted));
+            card.Add(ActionButton("НАЧАТЬ", start, true));
+            return card;
+        }
+
+        private void StartExpedition(ExpeditionDefinition expedition)
+        {
+            var result = _director.StartExpedition(expedition);
+            if (!result.Accepted)
+            {
+                BuildTitle();
+                ShowModal("ЭКСПЕДИЦИЯ НЕДОСТУПНА", "Версия маршрута не совпадает с версией игры.");
+                return;
+            }
+            PlayBatch(result.Events, BuildForCurrentScreen);
+        }
+
         private void BuildCodex()
         {
             BeginScreen();
@@ -425,17 +494,56 @@ namespace ThreeInARow.Presentation
             scroll.Add(SectionHeading("ОТКРЫТЫЕ ЗАПИСИ"));
             if (_director.Profile.CodexEntries.Count == 0) scroll.Add(Paragraph("Пока записей нет."));
             foreach (var entry in _director.Profile.CodexEntries)
-                scroll.Add(StatLine(entry.Category + " · " +
+            {
+                var line = Card("ui.panel.inset");
+                line.Add(StatLine(entry.Category + " · " +
                     (entry.Category == CodexCategory.Intent ? PresentationText.Name(entry.ParentContentId) + " / " : string.Empty) +
                     PresentationText.Name(entry.ContentId), entry.SeenCount.ToString()));
+                var lore = PresentationText.CodexLore(entry.ContentId);
+                if (!string.IsNullOrEmpty(lore)) line.Add(LabelText(lore, 15, Muted));
+                scroll.Add(line);
+            }
             scroll.Add(SectionHeading("РЕКОРДЫ"));
             if (_director.Profile.Records.Count == 0) scroll.Add(Paragraph("Первая победа создаст запись."));
             foreach (var record in _director.Profile.Records)
                 scroll.Add(Paragraph(PresentationText.Name(record.BossId) + " · сложность " + record.DifficultyTier +
                     " · побед " + record.Wins + " · ходов " + record.FastestValidTurnCount +
                     " · здоровье " + record.BestRemainingHealth + " · каскад " + record.LargestCascade));
+            scroll.Add(SectionHeading("АРХИВ ЗАБЕГОВ"));
+            if (_director.Profile.RunHistory.Count == 0) scroll.Add(Paragraph("Завершённые забеги появятся здесь."));
+            foreach (var history in _director.Profile.RunHistory)
+            {
+                var captured = history;
+                var card = Card("ui.panel.inset");
+                card.Add(LabelText((history.Victory ? "ПОБЕДА" : "ПОРАЖЕНИЕ") + " · сложность " +
+                    history.DifficultyTier + " · ходов " + history.ValidTurnCount + " · зерно " + history.Seed,
+                    16, history.Victory ? Success : Muted));
+                card.Add(LabelText("Финал: " + PresentationText.Name(history.BossId) + " · каскад " +
+                    history.LargestCascade + " · путь " + (history.RouteNodeIds == null ? 0 : history.RouteNodeIds.Count) +
+                    " узлов · навыков " + (history.SkillIds == null ? 0 : history.SkillIds.Count), 15, TextColor));
+                if (history.RouteVowIds != null && history.RouteVowIds.Count > 0)
+                {
+                    var vows = new List<string>();
+                    foreach (var vowId in history.RouteVowIds) vows.Add(PresentationText.Name(vowId));
+                    card.Add(LabelText("Обеты: " + string.Join(" · ", vows.ToArray()), 15, Gold));
+                }
+                var actions = Row();
+                actions.Add(SmallButton("КОПИРОВАТЬ", () => GUIUtility.systemCopyBuffer = captured.Seed));
+                actions.Add(SmallButton("ПОВТОРИТЬ", () => ReplayArchivedRun(captured)));
+                card.Add(actions);
+                scroll.Add(card);
+            }
             _safeArea.Add(scroll);
             _safeArea.Add(ActionButton("НАЗАД", BuildTitle, false));
+        }
+
+        private void ReplayArchivedRun(RunHistoryEntryState history)
+        {
+            ulong seed;
+            if (!ulong.TryParse(history.Seed, out seed)) return;
+            var difficulty = Math.Min(history.DifficultyTier, _director.Profile.BestDifficultyUnlocked);
+            var result = _director.StartNewRun(seed, difficulty);
+            PlayBatch(result.Events, BuildForCurrentScreen);
         }
 
         private VisualElement DifficultyGoalCard(bool compact)
@@ -573,7 +681,39 @@ namespace ThreeInARow.Presentation
                     " · яд " + (statistics != null && statistics.PoisonApplications > 0 ? "✓" : "—");
             if (condition == UnlockConditionType.WinWithEveryDominantBranch)
                 return DominantBranchProgressText();
+            if (condition == UnlockConditionType.DefeatTwentyFiveEnemies)
+                return "Прогресс: " + Math.Min(25, _director.Profile.Aggregate.EnemiesDefeated) + "/25";
+            if (condition == UnlockConditionType.DefeatFiveElites)
+                return "Прогресс: " + Math.Min(5, _director.Profile.Aggregate.ElitesDefeated) + "/5";
+            if (condition == UnlockConditionType.DefeatFiveBosses)
+                return "Прогресс: " + Math.Min(5, _director.Profile.Aggregate.BossesDefeated) + "/5";
+            if (condition == UnlockConditionType.WinThreeRuns)
+                return "Прогресс: " + Math.Min(3, _director.Profile.Aggregate.RunsWon) + "/3";
+            if (condition == UnlockConditionType.WinTenRuns)
+                return "Прогресс: " + Math.Min(10, _director.Profile.Aggregate.RunsWon) + "/10";
+            if (condition == UnlockConditionType.ReachCascadeFive)
+                return "Лучший каскад: " + Math.Min(5, BestRecordedCascade(statistics)) + "/5";
+            if (condition == UnlockConditionType.ReachCascadeEight)
+                return "Лучший каскад: " + Math.Min(8, BestRecordedCascade(statistics)) + "/8";
+            if (condition == UnlockConditionType.ActivateFiftySpecials)
+                return "Прогресс: " + Math.Min(50, _director.Profile.Aggregate.SpecialActivations) + "/50";
+            if (condition == UnlockConditionType.ChooseTwentyEvents)
+                return "Прогресс: " + Math.Min(20, _director.Profile.Aggregate.EventChoices) + "/20";
+            if (condition == UnlockConditionType.CompleteThreeRouteVows)
+                return "Прогресс: " + Math.Min(3, _director.Profile.Aggregate.RouteVowsCompleted) + "/3";
+            if (condition == UnlockConditionType.WinDifficultyThree)
+                return "Прогресс: 0/1 · победите на сложности 3+";
+            if (condition == UnlockConditionType.CompleteExpedition)
+                return "Прогресс: " + Math.Min(1, _director.Profile.Aggregate.ExpeditionsCompleted) + "/1";
             return "Прогресс: 0/1";
+        }
+
+        private int BestRecordedCascade(RunStatistics current)
+        {
+            var best = current == null ? 0 : current.BiggestCascade;
+            foreach (var record in _director.Profile.Records)
+                best = Math.Max(best, record.LargestCascade);
+            return best;
         }
 
         private int CurrentBranchSkillCount(string branch, bool useCurrentRun)
@@ -594,9 +734,17 @@ namespace ThreeInARow.Presentation
 
         private static string GoalScopeText(UnlockConditionType condition)
         {
-            return condition == UnlockConditionType.WinWithEveryDominantBranch
-                ? "Учитывается за несколько победных забегов."
-                : "Нужно выполнить в одном забеге.";
+            if (condition == UnlockConditionType.WinWithEveryDominantBranch ||
+                condition == UnlockConditionType.DefeatTwentyFiveEnemies ||
+                condition == UnlockConditionType.DefeatFiveElites ||
+                condition == UnlockConditionType.DefeatFiveBosses ||
+                condition == UnlockConditionType.WinThreeRuns ||
+                condition == UnlockConditionType.WinTenRuns ||
+                condition == UnlockConditionType.ActivateFiftySpecials ||
+                condition == UnlockConditionType.ChooseTwentyEvents ||
+                condition == UnlockConditionType.CompleteThreeRouteVows)
+                return "Учитывается за несколько забегов.";
+            return "Нужно выполнить в одном забеге.";
         }
 
         private void ResumeRun()
@@ -619,15 +767,37 @@ namespace ThreeInARow.Presentation
             top.Add(heading);
             top.Add(SmallButton("?", () => BuildHelp(BuildForCurrentScreen)));
             _safeArea.Add(top);
-            var mapHint = LabelText(PresentationText.RegionName(state.RegionIndex) + " · ОБЛАСТЬ " +
-                (state.RegionIndex + 1) + " / " + MapSimulation.RegionCount + "\n" +
+            var mapHint = LabelText(PresentationText.RegionName(state.RegionIndex) + " · " + RegionProgressText(state) + "\n" +
                 "Цель: " + PresentationText.Name(state.Map.BossEnemyId) +
                 " · сложность " + state.DifficultyTier +
-                (state.IsChallengeRun ? " · недельное испытание" : string.Empty) +
+                RunModeSuffix(state) +
                 " · выберите доступный путь", 20, Muted, TextAnchor.MiddleCenter);
             mapHint.style.whiteSpace = WhiteSpace.Normal;
             mapHint.style.marginBottom = 6;
             _safeArea.Add(mapHint);
+            if (state.Map.FurthestVisitedRow < 0 && state.RouteVow != null)
+            {
+                var vowCard = Card("ui.panel.inset");
+                if (state.RouteVow.PinnedId.Value == "vow.none")
+                {
+                    vowCard.Add(LabelText("ОБЕТ ПУТИ · НЕОБЯЗАТЕЛЬНО", 17, Gold));
+                    vowCard.Add(LabelText(state.RegionIndex < state.FinalRegionIndex
+                        ? "Исполненный обет добавит четвёртый вариант эволюции после босса."
+                        : "Исполненный обет будет отмечен в профиле и созвездиях мастерства.", 15, Muted));
+                    foreach (var vowId in state.RouteVow.OfferedIds)
+                    {
+                        var capturedVow = vowId;
+                        vowCard.Add(ActionButton(PresentationText.Name(vowId) + " — " +
+                            PresentationText.RouteVowDescription(vowId), () => PinRouteVow(capturedVow), false));
+                    }
+                }
+                else
+                {
+                    vowCard.Add(LabelText(PresentationText.Name(state.RouteVow.PinnedId).ToUpperInvariant(), 17, Gold));
+                    vowCard.Add(LabelText(PresentationText.RouteVowDescription(state.RouteVow.PinnedId), 15, TextColor));
+                }
+                _safeArea.Add(vowCard);
+            }
 
             var mapPanel = new VisualElement();
             mapPanel.style.flexGrow = 1;
@@ -727,6 +897,25 @@ namespace ThreeInARow.Presentation
             return result;
         }
 
+        private static string RegionProgressText(RunState state)
+        {
+            return IsExpedition(state)
+                ? "ЭКСПЕДИЦИЯ · ОДИН РЕГИОН"
+                : "ОБЛАСТЬ " + (state.RegionIndex + 1) + " / " + (state.FinalRegionIndex + 1);
+        }
+
+        private static string RunModeSuffix(RunState state)
+        {
+            if (IsExpedition(state)) return " · короткая экспедиция";
+            return state.IsChallengeRun ? " · недельное испытание" : string.Empty;
+        }
+
+        private static bool IsExpedition(RunState state)
+        {
+            return state != null && state.ChallengeId.Value != null &&
+                   state.ChallengeId.Value.StartsWith("expedition.", StringComparison.Ordinal);
+        }
+
         private static string MapNodeIconKey(MapNodeState node)
         {
             if (node.Type == MapNodeType.NormalCombat || node.Type == MapNodeType.EliteCombat || node.Type == MapNodeType.Boss)
@@ -777,6 +966,12 @@ namespace ThreeInARow.Presentation
                 return;
             }
             PlayBatch(result.Events, BuildForCurrentScreen);
+        }
+
+        private void PinRouteVow(ContentId vowId)
+        {
+            var result = _director.PinRouteVow(vowId);
+            if (result.Accepted) PlayBatch(result.Events, BuildMap);
         }
 
         private void BuildEvent(bool rest)
@@ -834,7 +1029,7 @@ namespace ThreeInARow.Presentation
                             () =>
                             {
                                 var result = _director.EquipSkill(skill.Id, capturedSlot);
-                                if (result.Accepted) BuildMap();
+                                if (result.Accepted) BuildForCurrentScreen();
                             });
                         button.SetEnabled(!isCurrent);
                         line.Add(button);
@@ -854,8 +1049,7 @@ namespace ThreeInARow.Presentation
             var top = Row();
             top.style.alignItems = Align.Center;
             var currentNode = MapSimulation.GetCurrentNode(state);
-            var encounterLabel = LabelText("ОБЛАСТЬ " + (state.RegionIndex + 1) + " / " +
-                MapSimulation.RegionCount + " · ЭТАП " +
+            var encounterLabel = LabelText(RegionProgressText(state) + " · ЭТАП " +
                 (currentNode == null ? 1 : currentNode.Row + 1) + " / 7", 19, Muted);
             encounterLabel.style.flexGrow = 1;
             top.Add(encounterLabel);
@@ -875,11 +1069,27 @@ namespace ThreeInARow.Presentation
             enemyPanel.style.alignItems = Align.Center;
             enemyPanel.style.paddingTop = 4;
             enemyPanel.style.paddingBottom = 4;
-            var portrait = Icon(enemy.Id.Value, 112);
-            portrait.style.flexShrink = 0;
-            portrait.style.marginRight = 18;
-            enemyPanel.Add(portrait);
-            _enemyFeedbackAnchor = portrait;
+            var portraitAnchor = new VisualElement { name = "enemy-portrait-anchor" };
+            portraitAnchor.style.width = 112;
+            portraitAnchor.style.height = 112;
+            portraitAnchor.style.flexShrink = 0;
+            portraitAnchor.style.marginRight = 18;
+            portraitAnchor.tooltip = PresentationText.Name(enemy.Id);
+            _enemyPortraitIdleSprite = _catalog == null ? null : _catalog.GetSprite(enemy.Id.Value);
+            _enemyPortraitAttackSprite = _catalog == null ? null : _catalog.GetSprite(enemy.Id.Value + ".attack");
+            if (_enemyPortraitAttackSprite == null) _enemyPortraitAttackSprite = _enemyPortraitIdleSprite;
+            _enemyPortrait = new Image
+            {
+                name = "enemy-portrait-" + enemy.Id.Value,
+                scaleMode = ScaleMode.ScaleToFit,
+                sprite = _enemyPortraitIdleSprite
+            };
+            _enemyPortrait.style.width = 112;
+            _enemyPortrait.style.height = 112;
+            portraitAnchor.Add(_enemyPortrait);
+            enemyPanel.Add(portraitAnchor);
+            _enemyFeedbackAnchor = portraitAnchor;
+            _enemyMotionProfile = EnemyMotionProfileFor(enemy.Id);
             var enemyInfo = new VisualElement();
             enemyInfo.style.flexGrow = 1;
             enemyInfo.style.minWidth = 0;
@@ -902,6 +1112,7 @@ namespace ThreeInARow.Presentation
                 enemyInfo.Add(InlineIconLabel("status.poison", "Отравление: " + state.Enemy.PoisonStacks, PresentationText.StatusDescription("status.poison")));
             enemyPanel.Add(enemyInfo);
             _safeArea.Add(enemyPanel);
+            StartEnemyIdleMotion();
 
             var intentCycle = state.Enemy.Phase > 0 && enemy.SecondPhaseIntentCycle.Count > 0
                 ? enemy.SecondPhaseIntentCycle
@@ -1559,9 +1770,11 @@ namespace ThreeInARow.Presentation
             BeginScreen();
             var state = _director.State;
             _safeArea.Add(Icon("ui.level_up", 100));
-            var rewardTitle = state.PendingChoice.ChoiceId.Value == "choice.elite_keystone"
-                ? "ЭЛИТНОЕ УЛУЧШЕНИЕ"
-                : state.PendingChoice.Level > 0 ? "УРОВЕНЬ " + state.PendingChoice.Level : "НАГРАДА";
+            var rewardTitle = state.PendingChoice.ChoiceId.Value.StartsWith("choice.evolution.", StringComparison.Ordinal)
+                ? "ЭВОЛЮЦИЯ СБОРКИ"
+                : state.PendingChoice.ChoiceId.Value == "choice.elite_keystone"
+                    ? "ЭЛИТНОЕ УЛУЧШЕНИЕ"
+                    : state.PendingChoice.Level > 0 ? "УРОВЕНЬ " + state.PendingChoice.Level : "НАГРАДА";
             _safeArea.Add(Title(rewardTitle, 46, Gold));
             _safeArea.Add(LabelText("Нажмите карточку, прочитайте полное описание и выберите одно улучшение.", 20, Muted, TextAnchor.MiddleCenter));
 
@@ -1647,6 +1860,56 @@ namespace ThreeInARow.Presentation
             });
         }
 
+        private void BuildSanctum()
+        {
+            BeginScreen();
+            var state = _director.State;
+            _safeArea.style.justifyContent = Justify.Center;
+            _safeArea.Add(Icon("ui.level_up", 118));
+            _safeArea.Add(Title("СВЯТИЛИЩЕ МЕЖДУ МИРАМИ", 40, Gold));
+            _safeArea.Add(LabelText(PresentationText.RegionName(state.Sanctum.CompletedRegionIndex) +
+                " пройден. Здесь можно осмотреть сборку и переставить активные навыки перед новым регионом.",
+                20, TextColor, TextAnchor.MiddleCenter));
+
+            if (state.Sanctum.ChosenEvolutionId.Value != null &&
+                state.Sanctum.ChosenEvolutionId.Value != "skill.none")
+            {
+                var evolution = Card();
+                evolution.Add(LabelText("ВЫБРАННАЯ ЭВОЛЮЦИЯ", 17, Cyan));
+                evolution.Add(Title(PresentationText.Name(state.Sanctum.ChosenEvolutionId), 28, Gold));
+                evolution.Add(LabelText(PresentationText.SkillDescription(
+                    MvpProgressionContentCatalog.Instance.GetSkill(state.Sanctum.ChosenEvolutionId)), 18, TextColor));
+                _safeArea.Add(evolution);
+            }
+
+            var summary = Card("ui.panel.inset");
+            summary.Add(StatLine("Здоровье", state.Player.Health + "/" + PlayerState.MaxHealth));
+            summary.Add(StatLine("Изучено навыков", state.SelectedSkillIds.Count.ToString()));
+            summary.Add(StatLine("Исполнено обетов", _director.Statistics.CompletedRouteVows.ToString()));
+            _safeArea.Add(summary);
+            _safeArea.Add(ActionButton("НАСТРОИТЬ АКТИВНЫЕ НАВЫКИ", BuildLoadoutModal, false));
+            _safeArea.Add(ActionButton("ВОЙТИ В «" + PresentationText.RegionName(state.RegionIndex + 1).ToUpperInvariant() + "»",
+                ContinueFromSanctum, true));
+            _safeArea.Add(ActionButton("СОХРАНИТЬСЯ И ВЫЙТИ", () =>
+            {
+                _director.ReturnToTitle(false);
+                BuildTitle();
+            }, false));
+        }
+
+        private void ContinueFromSanctum()
+        {
+            if (_inputLocked) return;
+            _inputLocked = true;
+            var result = _director.ContinueFromSanctum();
+            if (!result.Accepted)
+            {
+                _inputLocked = false;
+                return;
+            }
+            PlayBatch(result.Events, BuildForCurrentScreen);
+        }
+
         private void BuildBetweenEncounters()
         {
             BeginScreen();
@@ -1722,9 +1985,10 @@ namespace ThreeInARow.Presentation
             summary.Add(StatLine("Общий урон", statistics.TotalDamage.ToString()));
             summary.Add(StatLine("Завершено ходов", _director.State.ResolvedTurnCount.ToString()));
             summary.Add(StatLine("Посещено узлов", statistics.RouteNodeIds == null ? "0" : statistics.RouteNodeIds.Count.ToString()));
+            summary.Add(StatLine("Исполнено обетов", statistics.CompletedRouteVows.ToString()));
             summary.Add(StatLine("Сложность", _director.State.DifficultyTier.ToString()));
             if (_director.State.IsChallengeRun)
-                summary.Add(StatLine("Испытание", _director.State.ChallengeId.Value));
+                summary.Add(StatLine("Испытание", PresentationText.Name(_director.State.ChallengeId)));
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             summary.Add(StatLine("Отладочное зерно", _director.State.Seed.ToString()));
 #endif

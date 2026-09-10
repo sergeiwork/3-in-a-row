@@ -101,7 +101,7 @@ namespace ThreeInARow.Presentation
                 // Pace decisions, not bookkeeping: resources/statuses from one impact are shown
                 // together. The response gets one readable wind-up, never one pause per effect.
                 if (!_reducedMotion && item.Type == SimulationEventType.EnemyIntentStarted)
-                    yield return new WaitForSecondsRealtime(0.18f);
+                    yield return AnimateEnemyAttack();
                 else if (!_reducedMotion && item.Type == SimulationEventType.EnemyDefeated)
                     yield return new WaitForSecondsRealtime(0.18f);
             }
@@ -566,6 +566,7 @@ namespace ThreeInARow.Presentation
                 ApplyPresentedDamage(item);
                 LaunchDamageParticles(item);
                 LaunchFloatingDamageNumber(item);
+                if (Targets(item, "enemy")) TriggerEnemyDamageMotion();
             }
             else if (item.Type == SimulationEventType.EnemyBarrierChanged && item.Amount < 0)
             {
@@ -650,6 +651,160 @@ namespace ThreeInARow.Presentation
         {
             return item.Detail != null &&
                    item.Detail.IndexOf("target=" + target, StringComparison.Ordinal) >= 0;
+        }
+
+        private void StartEnemyIdleMotion()
+        {
+            if (_reducedMotion || _enemyPortrait == null || _enemyIdleRoutine != null) return;
+            _enemyIdleRoutine = StartCoroutine(AnimateEnemyIdle());
+        }
+
+        private void StopEnemyIdleMotion()
+        {
+            if (_enemyIdleRoutine == null) return;
+            StopCoroutine(_enemyIdleRoutine);
+            _enemyIdleRoutine = null;
+        }
+
+        private IEnumerator AnimateEnemyIdle()
+        {
+            var duration = _enemyMotionProfile == EnemyMotionProfile.Hovering ? 2.6f
+                : _enemyMotionProfile == EnemyMotionProfile.Heavy ? 3.1f
+                : 2.2f;
+            var elapsed = 0f;
+            while (_enemyPortrait != null && _enemyPortrait.parent != null)
+            {
+                elapsed = (elapsed + AnimationDeltaTime()) % duration;
+                var wave = Mathf.Sin(elapsed / duration * Mathf.PI * 2f);
+                var vertical = _enemyMotionProfile == EnemyMotionProfile.Hovering ? wave * 3.2f
+                    : _enemyMotionProfile == EnemyMotionProfile.Heavy ? wave * 0.7f
+                    : wave * 1.2f;
+                var scaleX = _enemyMotionProfile == EnemyMotionProfile.Grounded ? 1f + wave * 0.008f
+                    : 1f + wave * 0.004f;
+                var scaleY = _enemyMotionProfile == EnemyMotionProfile.Grounded ? 1f - wave * 0.006f
+                    : _enemyMotionProfile == EnemyMotionProfile.Heavy ? 1f + wave * 0.006f
+                    : 1f + wave * 0.004f;
+                SetTranslation(_enemyPortrait, new Vector3(0f, vertical, 0f));
+                _enemyPortrait.style.scale = new Scale(new Vector3(scaleX, scaleY, 1f));
+                yield return null;
+            }
+            _enemyIdleRoutine = null;
+        }
+
+        private IEnumerator AnimateEnemyAttack()
+        {
+            if (_enemyPortrait == null) yield break;
+            if (_enemyDamageRoutine != null)
+            {
+                StopCoroutine(_enemyDamageRoutine);
+                _enemyDamageRoutine = null;
+            }
+            StopEnemyIdleMotion();
+            ResetEnemyPortraitVisual();
+
+            yield return AnimateEnemyTransform(
+                Vector3.zero, new Vector3(0f, -3f, 0f),
+                Vector3.one, new Vector3(0.97f, 1.03f, 1f), 0.10f);
+
+            _enemyPortrait.sprite = _enemyPortraitAttackSprite;
+            yield return AnimateEnemyTransform(
+                new Vector3(0f, -3f, 0f), new Vector3(0f, 10f, 0f),
+                new Vector3(0.97f, 1.03f, 1f), new Vector3(1.055f, 0.96f, 1f), 0.11f);
+            yield return AnimateEnemyTransform(
+                new Vector3(0f, 10f, 0f), Vector3.zero,
+                new Vector3(1.055f, 0.96f, 1f), Vector3.one, 0.13f);
+
+            ResetEnemyPortraitVisual();
+            StartEnemyIdleMotion();
+        }
+
+        private IEnumerator AnimateEnemyTransform(
+            Vector3 startPosition,
+            Vector3 endPosition,
+            Vector3 startScale,
+            Vector3 endScale,
+            float duration)
+        {
+            var elapsed = 0f;
+            while (elapsed < duration && _enemyPortrait != null && _enemyPortrait.parent != null)
+            {
+                elapsed += AnimationDeltaTime();
+                var progress = SmootherStep(Mathf.Clamp01(elapsed / duration));
+                SetTranslation(_enemyPortrait, Vector3.LerpUnclamped(startPosition, endPosition, progress));
+                _enemyPortrait.style.scale = new Scale(Vector3.LerpUnclamped(startScale, endScale, progress));
+                yield return null;
+            }
+        }
+
+        private void TriggerEnemyDamageMotion()
+        {
+            if (_enemyPortrait == null) return;
+            if (_enemyDamageRoutine != null) StopCoroutine(_enemyDamageRoutine);
+            StopEnemyIdleMotion();
+            ResetEnemyPortraitVisual();
+            _enemyDamageRoutine = StartCoroutine(AnimateEnemyDamage());
+        }
+
+        private IEnumerator AnimateEnemyDamage()
+        {
+            var duration = _reducedMotion ? 0.10f : 0.20f;
+            var elapsed = 0f;
+            var hitTint = new Color(1f, 0.42f, 0.46f, 1f);
+            while (elapsed < duration && _enemyPortrait != null && _enemyPortrait.parent != null)
+            {
+                elapsed += AnimationDeltaTime();
+                var progress = Mathf.Clamp01(elapsed / duration);
+                var envelope = Mathf.Sin(progress * Mathf.PI);
+                envelope *= envelope;
+                if (!_reducedMotion)
+                {
+                    var shake = Mathf.Sin(progress * Mathf.PI * 4f) * envelope * 5f;
+                    SetTranslation(_enemyPortrait, new Vector3(shake, 0f, 0f));
+                    _enemyPortrait.style.scale = new Scale(new Vector3(
+                        1f + envelope * 0.03f,
+                        1f - envelope * 0.04f,
+                        1f));
+                }
+                _enemyPortrait.tintColor = Color.Lerp(Color.white, hitTint, envelope);
+                yield return null;
+            }
+            ResetEnemyPortraitVisual();
+            _enemyDamageRoutine = null;
+            StartEnemyIdleMotion();
+        }
+
+        private void ResetEnemyPortraitVisual()
+        {
+            if (_enemyPortrait == null) return;
+            _enemyPortrait.sprite = _enemyPortraitIdleSprite;
+            _enemyPortrait.tintColor = Color.white;
+            SetTranslation(_enemyPortrait, Vector3.zero);
+            _enemyPortrait.style.scale = new Scale(Vector3.one);
+        }
+
+        private static EnemyMotionProfile EnemyMotionProfileFor(ContentId enemyId)
+        {
+            var value = enemyId.Value;
+            if (value == "enemy.crystal_warden" || value == "enemy.facet_engine" ||
+                value == "enemy.pyreheart_treant" || value == "enemy.furnace_matriarch" ||
+                value == "enemy.astral_devourer" || value == "enemy.singularity_seraph")
+                return EnemyMotionProfile.Heavy;
+            if (value == "enemy.frost_oracle" || value == "enemy.rime_moth" ||
+                value == "enemy.stormglass_roc" || value == "enemy.hollow_idol" ||
+                value == "enemy.briar_wisp" || value == "enemy.sootcap_shaman" ||
+                value == "enemy.cinder_nymph" || value == "enemy.glassvine_serpent" ||
+                value == "enemy.nullwing_bat" || value == "enemy.mirror_eel" ||
+                value == "enemy.shard_leech" || value == "enemy.rift_weaver" ||
+                value == "enemy.orbit_sentinel")
+                return EnemyMotionProfile.Hovering;
+            return EnemyMotionProfile.Grounded;
+        }
+
+        private enum EnemyMotionProfile
+        {
+            Grounded,
+            Hovering,
+            Heavy
         }
 
         private void LaunchDamageParticles(SimulationEvent item, bool forceEnemyTarget = false)

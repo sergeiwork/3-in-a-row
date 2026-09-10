@@ -18,7 +18,7 @@ namespace ThreeInARow.Domain.Replay
             text.Append(state.SchemaVersion).Append('|').Append(state.ContentVersion).Append('|')
                 .Append(state.Seed).Append('|').Append(state.EncounterIndex).Append('|').Append(state.ResolvedTurnCount).Append('|')
                 .Append(state.Experience).Append('|').Append(state.Level).Append('|')
-                .Append("region:").Append(state.RegionIndex).Append('|')
+                .Append("region:").Append(state.RegionIndex).Append(':').Append(state.FinalRegionIndex).Append('|')
                 .Append("difficulty:").Append(state.DifficultyTier).Append(':').Append(state.DifficultyId).Append('|')
                 .Append("unlock:").Append(state.UnlockPolicyId).Append('|')
                 .Append("challenge:").Append(state.IsChallengeRun).Append(':').Append(state.ChallengeId).Append(':')
@@ -31,6 +31,20 @@ namespace ThreeInARow.Domain.Replay
                 .Append(state.Enemy.IntentIndex).Append('|').Append(state.Enemy.PoisonStacks).Append('|')
                 .Append(state.Enemy.Barrier).Append('|').Append(state.Enemy.Phase).Append('|')
                 .Append(state.Enemy.TelegraphedTargetId).Append('|');
+
+            if (state.Sanctum != null)
+                text.Append("sanctum:").Append(state.Sanctum.Active).Append(':')
+                    .Append(state.Sanctum.CompletedRegionIndex).Append(':')
+                    .Append(state.Sanctum.ChosenEvolutionId).Append('|');
+            if (state.StoryFlagIds != null)
+                foreach (var flagId in state.StoryFlagIds) text.Append("story:").Append(flagId).Append('|');
+            if (state.RouteVow != null)
+            {
+                text.Append("vow:").Append(state.RouteVow.PinnedId).Append(':').Append(state.RouteVow.Completed).Append('[');
+                if (state.RouteVow.OfferedIds != null)
+                    foreach (var vowId in state.RouteVow.OfferedIds) text.Append(vowId).Append(',');
+                text.Append("]|");
+            }
 
             if (state.AvailableContentIds != null)
                 foreach (var contentId in state.AvailableContentIds)

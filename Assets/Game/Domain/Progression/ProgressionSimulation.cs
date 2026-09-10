@@ -215,6 +215,11 @@ namespace ThreeInARow.Domain.Progression
                 null,
                 choiceId);
             if (definition.IsEliteKeystone) state.PendingEliteReward = false;
+            if (choiceId.Value != null && choiceId.Value.StartsWith("choice.evolution.", StringComparison.Ordinal))
+            {
+                if (state.Sanctum == null) state.Sanctum = new SanctumState();
+                state.Sanctum.ChosenEvolutionId = definition.Id;
+            }
             ClearPendingChoice(state.PendingChoice);
             OfferNextChoiceIfEligible(state, events, catalog);
             return RewardSelectionResult.Accept(events);
@@ -419,6 +424,64 @@ namespace ThreeInARow.Domain.Progression
                 "source=" + sourceId, options.Count, null, null, sourceId);
         }
 
+        public static void OfferEvolutionReward(
+            RunState state,
+            int maximum,
+            EventBatch events,
+            IProgressionContentCatalog catalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (events == null) throw new ArgumentNullException(nameof(events));
+            if (state.PendingChoice.IsPending) return;
+            catalog = catalog ?? MvpProgressionContentCatalog.Instance;
+            var strongBranch = new List<SkillDefinition>();
+            var familiarBranch = new List<SkillDefinition>();
+            var newBranch = new List<SkillDefinition>();
+            foreach (var skill in catalog.Skills)
+            {
+                if (skill.Id.Value == null || !skill.Id.Value.StartsWith("skill.evolution.", StringComparison.Ordinal) ||
+                    ProgressionRules.HasSkill(state, skill.Id)) continue;
+                var learned = CountLearnedBranch(state, skill.BranchTag, catalog);
+                if (learned >= 2) strongBranch.Add(skill);
+                else if (learned > 0) familiarBranch.Add(skill);
+                else newBranch.Add(skill);
+            }
+            var options = new List<ContentId>();
+            var random = RandomStreams.Restore(RandomStream.RewardSampling, state.RandomStreams);
+            AppendRandomEvolutionOptions(options, strongBranch, maximum, random);
+            AppendRandomEvolutionOptions(options, familiarBranch, maximum, random);
+            AppendRandomEvolutionOptions(options, newBranch, maximum, random);
+            RandomStreams.Store(RandomStream.RewardSampling, random, state.RandomStreams);
+            if (options.Count == 0) return;
+            state.PendingChoice.ChoiceId = (ContentId)("choice.evolution.region" + (state.RegionIndex + 1));
+            state.PendingChoice.Level = 0;
+            state.PendingChoice.OptionIds = options;
+            events.Add(SimulationEventType.LevelUpOffered, state.PendingChoice.ChoiceId,
+                "evolution;region=" + state.RegionIndex, options.Count);
+        }
+
+        public static void LearnBonusSkill(RunState state, ContentId skillId,
+            IProgressionContentCatalog catalog = null)
+        {
+            catalog = catalog ?? MvpProgressionContentCatalog.Instance;
+            if (string.IsNullOrEmpty(skillId.Value) || skillId.Value.EndsWith(".none", StringComparison.Ordinal) ||
+                ProgressionRules.HasSkill(state, skillId)) return;
+            var skill = catalog.GetSkill(skillId);
+            state.SelectedSkillIds.Add(skill.Id);
+            if (skill.SlotType == SkillSlotType.Active) EnsureCooldown(state.Player, skill.Id);
+        }
+
+        private static void AppendRandomEvolutionOptions(List<ContentId> options,
+            List<SkillDefinition> candidates, int maximum, DeterministicRandom random)
+        {
+            while (options.Count < maximum && candidates.Count > 0)
+            {
+                var index = random.NextInt(candidates.Count);
+                options.Add(candidates[index].Id);
+                candidates.RemoveAt(index);
+            }
+        }
+
         private static void OfferEliteChoiceIfEligible(
             RunState state,
             EventBatch events,
@@ -427,7 +490,13 @@ namespace ThreeInARow.Domain.Progression
             if (!state.PendingEliteReward || state.PendingChoice.IsPending) return;
             var candidates = new List<SkillDefinition>();
             foreach (var skill in catalog.Skills)
-                if (skill.IsEliteKeystone && !ProgressionRules.HasSkill(state, skill.Id)) candidates.Add(skill);
+            {
+                if (!skill.IsEliteKeystone || ProgressionRules.HasSkill(state, skill.Id)) continue;
+                if (skill.BranchTag.StartsWith("keystone.region", StringComparison.Ordinal) &&
+                    !string.Equals(skill.BranchTag, "keystone.region" + (state.RegionIndex + 1), StringComparison.Ordinal))
+                    continue;
+                candidates.Add(skill);
+            }
             if (candidates.Count == 0)
             {
                 state.PendingEliteReward = false;
@@ -508,6 +577,20 @@ namespace ThreeInARow.Domain.Progression
         {
             var count = 0;
             foreach (var id in ids) if (catalog.GetSkill(id).SlotType == SkillSlotType.Active) count++;
+            return count;
+        }
+
+        private static int CountLearnedBranch(RunState state, string branch, IProgressionContentCatalog catalog)
+        {
+            var count = 0;
+            foreach (var id in state.SelectedSkillIds)
+            {
+                SkillDefinition skill;
+                try { skill = catalog.GetSkill(id); }
+                catch (KeyNotFoundException) { continue; }
+                if (string.Equals(skill.BranchTag, branch, StringComparison.Ordinal) &&
+                    (skill.Id.Value == null || !skill.Id.Value.StartsWith("skill.evolution.", StringComparison.Ordinal))) count++;
+            }
             return count;
         }
 

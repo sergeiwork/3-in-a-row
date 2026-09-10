@@ -30,7 +30,19 @@ namespace ThreeInARow.Domain.Meta
         ActivateThreeSparks,
         ConvertFocusFourTimes,
         FocusAndPoisonSameRun,
-        WinWithEveryDominantBranch
+        WinWithEveryDominantBranch,
+        DefeatTwentyFiveEnemies,
+        DefeatFiveElites,
+        DefeatFiveBosses,
+        WinThreeRuns,
+        WinTenRuns,
+        ReachCascadeFive,
+        ReachCascadeEight,
+        ActivateFiftySpecials,
+        ChooseTwentyEvents,
+        CompleteThreeRouteVows,
+        WinDifficultyThree,
+        CompleteExpedition
     }
 
     public static class ProfileContentIds
@@ -47,12 +59,24 @@ namespace ThreeInARow.Domain.Meta
         public static readonly ContentId ChallengeDifficultyOne = "challenge.four_paths";
         public static readonly ContentId AdvancedEvent = "event.prismatic_archive";
         public static readonly ContentId FlawlessChallengeCard = "challenge_card.flawless_elite";
+        public static readonly ContentId EmblemExplorer = "emblem.explorer";
+        public static readonly ContentId EmblemEliteHunter = "emblem.elite_hunter";
+        public static readonly ContentId EmblemBossbreaker = "emblem.bossbreaker";
+        public static readonly ContentId EmblemWayfarer = "emblem.wayfarer";
+        public static readonly ContentId EmblemVeteran = "emblem.veteran";
+        public static readonly ContentId EmblemCascade = "emblem.cascade";
+        public static readonly ContentId EmblemAvalanche = "emblem.avalanche";
+        public static readonly ContentId EmblemArtificer = "emblem.artificer";
+        public static readonly ContentId EmblemStoryseeker = "emblem.storyseeker";
+        public static readonly ContentId EmblemOathkeeper = "emblem.oathkeeper";
+        public static readonly ContentId EmblemConqueror = "emblem.conqueror";
+        public static readonly ContentId EmblemExpeditioner = "emblem.expeditioner";
     }
 
     [Serializable]
     public sealed class ProfileState
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
         public int SchemaVersion = CurrentSchemaVersion;
         public string ContentVersion = RunState.CurrentContentVersion;
         public List<ContentId> UnlockedContentIds = new List<ContentId>();
@@ -62,6 +86,8 @@ namespace ThreeInARow.Domain.Meta
         public List<RunRecordState> Records = new List<RunRecordState>();
         public ProfileAggregateState Aggregate = new ProfileAggregateState();
         public int BestDifficultyUnlocked;
+        public List<ContentId> CompletedRouteVowIds = new List<ContentId>();
+        public List<RunHistoryEntryState> RunHistory = new List<RunHistoryEntryState>();
     }
 
     [Serializable]
@@ -98,6 +124,27 @@ namespace ThreeInARow.Domain.Meta
         public int EnemiesDefeated;
         public int ElitesDefeated;
         public int BossesDefeated;
+        public int SpecialActivations;
+        public int EventChoices;
+        public int RouteVowsCompleted;
+        public int ExpeditionsCompleted;
+    }
+
+    [Serializable]
+    public sealed class RunHistoryEntryState
+    {
+        public string Seed = "0";
+        public bool Victory;
+        public int DifficultyTier;
+        public int FinalRegionIndex;
+        public int ValidTurnCount;
+        public int RemainingHealth;
+        public int LargestCascade;
+        public ContentId BossId = "enemy.unset";
+        public ContentId ChallengeId = MasteryContentIds.StandardRun;
+        public List<ContentId> SkillIds = new List<ContentId>();
+        public List<ContentId> RouteVowIds = new List<ContentId>();
+        public List<ContentId> RouteNodeIds = new List<ContentId>();
     }
 
     public sealed class UnlockChallengeDefinition
@@ -137,7 +184,19 @@ namespace ThreeInARow.Domain.Meta
                 Challenge(ProfileContentIds.ChallengeFlashfire, "skill.flashfire", "Активировать три Искры за забег.", "Гибридный навык", UnlockConditionType.ActivateThreeSparks),
                 Challenge(ProfileContentIds.ChallengeScaldingCurrent, "skill.scalding_current", "Преобразовать концентрацию четыре раза за забег.", "Гибридный навык", UnlockConditionType.ConvertFocusFourTimes),
                 Challenge(ProfileContentIds.ChallengeToxicUndertow, "skill.toxic_undertow", "Преобразовать концентрацию и наложить яд в одном забеге.", "Гибридный навык", UnlockConditionType.FocusAndPoisonSameRun),
-                Challenge(ProfileContentIds.ChallengeDifficultyOne, MasteryContentIds.Difficulty1, "Победить с каждым из четырёх источников урона как главным.", "Сложность", UnlockConditionType.WinWithEveryDominantBranch)
+                Challenge(ProfileContentIds.ChallengeDifficultyOne, MasteryContentIds.Difficulty1, "Победить с каждым из четырёх источников урона как главным.", "Сложность", UnlockConditionType.WinWithEveryDominantBranch),
+                Challenge("challenge.constellation.explorer", ProfileContentIds.EmblemExplorer, "Победить 25 врагов.", "Созвездие: Исследователь", UnlockConditionType.DefeatTwentyFiveEnemies),
+                Challenge("challenge.constellation.elites", ProfileContentIds.EmblemEliteHunter, "Победить 5 элитных врагов.", "Созвездие: Покоритель", UnlockConditionType.DefeatFiveElites),
+                Challenge("challenge.constellation.bosses", ProfileContentIds.EmblemBossbreaker, "Победить 5 боссов.", "Созвездие: Покоритель", UnlockConditionType.DefeatFiveBosses),
+                Challenge("challenge.constellation.wayfarer", ProfileContentIds.EmblemWayfarer, "Завершить 3 победных забега.", "Созвездие: Следопыт", UnlockConditionType.WinThreeRuns),
+                Challenge("challenge.constellation.veteran", ProfileContentIds.EmblemVeteran, "Завершить 10 победных забегов.", "Созвездие: Следопыт", UnlockConditionType.WinTenRuns),
+                Challenge("challenge.constellation.cascade", ProfileContentIds.EmblemCascade, "Собрать каскад длиной 5.", "Созвездие: Мастер кристаллов", UnlockConditionType.ReachCascadeFive),
+                Challenge("challenge.constellation.avalanche", ProfileContentIds.EmblemAvalanche, "Собрать каскад длиной 8.", "Созвездие: Мастер кристаллов", UnlockConditionType.ReachCascadeEight),
+                Challenge("challenge.constellation.artificer", ProfileContentIds.EmblemArtificer, "Активировать 50 особых кристаллов.", "Созвездие: Мастер кристаллов", UnlockConditionType.ActivateFiftySpecials),
+                Challenge("challenge.constellation.stories", ProfileContentIds.EmblemStoryseeker, "Сделать 20 выборов в событиях.", "Созвездие: Исследователь", UnlockConditionType.ChooseTwentyEvents),
+                Challenge("challenge.constellation.vows", ProfileContentIds.EmblemOathkeeper, "Исполнить 3 обета пути.", "Созвездие: Следопыт", UnlockConditionType.CompleteThreeRouteVows),
+                Challenge("challenge.constellation.difficulty3", ProfileContentIds.EmblemConqueror, "Победить на сложности 3 или выше.", "Созвездие: Покоритель", UnlockConditionType.WinDifficultyThree),
+                Challenge("challenge.constellation.expedition", ProfileContentIds.EmblemExpeditioner, "Завершить экспедицию.", "Созвездие: Исследователь", UnlockConditionType.CompleteExpedition)
             };
         }
 
@@ -170,6 +229,14 @@ namespace ThreeInARow.Domain.Meta
         public int PoisonApplications;
         public bool IsChallengeRun;
         public ContentId ChallengeId = MasteryContentIds.StandardRun;
+        public ulong Seed;
+        public int FinalRegionIndex;
+        public int EventChoices;
+        public int CompletedRouteVows;
+        public bool IsExpedition;
+        public List<ContentId> SkillIds = new List<ContentId>();
+        public List<ContentId> RouteVowIds = new List<ContentId>();
+        public List<ContentId> RouteNodeIds = new List<ContentId>();
     }
 
     public sealed class ProfileUpdateResult
@@ -212,6 +279,13 @@ namespace ThreeInARow.Domain.Meta
             if (signals == null) throw new ArgumentNullException(nameof(signals));
             catalog = catalog ?? ProfileContentCatalog.Instance;
             Normalize(profile);
+            profile.Aggregate.SpecialActivations += Math.Max(0, signals.SpecialActivations);
+            profile.Aggregate.EventChoices += Math.Max(0, signals.EventChoices);
+            profile.Aggregate.RouteVowsCompleted += Math.Max(0, signals.CompletedRouteVows);
+            if (signals.IsExpedition && signals.Victory) profile.Aggregate.ExpeditionsCompleted++;
+            if (signals.RouteVowIds != null)
+                foreach (var vowId in signals.RouteVowIds) AddUnique(profile.CompletedRouteVowIds, vowId);
+            AddRunHistory(profile, signals);
             var result = new ProfileUpdateResult
             {
                 DifficultyBefore = profile.BestDifficultyUnlocked,
@@ -305,6 +379,17 @@ namespace ThreeInARow.Domain.Meta
             if (profile.CodexEntries == null) profile.CodexEntries = new List<CodexEntryState>();
             if (profile.Records == null) profile.Records = new List<RunRecordState>();
             if (profile.Aggregate == null) profile.Aggregate = new ProfileAggregateState();
+            if (profile.CompletedRouteVowIds == null) profile.CompletedRouteVowIds = new List<ContentId>();
+            if (profile.RunHistory == null) profile.RunHistory = new List<RunHistoryEntryState>();
+            foreach (var entry in profile.RunHistory)
+            {
+                if (entry == null) continue;
+                if (entry.SkillIds == null) entry.SkillIds = new List<ContentId>();
+                if (entry.RouteVowIds == null) entry.RouteVowIds = new List<ContentId>();
+                if (entry.RouteNodeIds == null) entry.RouteNodeIds = new List<ContentId>();
+            }
+            if (profile.RunHistory.Count > 20)
+                profile.RunHistory.RemoveRange(20, profile.RunHistory.Count - 20);
             profile.SchemaVersion = ProfileState.CurrentSchemaVersion;
             profile.ContentVersion = RunState.CurrentContentVersion;
             profile.BestDifficultyUnlocked = Math.Max(0, Math.Min(5, profile.BestDifficultyUnlocked));
@@ -338,7 +423,40 @@ namespace ThreeInARow.Domain.Meta
                 foreach (var branch in Branches) if (!Contains(profile.DominantBranchWins, branch)) return false;
                 return true;
             }
+            if (condition == UnlockConditionType.DefeatTwentyFiveEnemies) return profile.Aggregate.EnemiesDefeated >= 25;
+            if (condition == UnlockConditionType.DefeatFiveElites) return profile.Aggregate.ElitesDefeated >= 5;
+            if (condition == UnlockConditionType.DefeatFiveBosses) return profile.Aggregate.BossesDefeated >= 5;
+            if (condition == UnlockConditionType.WinThreeRuns) return profile.Aggregate.RunsWon >= 3;
+            if (condition == UnlockConditionType.WinTenRuns) return profile.Aggregate.RunsWon >= 10;
+            if (condition == UnlockConditionType.ReachCascadeFive) return signals.LargestCascade >= 5;
+            if (condition == UnlockConditionType.ReachCascadeEight) return signals.LargestCascade >= 8;
+            if (condition == UnlockConditionType.ActivateFiftySpecials) return profile.Aggregate.SpecialActivations >= 50;
+            if (condition == UnlockConditionType.ChooseTwentyEvents) return profile.Aggregate.EventChoices >= 20;
+            if (condition == UnlockConditionType.CompleteThreeRouteVows) return profile.Aggregate.RouteVowsCompleted >= 3;
+            if (condition == UnlockConditionType.WinDifficultyThree) return signals.Victory && signals.DifficultyTier >= 3;
+            if (condition == UnlockConditionType.CompleteExpedition) return signals.Victory && signals.IsExpedition;
             return false;
+        }
+
+        private static void AddRunHistory(ProfileState profile, RunCompletionSignals signals)
+        {
+            var entry = new RunHistoryEntryState
+            {
+                Seed = signals.Seed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Victory = signals.Victory,
+                DifficultyTier = signals.DifficultyTier,
+                FinalRegionIndex = signals.FinalRegionIndex,
+                ValidTurnCount = signals.ValidTurnCount,
+                RemainingHealth = signals.RemainingHealth,
+                LargestCascade = signals.LargestCascade,
+                BossId = signals.BossId,
+                ChallengeId = signals.ChallengeId,
+                SkillIds = signals.SkillIds == null ? new List<ContentId>() : new List<ContentId>(signals.SkillIds),
+                RouteVowIds = signals.RouteVowIds == null ? new List<ContentId>() : new List<ContentId>(signals.RouteVowIds),
+                RouteNodeIds = signals.RouteNodeIds == null ? new List<ContentId>() : new List<ContentId>(signals.RouteNodeIds)
+            };
+            profile.RunHistory.Insert(0, entry);
+            if (profile.RunHistory.Count > 20) profile.RunHistory.RemoveRange(20, profile.RunHistory.Count - 20);
         }
 
         private static void UpdateRecord(ProfileState profile, RunCompletionSignals signals)

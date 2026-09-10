@@ -65,6 +65,7 @@ namespace ThreeInARow.Infrastructure
                     state.Board.Gems.Count != BoardState.Width * BoardState.Height ||
                     state.Map == null || state.Map.Nodes == null || state.Map.Nodes.Count == 0 ||
                     state.RegionIndex < 0 || state.RegionIndex >= ThreeInARow.Domain.Map.MapSimulation.RegionCount ||
+                    state.FinalRegionIndex < state.RegionIndex || state.FinalRegionIndex >= ThreeInARow.Domain.Map.MapSimulation.RegionCount ||
                     state.AvailableContentIds == null || !ValidMasteryHeader(state) ||
                     (state.PendingCombatTurn != null && state.PendingCombatTurn.AwaitingEnemyResponse))
                     return false;
@@ -121,6 +122,7 @@ namespace ThreeInARow.Infrastructure
             public int experience;
             public int level;
             public int regionIndex;
+            public int finalRegionIndex;
             public PlayerDto player;
             public EnemyDto enemy;
             public List<GemDto> gems = new List<GemDto>();
@@ -141,6 +143,9 @@ namespace ThreeInARow.Infrastructure
             public string challengeId;
             public string challengeContentVersion;
             public List<string> availableContent = new List<string>();
+            public SanctumDto sanctum;
+            public List<string> storyFlags = new List<string>();
+            public RouteVowDto routeVow;
 
             public static RunDto FromDomain(RunState state)
             {
@@ -154,6 +159,7 @@ namespace ThreeInARow.Infrastructure
                     experience = state.Experience,
                     level = state.Level,
                     regionIndex = state.RegionIndex,
+                    finalRegionIndex = state.FinalRegionIndex,
                     player = PlayerDto.FromDomain(state.Player),
                     enemy = EnemyDto.FromDomain(state.Enemy),
                     pendingChoice = ChoiceDto.FromDomain(state.PendingChoice),
@@ -167,13 +173,16 @@ namespace ThreeInARow.Infrastructure
                     unlockPolicyId = Id(state.UnlockPolicyId),
                     isChallengeRun = state.IsChallengeRun,
                     challengeId = Id(state.ChallengeId),
-                    challengeContentVersion = state.ChallengeContentVersion
+                    challengeContentVersion = state.ChallengeContentVersion,
+                    sanctum = SanctumDto.FromDomain(state.Sanctum),
+                    routeVow = RouteVowDto.FromDomain(state.RouteVow)
                 };
                 if (state.Board != null && state.Board.Gems != null)
                     foreach (var gem in state.Board.Gems) dto.gems.Add(GemDto.FromDomain(gem));
                 AddIds(dto.selectedSkills, state.SelectedSkillIds);
                 AddIds(dto.selectedEncounters, state.SelectedEncounterIds);
                 AddIds(dto.availableContent, state.AvailableContentIds);
+                AddIds(dto.storyFlags, state.StoryFlagIds);
                 if (state.PendingEncounterModifiers != null)
                     foreach (var modifier in state.PendingEncounterModifiers)
                         if (modifier != null) dto.pendingEncounterModifiers.Add(new PendingModifierDto
@@ -207,6 +216,7 @@ namespace ThreeInARow.Infrastructure
                     Experience = experience,
                     Level = level,
                     RegionIndex = regionIndex,
+                    FinalRegionIndex = finalRegionIndex,
                     Player = player == null ? new PlayerState() : player.ToDomain(),
                     Enemy = enemy == null ? new EnemyState() : enemy.ToDomain(),
                     Board = new BoardState(),
@@ -228,7 +238,10 @@ namespace ThreeInARow.Infrastructure
                     IsChallengeRun = isChallengeRun,
                     ChallengeId = Content(challengeId),
                     ChallengeContentVersion = challengeContentVersion ?? string.Empty,
-                    AvailableContentIds = ToIds(availableContent)
+                    AvailableContentIds = ToIds(availableContent),
+                    Sanctum = sanctum == null ? new SanctumState() : sanctum.ToDomain(),
+                    StoryFlagIds = ToIds(storyFlags),
+                    RouteVow = routeVow == null ? new RouteVowState() : routeVow.ToDomain()
                 };
                 if (gems != null)
                     foreach (var gem in gems) state.Board.Gems.Add(gem.ToDomain());
@@ -251,6 +264,61 @@ namespace ThreeInARow.Infrastructure
                         state.PendingEncounterModifiers.Add(new PendingEncounterModifierState
                             { Id = Content(modifier.id), Amount = modifier.amount });
                 return state;
+            }
+        }
+
+        [Serializable]
+        private sealed class SanctumDto
+        {
+            public bool active;
+            public int completedRegionIndex;
+            public string chosenEvolutionId;
+
+            public static SanctumDto FromDomain(SanctumState value)
+            {
+                value = value ?? new SanctumState();
+                return new SanctumDto
+                {
+                    active = value.Active,
+                    completedRegionIndex = value.CompletedRegionIndex,
+                    chosenEvolutionId = Id(value.ChosenEvolutionId)
+                };
+            }
+
+            public SanctumState ToDomain()
+            {
+                return new SanctumState
+                {
+                    Active = active,
+                    CompletedRegionIndex = completedRegionIndex,
+                    ChosenEvolutionId = Content(chosenEvolutionId)
+                };
+            }
+        }
+
+        [Serializable]
+        private sealed class RouteVowDto
+        {
+            public List<string> offeredIds = new List<string>();
+            public string pinnedId;
+            public bool completed;
+
+            public static RouteVowDto FromDomain(RouteVowState value)
+            {
+                value = value ?? new RouteVowState();
+                var dto = new RouteVowDto { pinnedId = Id(value.PinnedId), completed = value.Completed };
+                AddIds(dto.offeredIds, value.OfferedIds);
+                return dto;
+            }
+
+            public RouteVowState ToDomain()
+            {
+                return new RouteVowState
+                {
+                    OfferedIds = ToIds(offeredIds),
+                    PinnedId = Content(pinnedId),
+                    Completed = completed
+                };
             }
         }
 

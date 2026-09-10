@@ -38,6 +38,22 @@ namespace ThreeInARow.Domain.Progression
         public static readonly ContentId PrismaticStart = "skill.keystone.prismatic_start";
         public static readonly ContentId RapidCasting = "skill.keystone.rapid_casting";
         public static readonly ContentId HardLight = "skill.keystone.hard_light";
+
+        public static readonly ContentId Sparkstorm = "skill.evolution.sparkstorm";
+        public static readonly ContentId AshenAegis = "skill.evolution.ashen_aegis";
+        public static readonly ContentId DeepCurrent = "skill.evolution.deep_current";
+        public static readonly ContentId TidalMemory = "skill.evolution.tidal_memory";
+        public static readonly ContentId VirulentBloom = "skill.evolution.virulent_bloom";
+        public static readonly ContentId PatientVenom = "skill.evolution.patient_venom";
+        public static readonly ContentId Overclock = "skill.evolution.overclock";
+        public static readonly ContentId StormReserve = "skill.evolution.storm_reserve";
+
+        public static readonly ContentId Briarheart = "skill.keystone.briarheart";
+        public static readonly ContentId Rootbreaker = "skill.keystone.rootbreaker";
+        public static readonly ContentId Emberseed = "skill.keystone.emberseed";
+        public static readonly ContentId NullCoil = "skill.keystone.null_coil";
+        public static readonly ContentId MirrorShard = "skill.keystone.mirror_shard";
+        public static readonly ContentId RiftLens = "skill.keystone.rift_lens";
     }
 
     public enum SkillSlotType
@@ -258,6 +274,30 @@ namespace ThreeInARow.Domain.Progression
                 false, 0, SkillTargetPolicy.None, new[] { modifier }, null, "keystone", synergyTags, true, null, false);
         }
 
+        public static SkillDefinition RegionalEliteKeystone(
+            ContentId id,
+            string displayKey,
+            int oneBasedRegion,
+            PassiveModifierDefinition modifier,
+            params string[] synergyTags)
+        {
+            return new SkillDefinition(id, displayKey, SkillSlotType.Passive, default(ContentId), false,
+                false, 0, SkillTargetPolicy.None, new[] { modifier }, null,
+                "keystone.region" + oneBasedRegion, synergyTags, true, null, false);
+        }
+
+        public static SkillDefinition Evolution(
+            ContentId id,
+            string displayKey,
+            string branchTag,
+            PassiveModifierDefinition modifier,
+            params string[] synergyTags)
+        {
+            return new SkillDefinition(id, displayKey, SkillSlotType.Passive, default(ContentId), false,
+                false, 0, SkillTargetPolicy.None, new[] { modifier }, null,
+                branchTag, synergyTags, false, null, false);
+        }
+
         public static SkillDefinition UnlockActive(
             ContentId id,
             string displayKey,
@@ -365,6 +405,23 @@ namespace ThreeInARow.Domain.Progression
                     new[] { "tide", "venom" },
                     new PassiveModifierDefinition(PassiveModifierType.FocusConversionToxicPerCascade, 1)),
 
+                SkillDefinition.Evolution(ProgressionContentIds.Sparkstorm, "skill.evolution.sparkstorm.name", "ember",
+                    new PassiveModifierDefinition(PassiveModifierType.SparkFirstDamage, 12), "Эволюция", "Искра"),
+                SkillDefinition.Evolution(ProgressionContentIds.AshenAegis, "skill.evolution.ashen_aegis.name", "ember",
+                    new PassiveModifierDefinition(PassiveModifierType.SparkShield, 8), "Эволюция", "Щит"),
+                SkillDefinition.Evolution(ProgressionContentIds.DeepCurrent, "skill.evolution.deep_current.name", "tide",
+                    new PassiveModifierDefinition(PassiveModifierType.FocusConversionDamage, 2), "Эволюция", "Концентрация"),
+                SkillDefinition.Evolution(ProgressionContentIds.TidalMemory, "skill.evolution.tidal_memory.name", "tide",
+                    new PassiveModifierDefinition(PassiveModifierType.FocusConversionShield, 4), "Эволюция", "Щит"),
+                SkillDefinition.Evolution(ProgressionContentIds.VirulentBloom, "skill.evolution.virulent_bloom.name", "venom",
+                    new PassiveModifierDefinition(PassiveModifierType.PoisonDamagePerStack, 2), "Эволюция", "Яд"),
+                SkillDefinition.Evolution(ProgressionContentIds.PatientVenom, "skill.evolution.patient_venom.name", "venom",
+                    new PassiveModifierDefinition(PassiveModifierType.LargeVenomMatchToxic, 3), "Эволюция", "Токсин"),
+                SkillDefinition.Evolution(ProgressionContentIds.Overclock, "skill.evolution.overclock.name", "volt",
+                    new PassiveModifierDefinition(PassiveModifierType.ChargeCooldownReduction, 2), "Эволюция", "Перезарядка"),
+                SkillDefinition.Evolution(ProgressionContentIds.StormReserve, "skill.evolution.storm_reserve.name", "volt",
+                    new PassiveModifierDefinition(PassiveModifierType.CooldownReductionShield, 4), "Эволюция", "Щит"),
+
                 SkillDefinition.EliteKeystone(ProgressionContentIds.TemperedCore, "skill.keystone.tempered_core.name",
                     new PassiveModifierDefinition(PassiveModifierType.VictoryHeal, 3), "Исцеление"),
                 SkillDefinition.EliteKeystone(ProgressionContentIds.PrismaticStart, "skill.keystone.prismatic_start.name",
@@ -372,7 +429,19 @@ namespace ThreeInARow.Domain.Progression
                 SkillDefinition.EliteKeystone(ProgressionContentIds.RapidCasting, "skill.keystone.rapid_casting.name",
                     new PassiveModifierDefinition(PassiveModifierType.ActiveCooldownStartReduction, 1), "Перезарядка"),
                 SkillDefinition.EliteKeystone(ProgressionContentIds.HardLight, "skill.keystone.hard_light.name",
-                    new PassiveModifierDefinition(PassiveModifierType.ShieldExpiryDamage, 8), "Щит")
+                    new PassiveModifierDefinition(PassiveModifierType.ShieldExpiryDamage, 8), "Щит"),
+                SkillDefinition.RegionalEliteKeystone(ProgressionContentIds.Briarheart, "skill.keystone.briarheart.name", 2,
+                    new PassiveModifierDefinition(PassiveModifierType.VictoryHeal, 2), "Диколесье", "Исцеление"),
+                SkillDefinition.RegionalEliteKeystone(ProgressionContentIds.Rootbreaker, "skill.keystone.rootbreaker.name", 2,
+                    new PassiveModifierDefinition(PassiveModifierType.ShieldExpiryDamage, 12), "Диколесье", "Щит"),
+                SkillDefinition.RegionalEliteKeystone(ProgressionContentIds.Emberseed, "skill.keystone.emberseed.name", 2,
+                    new PassiveModifierDefinition(PassiveModifierType.PrismaticStart, 1), "Диколесье", "Контроль поля"),
+                SkillDefinition.RegionalEliteKeystone(ProgressionContentIds.NullCoil, "skill.keystone.null_coil.name", 3,
+                    new PassiveModifierDefinition(PassiveModifierType.ActiveCooldownStartReduction, 2), "Глубины", "Перезарядка"),
+                SkillDefinition.RegionalEliteKeystone(ProgressionContentIds.MirrorShard, "skill.keystone.mirror_shard.name", 3,
+                    new PassiveModifierDefinition(PassiveModifierType.FocusConversionShield, 3), "Глубины", "Щит"),
+                SkillDefinition.RegionalEliteKeystone(ProgressionContentIds.RiftLens, "skill.keystone.rift_lens.name", 3,
+                    new PassiveModifierDefinition(PassiveModifierType.ShieldExpiryDamage, 14), "Глубины", "Щит")
             };
 
             _byId = new Dictionary<ContentId, SkillDefinition>();

@@ -13,8 +13,8 @@ namespace ThreeInARow.Domain.State
     [Serializable]
     public sealed class RunState
     {
-        public const int CurrentSchemaVersion = 9;
-        public const string CurrentContentVersion = "0.9.0";
+        public const int CurrentSchemaVersion = 10;
+        public const string CurrentContentVersion = "1.0.0";
 
         public int SchemaVersion = CurrentSchemaVersion;
         public string ContentVersion = CurrentContentVersion;
@@ -25,6 +25,8 @@ namespace ThreeInARow.Domain.State
         public int Level = 1;
         // Zero-based region index. Each region owns a separate portrait-sized map.
         public int RegionIndex;
+        // Standard and weekly runs end in Region 3; short Expeditions may start and end in one selected region.
+        public int FinalRegionIndex = 2;
         public PlayerState Player = new PlayerState();
         public EnemyState Enemy = new EnemyState();
         public BoardState Board = new BoardState();
@@ -46,6 +48,9 @@ namespace ThreeInARow.Domain.State
         public ContentId ChallengeId = MasteryContentIds.StandardRun;
         public string ChallengeContentVersion = string.Empty;
         public List<ContentId> AvailableContentIds = new List<ContentId>();
+        public SanctumState Sanctum = new SanctumState();
+        public List<ContentId> StoryFlagIds = new List<ContentId>();
+        public RouteVowState RouteVow = new RouteVowState();
     }
 
     [Serializable]
@@ -180,5 +185,21 @@ namespace ThreeInARow.Domain.State
     {
         public ContentId Id = "modifier.none";
         public int Amount;
+    }
+
+    [Serializable]
+    public sealed class SanctumState
+    {
+        public bool Active;
+        public int CompletedRegionIndex = -1;
+        public ContentId ChosenEvolutionId = "skill.none";
+    }
+
+    [Serializable]
+    public sealed class RouteVowState
+    {
+        public List<ContentId> OfferedIds = new List<ContentId>();
+        public ContentId PinnedId = "vow.none";
+        public bool Completed;
     }
 }

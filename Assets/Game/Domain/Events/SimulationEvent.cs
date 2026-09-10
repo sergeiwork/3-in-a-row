@@ -39,7 +39,12 @@ namespace ThreeInARow.Domain.Events
         EnemyBarrierChanged,
         ActiveJammed,
         BossPhaseChanged,
-        StatusTicked
+        StatusTicked,
+        SanctumEntered,
+        RegionAdvanced,
+        RouteVowPinned,
+        RouteVowCompleted,
+        StoryFlagAdded
     }
 
     [Serializable]

@@ -28,12 +28,20 @@ namespace ThreeInARow.Domain.Combat
         public static readonly ContentId CinderNymph = "enemy.cinder_nymph";
         public static readonly ContentId ThornboundStag = "enemy.thornbound_stag";
         public static readonly ContentId PyreheartTreant = "enemy.pyreheart_treant";
+        public static readonly ContentId SootcapShaman = "enemy.sootcap_shaman";
+        public static readonly ContentId GlassvineSerpent = "enemy.glassvine_serpent";
+        public static readonly ContentId AshenDryad = "enemy.ashen_dryad";
+        public static readonly ContentId FurnaceMatriarch = "enemy.furnace_matriarch";
 
         public static readonly ContentId NullwingBat = "enemy.nullwing_bat";
         public static readonly ContentId MirrorEel = "enemy.mirror_eel";
         public static readonly ContentId RiftWeaver = "enemy.rift_weaver";
         public static readonly ContentId EclipseChimera = "enemy.eclipse_chimera";
         public static readonly ContentId AstralDevourer = "enemy.astral_devourer";
+        public static readonly ContentId ShardLeech = "enemy.shard_leech";
+        public static readonly ContentId OrbitSentinel = "enemy.orbit_sentinel";
+        public static readonly ContentId ParallaxKnight = "enemy.parallax_knight";
+        public static readonly ContentId SingularitySeraph = "enemy.singularity_seraph";
 
         public static readonly ContentId Encounter1 = "encounter.01_geode_mite";
         public static readonly ContentId Encounter2 = "encounter.02_frost_oracle";
@@ -56,12 +64,20 @@ namespace ThreeInARow.Domain.Combat
         public static readonly ContentId EncounterCinderNymph = "encounter.region2.cinder_nymph";
         public static readonly ContentId EncounterEliteThornboundStag = "encounter.region2.elite.thornbound_stag";
         public static readonly ContentId EncounterBossPyreheartTreant = "encounter.region2.boss.pyreheart_treant";
+        public static readonly ContentId EncounterSootcapShaman = "encounter.region2.sootcap_shaman";
+        public static readonly ContentId EncounterGlassvineSerpent = "encounter.region2.glassvine_serpent";
+        public static readonly ContentId EncounterEliteAshenDryad = "encounter.region2.elite.ashen_dryad";
+        public static readonly ContentId EncounterBossFurnaceMatriarch = "encounter.region2.boss.furnace_matriarch";
 
         public static readonly ContentId EncounterNullwingBat = "encounter.region3.nullwing_bat";
         public static readonly ContentId EncounterMirrorEel = "encounter.region3.mirror_eel";
         public static readonly ContentId EncounterRiftWeaver = "encounter.region3.rift_weaver";
         public static readonly ContentId EncounterEliteEclipseChimera = "encounter.region3.elite.eclipse_chimera";
         public static readonly ContentId EncounterBossAstralDevourer = "encounter.region3.boss.astral_devourer";
+        public static readonly ContentId EncounterShardLeech = "encounter.region3.shard_leech";
+        public static readonly ContentId EncounterOrbitSentinel = "encounter.region3.orbit_sentinel";
+        public static readonly ContentId EncounterEliteParallaxKnight = "encounter.region3.elite.parallax_knight";
+        public static readonly ContentId EncounterBossSingularitySeraph = "encounter.region3.boss.singularity_seraph";
     }
 
     public enum IntentEffectType
@@ -235,6 +251,7 @@ namespace ThreeInARow.Domain.Combat
         IReadOnlyList<EncounterDefinition> GetNormalPool(int regionIndex, int depth);
         IReadOnlyList<EncounterDefinition> GetElitePool(int regionIndex);
         EncounterDefinition GetRegionBossEncounter(int regionIndex);
+        IReadOnlyList<EncounterDefinition> GetBossPool(int regionIndex);
         EncounterDefinition GetBossEncounter(ContentId enemyId);
         EnemyDefinition GetEnemy(ContentId enemyId);
     }
@@ -249,6 +266,7 @@ namespace ThreeInARow.Domain.Combat
         private readonly Dictionary<int, IReadOnlyList<EncounterDefinition>> _regionalNormalPools;
         private readonly Dictionary<int, IReadOnlyList<EncounterDefinition>> _regionalElitePools;
         private readonly Dictionary<int, EncounterDefinition> _regionalBossEncounters;
+        private readonly Dictionary<int, IReadOnlyList<EncounterDefinition>> _regionalBossPools;
         private readonly List<EncounterDefinition> _eliteEncounters;
         private readonly Dictionary<ContentId, EncounterDefinition> _bossEncounters;
 
@@ -400,6 +418,45 @@ namespace ThreeInARow.Domain.Combat
                         IntentEffectDefinition.Damage(8), IntentEffectDefinition.Drain(2, 2)),
                     Intent("intent.pyreheart_treant.phase2.inferno", "intent.inferno", IntentEffectDefinition.Damage(18))
                 });
+            var sootcapShaman = new EnemyDefinition(
+                CombatContentIds.SootcapShaman, "enemy.sootcap_shaman.name", 120, 1, "pressure.jam",
+                Intent("intent.sootcap_shaman.spore_haze", "intent.spore_haze",
+                    IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
+                Intent("intent.sootcap_shaman.ash_sip", "intent.ash_sip", IntentEffectDefinition.Drain(2, 1)),
+                Intent("intent.sootcap_shaman.flare_hex", "intent.flare_hex",
+                    IntentEffectDefinition.Damage(9), IntentEffectDefinition.Jam(1)));
+            var glassvineSerpent = new EnemyDefinition(
+                CombatContentIds.GlassvineSerpent, "enemy.glassvine_serpent.name", 134, 1, "pressure.anchor",
+                Intent("intent.glassvine_serpent.glass_skin", "intent.glass_skin", IntentEffectDefinition.Barrier(12)),
+                Intent("intent.glassvine_serpent.coiling_roots", "intent.coiling_roots",
+                    IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1),
+                    IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 1)),
+                Intent("intent.glassvine_serpent.venomous_glare", "intent.venomous_glare", IntentEffectDefinition.Damage(13)));
+            var ashenDryad = new EnemyDefinition(
+                CombatContentIds.AshenDryad, "enemy.ashen_dryad.name", 170, 2, "pressure.mixed", true, false,
+                Intent("intent.ashen_dryad.cinder_bark", "intent.cinder_bark",
+                    IntentEffectDefinition.Barrier(18), IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
+                Intent("intent.ashen_dryad.ashfall", "intent.ashfall",
+                    IntentEffectDefinition.Damage(13), IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)),
+                Intent("intent.ashen_dryad.dryad_wail", "intent.dryad_wail",
+                    IntentEffectDefinition.Damage(16), IntentEffectDefinition.Jam(1)));
+            var furnaceMatriarch = new EnemyDefinition(
+                CombatContentIds.FurnaceMatriarch, "enemy.furnace_matriarch.name", 205, 2, "pressure.mixed", false, true, 50,
+                new[]
+                {
+                    Intent("intent.furnace_matriarch.brood_barrier", "intent.brood_barrier", IntentEffectDefinition.Barrier(22)),
+                    Intent("intent.furnace_matriarch.cinder_web", "intent.cinder_web",
+                        IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 3), IntentEffectDefinition.Jam(1)),
+                    Intent("intent.furnace_matriarch.furnace_bite", "intent.furnace_bite", IntentEffectDefinition.Damage(16))
+                },
+                new[]
+                {
+                    Intent("intent.furnace_matriarch.phase2.hatch", "intent.hatch",
+                        IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 3), IntentEffectDefinition.Barrier(16)),
+                    Intent("intent.furnace_matriarch.phase2.immolate", "intent.immolate",
+                        IntentEffectDefinition.Damage(13), IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
+                    Intent("intent.furnace_matriarch.phase2.feast", "intent.feast", IntentEffectDefinition.Damage(19))
+                });
 
             // Region 3: the Voidglass Depths attacks active-skill timing and board mobility.
             var nullwingBat = new EnemyDefinition(
@@ -451,6 +508,44 @@ namespace ThreeInARow.Domain.Combat
                         IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
                     Intent("intent.astral_devourer.phase2.devour", "intent.devour", IntentEffectDefinition.Damage(22))
                 });
+            var shardLeech = new EnemyDefinition(
+                CombatContentIds.ShardLeech, "enemy.shard_leech.name", 152, 1, "pressure.drain",
+                Intent("intent.shard_leech.essence_siphon", "intent.essence_siphon", IntentEffectDefinition.Drain(3, 3)),
+                Intent("intent.shard_leech.shard_bite", "intent.shard_bite",
+                    IntentEffectDefinition.Damage(10), IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)),
+                Intent("intent.shard_leech.crystal_gorge", "intent.crystal_gorge", IntentEffectDefinition.Barrier(14)));
+            var orbitSentinel = new EnemyDefinition(
+                CombatContentIds.OrbitSentinel, "enemy.orbit_sentinel.name", 172, 1, "pressure.anchor",
+                Intent("intent.orbit_sentinel.gravity_ring", "intent.gravity_ring",
+                    IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1),
+                    IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 1)),
+                Intent("intent.orbit_sentinel.orbit_shell", "intent.orbit_shell", IntentEffectDefinition.Barrier(18)),
+                Intent("intent.orbit_sentinel.comet_lance", "intent.comet_lance",
+                    IntentEffectDefinition.Damage(15), IntentEffectDefinition.Jam(1)));
+            var parallaxKnight = new EnemyDefinition(
+                CombatContentIds.ParallaxKnight, "enemy.parallax_knight.name", 212, 2, "pressure.mixed", true, false,
+                Intent("intent.parallax_knight.mirror_guard", "intent.mirror_guard", IntentEffectDefinition.Barrier(24)),
+                Intent("intent.parallax_knight.split_horizon", "intent.split_horizon",
+                    IntentEffectDefinition.Damage(14), IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2)),
+                Intent("intent.parallax_knight.parallax_cut", "intent.parallax_cut",
+                    IntentEffectDefinition.Damage(17), IntentEffectDefinition.Jam(2)));
+            var singularitySeraph = new EnemyDefinition(
+                CombatContentIds.SingularitySeraph, "enemy.singularity_seraph.name", 275, 3, "pressure.mixed", false, true, 50,
+                new[]
+                {
+                    Intent("intent.singularity_seraph.halo_lock", "intent.halo_lock",
+                        IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 3, 1), IntentEffectDefinition.Jam(1)),
+                    Intent("intent.singularity_seraph.dark_grace", "intent.dark_grace", IntentEffectDefinition.Barrier(28)),
+                    Intent("intent.singularity_seraph.star_spear", "intent.star_spear", IntentEffectDefinition.Damage(19))
+                },
+                new[]
+                {
+                    Intent("intent.singularity_seraph.phase2.black_hymn", "intent.black_hymn",
+                        IntentEffectDefinition.Drain(4, 4), IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
+                    Intent("intent.singularity_seraph.phase2.fallen_halo", "intent.fallen_halo",
+                        IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2), IntentEffectDefinition.Barrier(20)),
+                    Intent("intent.singularity_seraph.phase2.annihilation", "intent.annihilation", IntentEffectDefinition.Damage(23))
+                });
 
             _encounters = new List<EncounterDefinition>
             {
@@ -470,7 +565,11 @@ namespace ThreeInARow.Domain.Combat
                 { cinderNymph.Id, cinderNymph }, { thornboundStag.Id, thornboundStag },
                 { pyreheartTreant.Id, pyreheartTreant }, { nullwingBat.Id, nullwingBat },
                 { mirrorEel.Id, mirrorEel }, { riftWeaver.Id, riftWeaver },
-                { eclipseChimera.Id, eclipseChimera }, { astralDevourer.Id, astralDevourer }
+                { eclipseChimera.Id, eclipseChimera }, { astralDevourer.Id, astralDevourer },
+                { sootcapShaman.Id, sootcapShaman }, { glassvineSerpent.Id, glassvineSerpent },
+                { ashenDryad.Id, ashenDryad }, { furnaceMatriarch.Id, furnaceMatriarch },
+                { shardLeech.Id, shardLeech }, { orbitSentinel.Id, orbitSentinel },
+                { parallaxKnight.Id, parallaxKnight }, { singularitySeraph.Id, singularitySeraph }
             };
 
             var depth1Tick = new EncounterDefinition(CombatContentIds.EncounterDepth1CrystalTick, tick);
@@ -493,6 +592,14 @@ namespace ThreeInARow.Domain.Combat
             var encounterRiftWeaver = new EncounterDefinition(CombatContentIds.EncounterRiftWeaver, riftWeaver);
             var eliteEclipseChimera = new EncounterDefinition(CombatContentIds.EncounterEliteEclipseChimera, eclipseChimera);
             var bossAstralDevourer = new EncounterDefinition(CombatContentIds.EncounterBossAstralDevourer, astralDevourer);
+            var encounterSootcapShaman = new EncounterDefinition(CombatContentIds.EncounterSootcapShaman, sootcapShaman);
+            var encounterGlassvineSerpent = new EncounterDefinition(CombatContentIds.EncounterGlassvineSerpent, glassvineSerpent);
+            var eliteAshenDryad = new EncounterDefinition(CombatContentIds.EncounterEliteAshenDryad, ashenDryad);
+            var bossFurnaceMatriarch = new EncounterDefinition(CombatContentIds.EncounterBossFurnaceMatriarch, furnaceMatriarch);
+            var encounterShardLeech = new EncounterDefinition(CombatContentIds.EncounterShardLeech, shardLeech);
+            var encounterOrbitSentinel = new EncounterDefinition(CombatContentIds.EncounterOrbitSentinel, orbitSentinel);
+            var eliteParallaxKnight = new EncounterDefinition(CombatContentIds.EncounterEliteParallaxKnight, parallaxKnight);
+            var bossSingularitySeraph = new EncounterDefinition(CombatContentIds.EncounterBossSingularitySeraph, singularitySeraph);
             _normalPools = new Dictionary<int, IReadOnlyList<EncounterDefinition>>
             {
                 { 1, new[] { _encounters[0], depth1Tick } },
@@ -504,28 +611,35 @@ namespace ThreeInARow.Domain.Combat
             _bossEncounters = new Dictionary<ContentId, EncounterDefinition>
             {
                 { warden.Id, _encounters[4] }, { engine.Id, bossEngine },
-                { pyreheartTreant.Id, bossPyreheartTreant }, { astralDevourer.Id, bossAstralDevourer }
+                { pyreheartTreant.Id, bossPyreheartTreant }, { astralDevourer.Id, bossAstralDevourer },
+                { furnaceMatriarch.Id, bossFurnaceMatriarch }, { singularitySeraph.Id, bossSingularitySeraph }
             };
             _regionalNormalPools = new Dictionary<int, IReadOnlyList<EncounterDefinition>>
             {
-                { RegionalPoolKey(1, 1), new[] { encounterBriarWisp, encounterAshbackBoar } },
-                { RegionalPoolKey(1, 2), new[] { encounterBriarWisp, encounterCinderNymph } },
-                { RegionalPoolKey(1, 3), new[] { encounterAshbackBoar, encounterCinderNymph } },
-                { RegionalPoolKey(1, 4), new[] { encounterBriarWisp, encounterAshbackBoar, encounterCinderNymph } },
-                { RegionalPoolKey(2, 1), new[] { encounterNullwingBat, encounterMirrorEel } },
-                { RegionalPoolKey(2, 2), new[] { encounterNullwingBat, encounterRiftWeaver } },
-                { RegionalPoolKey(2, 3), new[] { encounterMirrorEel, encounterRiftWeaver } },
-                { RegionalPoolKey(2, 4), new[] { encounterNullwingBat, encounterMirrorEel, encounterRiftWeaver } }
+                { RegionalPoolKey(1, 1), new[] { encounterBriarWisp, encounterAshbackBoar, encounterSootcapShaman } },
+                { RegionalPoolKey(1, 2), new[] { encounterBriarWisp, encounterCinderNymph, encounterGlassvineSerpent } },
+                { RegionalPoolKey(1, 3), new[] { encounterAshbackBoar, encounterCinderNymph, encounterSootcapShaman } },
+                { RegionalPoolKey(1, 4), new[] { encounterBriarWisp, encounterAshbackBoar, encounterCinderNymph, encounterGlassvineSerpent } },
+                { RegionalPoolKey(2, 1), new[] { encounterNullwingBat, encounterMirrorEel, encounterShardLeech } },
+                { RegionalPoolKey(2, 2), new[] { encounterNullwingBat, encounterRiftWeaver, encounterOrbitSentinel } },
+                { RegionalPoolKey(2, 3), new[] { encounterMirrorEel, encounterRiftWeaver, encounterShardLeech } },
+                { RegionalPoolKey(2, 4), new[] { encounterNullwingBat, encounterMirrorEel, encounterRiftWeaver, encounterOrbitSentinel } }
             };
             _regionalElitePools = new Dictionary<int, IReadOnlyList<EncounterDefinition>>
             {
                 { 0, _eliteEncounters },
-                { 1, new[] { eliteThornboundStag } },
-                { 2, new[] { eliteEclipseChimera } }
+                { 1, new[] { eliteThornboundStag, eliteAshenDryad } },
+                { 2, new[] { eliteEclipseChimera, eliteParallaxKnight } }
             };
             _regionalBossEncounters = new Dictionary<int, EncounterDefinition>
             {
                 { 0, _encounters[4] }, { 1, bossPyreheartTreant }, { 2, bossAstralDevourer }
+            };
+            _regionalBossPools = new Dictionary<int, IReadOnlyList<EncounterDefinition>>
+            {
+                { 0, new[] { _encounters[4], bossEngine } },
+                { 1, new[] { bossPyreheartTreant, bossFurnaceMatriarch } },
+                { 2, new[] { bossAstralDevourer, bossSingularitySeraph } }
             };
             _encountersById = new Dictionary<ContentId, EncounterDefinition>();
             foreach (var encounter in _encounters) _encountersById[encounter.Id] = encounter;
@@ -587,6 +701,14 @@ namespace ThreeInARow.Domain.Combat
             if (!_regionalBossEncounters.TryGetValue(regionIndex, out encounter))
                 throw new ArgumentOutOfRangeException(nameof(regionIndex));
             return encounter;
+        }
+
+        public IReadOnlyList<EncounterDefinition> GetBossPool(int regionIndex)
+        {
+            IReadOnlyList<EncounterDefinition> pool;
+            if (!_regionalBossPools.TryGetValue(regionIndex, out pool))
+                throw new ArgumentOutOfRangeException(nameof(regionIndex));
+            return pool;
         }
 
         public EncounterDefinition GetBossEncounter(ContentId enemyId)

@@ -1,6 +1,6 @@
 # Three in a Row: Roguelike Crystals
 
-**Status:** Multi-region implementation v0.9
+**Status:** Content-rich multi-region implementation v1.0
 **Engine / platform:** Unity, C#, portrait mobile  
 **Canonical format:** This Markdown file is the sole editable source of truth; focused Markdown documents may link back here when this file becomes too large.
 
@@ -46,7 +46,7 @@ A portrait-mobile match-3 roguelike where every cleared crystal becomes a weapon
 
 ### Non-goals for this MVP
 
-- No persistent/meta progression, economy, crafting, PvP, live ops, social features, ads, or real-money store.
+- No permanent stat progression, economy, crafting, PvP, live ops, social features, ads, or real-money store. Profile progression is horizontal: difficulty rules, content access, codex records, run history, and cosmetic emblems.
 - Each procedural region map is compact and portrait-sized. Shops, relic inventory, multiple simultaneous enemies, and positional combat remain out of scope.
 - No dependency on final art, audio, localization, cloud saves, or backend before validating the core run.
 
@@ -59,8 +59,8 @@ A portrait-mobile match-3 roguelike where every cleared crystal becomes a weapon
 | Run structure | Three sequential seeded seven-row regions; each has normal combat, events, rest, one optional elite, and a boss | Shops, endless mode |
 | Board | 7×7 board, match-3+, cascades, four normal gem types and one Prism special | Terrain, hex grid, extra blockers |
 | Combat | Player HP, enemy HP/intent, one enemy response per valid player turn, typed effects and statuses | Multiple enemies and allied units |
-| Progression | Run XP, three standard upgrade picks, twelve-node skill tree, two equipped active skills, and at most one elite keystone | Persistent account levels and a relic inventory |
-| Content | Regional depth pools, twenty-two enemies, twelve branch passives, five active skills, four elite keystones, six events, rest, and four board statuses | Full launch content volume |
+| Progression | Run XP, three standard upgrade picks, eight inter-region evolutions, two equipped active skills, and at most one elite keystone per region | Persistent account levels and a relic inventory |
+| Content | Regional depth pools, thirty enemies, twelve branch passives, eight evolutions, ten elite keystones, fifteen events plus rest, four board statuses, daily expeditions, and twelve fixed trials | Shops, endless mode, live content delivery |
 | Technology | ScriptableObject content, deterministic simulation, local run checkpoint | Backend, remote config, production analytics |
 
 ### Vertical-slice pass condition
@@ -82,7 +82,7 @@ A fresh player can clear the first seven-row region in **10–15 minutes** and c
 
 ### Run loop
 
-`Start Run → Region 1 map → boss → Region 2 map → boss → Region 3 map → final boss → run summary`
+`Start Run → Region 1 map → boss → evolution draft → Sanctum → Region 2 map → boss → evolution draft → Sanctum → Region 3 map → final boss → run summary`
 
 Defeat ends the run and returns to the title screen. The MVP has no persistent reward.
 
@@ -192,15 +192,15 @@ R1 replaces fixed non-boss advancement with persisted depth pools selected throu
 
 R2 adds Fracture Golem (112 HP) and Stormglass Roc (108 HP) as elite definitions, plus Facet Engine (132 HP) as the alternate Region 1 boss.
 
-After either Region 1 boss falls, the run continues into **Cinderbloom Wilds**. Its roster is Briar Wisp (112 HP; Thorned/Jam), Ashback Boar (126 HP; damage/Cracked/Barrier), Cinder Nymph (118 HP; Barrier/Thorned/Jam), Thornbound Stag elite (154 HP; Thorned/Anchored/burst), and Pyreheart Treant boss (188 HP; two-phase Thorned, Jam, Cracked, Barrier, drain, and burst cycle).
+After either Region 1 boss falls, the run continues into **Cinderbloom Wilds**. Its roster adds Briar Wisp, Ashback Boar, Cinder Nymph, Sootcap Shaman, Glassvine Serpent, Thornbound Stag and Ashen Dryad elites, plus Pyreheart Treant and Furnace Matriarch bosses.
 
-After Pyreheart Treant falls, the run continues into **Voidglass Depths**. Its roster is Nullwing Bat (142 HP; Jam/Frozen), Mirror Eel (150 HP; Barrier/drain), Rift Weaver (164 HP; Anchored/Thorned/Cracked/Jam), Eclipse Chimera elite (198 HP; Barrier/Jam/Anchored), and Astral Devourer final boss (260 HP; two-phase drain, Jam, Anchored, Thorned, Barrier, Frozen, Cracked, and burst cycle).
+After the Cinderbloom boss falls, the run continues into **Voidglass Depths**. Its roster adds Nullwing Bat, Mirror Eel, Rift Weaver, Shard Leech, Orbit Sentinel, Eclipse Chimera and Parallax Knight elites, plus Astral Devourer and Singularity Seraph bosses.
 
-All twenty-two enemy definitions compose the generic damage, resource drain, board-status, Barrier, and Jam intent effects. No enemy-specific resolver branch is allowed. The named attacks are content definitions with stable intent IDs; their icon strip is derived from their ordered generic effects.
+All thirty enemy definitions compose the generic damage, resource drain, board-status, Barrier, and Jam intent effects. No enemy-specific resolver branch is allowed. The named attacks are content definitions with stable intent IDs; their icon strip is derived from their ordered generic effects.
 
 ### Seeded region map
 
-Each region generates a fresh seven-row topology through the continuing `MapGeneration` and `EncounterSelection` RNG streams. Rows are: mandatory normal; normal/event; mandatory normal; normal/elite/rest; event/rest; mandatory normal; boss. Region-local normal and elite pools prevent later-region enemies from appearing early. All nodes connect to every node in the next row, the current region fits one portrait screen, and only connected next-row nodes are selectable. Stable node IDs include the one-based region number. `RunState.RegionIndex`, the current regional map, all selected encounter IDs across regions, and RNG states are persisted. Defeating a non-final boss increments `RegionIndex`, replaces `MapState` with the next generated map, and preserves the player build, board, HP, resources, cooldowns, statistics, and deterministic streams. Only Astral Devourer ends a victorious run.
+Each region generates a fresh seven-row topology through the continuing `MapGeneration` and `EncounterSelection` RNG streams. Rows are: mandatory normal; normal/event; mandatory normal; normal/elite/rest; event/rest; mandatory normal; boss. Region-local normal, elite, boss, and event pools prevent later-region content from appearing early. All nodes connect to every node in the next row, the current region fits one portrait screen, and only connected next-row nodes are selectable. Stable node IDs include the one-based region number. `RunState.RegionIndex`, `FinalRegionIndex`, the current regional map, story flags, route vow, all selected encounter IDs, and RNG states are persisted. Defeating a non-final boss opens its evolution draft and Sanctum; continuing increments `RegionIndex`, generates the next map, and preserves the build, board, HP, resources, cooldowns, statistics, and deterministic streams. An expedition sets its start and final region to the same index, so that region's boss ends the run.
 
 Event choices show exact outcomes and resolve through generic effect definitions. The initial set is Faceted Altar, Quiet Pool, Static Loom, Prism Echo, Frozen Reliquary, and Cracked Cache. Rest offers either 12 HP or a full board cleanse plus 2 cooldown reduction. “Next encounter” effects are stored in `PendingEncounterModifiers`, never presentation state. A node is checkpointed immediately after selection and again after its outcome begins.
 
@@ -259,8 +259,10 @@ Cleanse confirmation accepts one to three unique status-bearing cells; if three 
 - **Encounter:** Enemy panel and intent at top; board centered; player HP/resources and two active-skill buttons below.
 - **Level-up:** Three large cards showing branch icon, name, exact numeric effect, and prerequisite trail.
 - **Map:** Full seven-row topology, reachable/visited state, node type, enemy family/pressure, visible boss, and loadout access.
+- **Sanctum:** Defeated-region recap, chosen evolution, build summary, loadout access, Continue, and Save & Exit.
+- **Expedition board:** Seven recent deterministic daily routes, twelve permanent trials, and the current three-region weekly route.
 - **Event / rest:** Exact outcome buttons with no hidden random consequence after confirmation.
-- **Run summary / defeat:** Encounters cleared, biggest cascade, damage by gem type, chosen upgrades, and Start New Run. Include the debug seed in development builds.
+- **Run summary / defeat:** Encounters cleared, biggest cascade, damage by gem type, chosen upgrades, completed vows, and Start New Run. The profile retains the latest twenty seed summaries for copy and replay.
 
 ### Mobile guardrails
 
@@ -358,7 +360,7 @@ For active-skill timing, zero or more valid `UseSkillCommand`s may resolve while
 | --- | --- | --- |
 | Randomness | One seeded deterministic RNG per run; named streams for board spawn, reward sampling, and intent variation | Reproducible bugs and balance cases |
 | Checkpoints | Save after encounter start, resolved player/enemy turn, victory, and reward/skill choice | Never serialize half-finished animations |
-| Save payload | `schemaVersion`, `contentVersion`, seed/RNG states, encounter, player, board, enemy, XP/level, learned and equipped skills, cooldowns, pending choice, pending combat command window | Migration and local debugging |
+| Save payload | `schemaVersion`, `contentVersion`, seed/RNG states, encounter, player, board, enemy, XP/level, learned/equipped skills, cooldowns, map/region/final region, pending choice/combat window, Sanctum, story flags, route vow, challenge header | Migration and local debugging |
 | Content versioning | Stable string IDs; never Unity asset instance IDs as save keys | Saves and test fixtures remain readable |
 | Debug log | Seed, commands, event batches, final state hash in development builds | Makes desyncs and balance reports actionable |
 
@@ -453,7 +455,7 @@ The MVP uses a single portrait UI Toolkit scene generated by `SectionEBuilder`. 
 
 The local checkpoint is a versioned JSON envelope at `Application.persistentDataPath/run-checkpoint.json`. It stores the complete domain `RunState` plus run-summary statistics through explicit primitive DTOs, preserving stable content IDs and unsigned RNG values without relying on Unity serialization of readonly structs.
 
-Checkpoints are replaced after run start, encounter start, a fully resolved player/enemy turn, victory, reward selection, and loadout change. No checkpoint is written while `PendingCombatTurn.AwaitingEnemyResponse` is true. Resume validates both the envelope schema and domain schema, requires a complete 49-cell board, restores generic progression invariants, and derives the correct encounter, reward, between-encounter, victory, or defeat screen from authoritative state.
+Checkpoints are replaced after run start, map/event selection, encounter start, a fully resolved player/enemy turn, victory, reward selection, loadout/vow change, and Sanctum continuation. No checkpoint is written while `PendingCombatTurn.AwaitingEnemyResponse` is true. Resume validates both the envelope schema and domain schema, requires a complete 49-cell board and valid region/final-region bounds, restores generic progression invariants, and derives the correct map, event, rest, encounter, reward, Sanctum, victory, or defeat screen from authoritative state.
 
 ---
 
@@ -491,13 +493,13 @@ There is **no design blocker** for Session E. The unresolved items below should 
 
 ## 14. Post-MVP content expansion
 
-The staged proposal for additional skills, active effects, enemy pools, a branching run map, events, elites, alternate bosses, horizontal unlocks, and mastery modes is maintained in [CONTENT_EXPANSION_PLAN.md](CONTENT_EXPANSION_PLAN.md). It is ordered by retention impact: establish the baseline, create build and encounter variety, add meaningful paths, add return goals, then add mastery and breadth.
+The staged history and remaining experimental shelf for skills, enemy pools, routes, events, horizontal goals, and mastery modes are maintained in [CONTENT_EXPANSION_PLAN.md](CONTENT_EXPANSION_PLAN.md). Implemented rules live here; ideas on the shelf are not contracts.
 
-Stages R1 through R4 are implemented contracts. R5 remains a proposal until separately approved. Its timing rules, IDs, RNG streams, commands/events, and save fields must be promoted here before implementation.
+Stages R1 through R8 are implemented contracts. The experimental shelf in the expansion plan remains non-contractual.
 
 ## Next session
 
-Balance R1–R4 across standard and weekly seeded routes, verify the expanded summary/codex and mastery telegraphs on 16:9 and 20:9 portrait targets, then evaluate the R3 and R4 exit gates before approving R5.
+Play and tune the complete `1.0.0` journey. Future additions should come from the experimental shelf only when they deepen a proven weak point without lengthening the standard run by default.
 
 ## Changed contracts — Session A
 
@@ -575,7 +577,7 @@ Balance R1–R4 across standard and weekly seeded routes, verify the expanded su
 ## Changed contracts — R3 reasons to return
 
 - Local meta progression is stored independently in `profile.json` with profile schema `1`. `ProfileState` persists unlocked content IDs, completed challenge IDs, dominant-branch wins, codex entries with seen counts, boss/difficulty/challenge records, aggregate run records, and the highest unlocked difficulty. It contains no permanent health, damage, income, or upgrade-level bonuses and is never cleared when a run is abandoned.
-- A standard run copies the profile's unlocked content IDs into `RunState.AvailableContentIds` and sets `unlock_policy.profile_snapshot`. A weekly challenge uses `unlock_policy.all_v0.8`. The snapshot, policy, difficulty, challenge header, and content version participate in the checkpoint and deterministic state hash; later profile changes cannot change an existing run.
+- A standard run copies the profile's unlocked content IDs into `RunState.AvailableContentIds` and sets `unlock_policy.profile_snapshot`. Weekly challenges and expeditions use `unlock_policy.all_v1.0`. The snapshot, policy, difficulty, challenge header, and content version participate in the checkpoint and deterministic state hash; later profile changes cannot change an existing run.
 - The initial deterministic challenge IDs and unlocks are: `challenge.defeat_crystal_warden` → `enemy.facet_engine`; `challenge.ember_triad` → `skill.transmute`; `challenge.double_poison` → `skill.galvanic_venom`; `challenge.perfect_cleanse` → `event.prismatic_archive`; `challenge.flawless_elite` → `skill.reweave` plus its codex record; `challenge.specialist` → `skill.detonate`; `challenge.spark_chain` → `skill.flashfire`; `challenge.focus_engine` → `skill.scalding_current`; `challenge.crosscurrent` → `skill.toxic_undertow`; and `challenge.four_paths` → difficulty tier 1. Poison emits `StatusTicked` with its pre-decay stack count so the double-Poison signal remains observable even when Barrier absorbs all damage. Unlock evaluation is performed once at run completion from recorded deterministic signals; accomplishments earlier in a defeated run still count.
 - Goal presentation always states requirement, current progress or completion, whether the condition is single-run or cumulative, and the named reward. The goals/codex screen pins the next-difficulty goal first, lists every other incomplete goal, and retains completed goals above codex entries and records. The run summary shows at most two additional incomplete goals after its difficulty-progress block. The codex records discovered gems, specials, statuses, enemies, skills, events, elites, bosses, and only those intents that have emitted `EnemyIntentTelegraphed`; intent entries persist their parent enemy ID. Records are keyed by boss, difficulty, and optional challenge ID, and store wins, best remaining HP, fastest valid-turn count, largest cascade, and dominant damage branch.
 - `SkillDefinition.RequiredBranchTags` replaces the single-prerequisite assumption for hybrids while preserving `PrerequisiteId` for linear branch nodes. A hybrid is reward-eligible only when its profile content ID is unlocked and the current run has learned at least one skill from every required branch. Reward/details UI shows both branch requirements and the exact trigger cap.
@@ -587,12 +589,12 @@ Balance R1–R4 across standard and weekly seeded routes, verify the expanded su
 
 - Difficulty is an immutable five-step cumulative catalog stored as `DifficultyTier` plus a matching stable `DifficultyId`: `difficulty.1.sharp_edges` adds 1 to every enemy direct-damage effect; `difficulty.2.unstable_grid` starts every encounter with two deterministic Cracked gems; `difficulty.3.long_road` changes base victory healing from 4 to 2; `difficulty.4.hostile_pattern` adds one Thorned-gem application to an elite's final intent; and `difficulty.5.perfect_facet` enables each boss's explicit second intent cycle at 50% HP. Tier 0 is `difficulty.0.standard`.
 - Tier 1 unlocks after standard-run wins whose dominant damage records cover Ember, Tide, Venom, and Volt. A branch is dominant when its mapped sources tie for the greatest total branch damage in a victorious run; every branch tied for the lead is credited toward the tier-1 goal, while the first branch in stable Ember/Tide/Venom/Volt order remains the single branch stored in legacy run-record fields. Thereafter, a standard-run victory at the profile's highest unlocked tier unlocks exactly the next tier, to a maximum of 5. Weekly challenge victories do not contribute to or skip the ladder.
-- `WeeklyChallenge.ForUtcDate` pins a Monday–Sunday UTC challenge ID (`challenge.weekly.YYYY-MM-DD`), FNV-1a-derived nonzero seed, content version `0.9.0`, all-content unlock policy, generated regional maps, and difficulty tier 3. Local challenge records rank lower valid-turn count first, then higher remaining HP, higher largest cascade, and finally the ordinal dominant-branch ID; there is no network leaderboard or account dependency.
+- `WeeklyChallenge.ForUtcDate` pins a Monday–Sunday UTC challenge ID (`challenge.weekly.YYYY-MM-DD`), FNV-1a-derived nonzero seed, current content version, all-content unlock policy, generated regional maps, and difficulty tier 3. Local challenge records rank lower valid-turn count first, then higher remaining HP, higher largest cascade, and finally the ordinal dominant-branch ID; there is no network leaderboard or account dependency.
 - `EnemyState.Barrier` is encounter-scoped temporary HP that absorbs damage before enemy HP and emits `EnemyBarrierChanged`. `Jammed` is the generic `JamActiveSkill` intent effect: the target equipped skill is selected through `IntentVariation` when the intent is telegraphed, persisted in `EnemyState.TelegraphedTargetId`, shown with its amount, and excluded from that response's normal cooldown tick so +1 remains +1. `ActiveJammed` and `CooldownChanged` expose execution.
 - `status.thorned` remains matchable and cleanseable. Each cleared Thorned gem deals 2 health damage to the player, capped at 6 per board-resolution batch, and its pre-clear status snapshot makes the result independent of presentation timing. Cleanse removes Thorned through the same generic status-removal path as Frozen, Cracked, and Anchored.
 - At difficulty 5, crossing a boss definition's 50% threshold sets `EnemyState.Phase = 1`, resets its intent index, and emits `BossPhaseChanged` followed by the first phase-two `EnemyIntentTelegraphed` before that intent can execute. Crystal Warden's second phase introduces Barrier and Jam; Facet Engine's introduces Thorned and Barrier, keeping no more than two unfamiliar mechanics per boss.
 - The new intent effect vocabulary is `GainEnemyBarrier` and `JamActiveSkill`; Thorned and boss phase reuse generic status and phase definitions. All amounts, targets, tier extras, barrier, and current phase are visible in the encounter UI. Counters remain available through burst damage, Volt/Charge/Flashfire cooldown reduction, Cleanse, and the threshold telegraph.
-- The multi-region domain save schema is `9` and content version is `0.9.0`; older checkpoints are rejected. Checkpoint loading rejects mismatched schema/content, invalid difficulty ID/tier pairs, malformed challenge headers, incomplete unlock snapshots, incomplete boards/maps, and mid-response states. `RegionIndex`, all R3/R4 run fields, hybrid counters, Barrier, phase, telegraphed Jam target, and new event payloads participate in the state hash.
+- At the R5 boundary the multi-region domain save schema was `9` and content version was `0.9.0`; the v1.0 contract below supersedes that boundary. Checkpoint loading rejects mismatched schema/content, invalid difficulty ID/tier pairs, malformed challenge headers, incomplete unlock snapshots, incomplete boards/maps, and mid-response states.
 
 ## Changed contracts — v0.9 multi-region run
 
@@ -601,8 +603,23 @@ Balance R1–R4 across standard and weekly seeded routes, verify the expanded su
 - `RunState.RegionIndex` is zero-based and authoritative. Regional node IDs use `map.region{N}.node.r{row}.c{column}`. `SelectedEncounterIds` is an append-only ledger across the run and is reset only when Region 1 is generated for a new run.
 - Ten original enemy portraits were generated with the built-in OpenAI ImageGen tool and imported with transparent alpha. Attack telegraphs reuse the existing licensed icon vocabulary and derive their icon strip from generic ordered intent effects when a bespoke telegraph sprite is absent.
 
+## Changed contracts — v1.0 content-rich journey (R6–R8)
+
+- The domain checkpoint schema is `10` and content version is `1.0.0`; schema-9 run checkpoints are rejected. `RunState` adds zero-based `FinalRegionIndex`, `Sanctum` (`Active`, `CompletedRegionIndex`, `ChosenEvolutionId`), append-only `StoryFlagIds`, and `RouteVow` (`OfferedIds`, `PinnedId`, `Completed`). These fields and their list order participate in the deterministic hash. Profile saves migrate from schema `1` to `2` and add completed vow IDs, cumulative expedition/vow/event/special totals, and a newest-first run archive capped at twenty entries.
+- A non-final boss completes its map node, evaluates the current vow, opens a deterministic evolution draft, and sets `RunScreen.Sanctum`; it does not generate the next map. Selecting the evolution preserves the active Sanctum. `ContinueFromSanctum` increments the region exactly once, clears the old Sanctum state, generates the next map, emits `RegionAdvanced`, and writes a stable checkpoint. Save & Exit uses that checkpoint without abandoning the run.
+- Evolution drafts use `RewardSampling`, offer three options or four after a completed vow, prefer definitions whose branch has at least two learned skills, then fall back to one learned skill and finally any unowned evolution. `skill.evolution.sparkstorm` adds 12 to the first Spark damage each turn; `ashen_aegis` adds 8 Shield per Spark; `deep_current` adds 2 Focus-conversion damage; `tidal_memory` adds 4 Shield per Focus conversion; `virulent_bloom` adds 2 Poison damage per stack; `patient_venom` adds 3 Toxic to large Venom matches; `overclock` adds 2 Charge cooldown reduction; and `storm_reserve` adds 4 Shield per explicit cooldown-reduction operation. All retain the `skill.evolution.` prefix and are excluded from standard level-up rewards.
+- Elite drafts retain the four generic keystones and add `skill.keystone.briarheart` (victory healing +2), `rootbreaker` (up to 12 additional Shield-expiry damage), and `emberseed` (one additional starting Prism) only in Region 2, plus `skill.keystone.null_coil` (new active cooldown −2), `mirror_shard` (Focus conversion +3 Shield), and `rift_lens` (up to 14 additional Shield-expiry damage) only in Region 3. Modifiers of the same type add together. Regional eligibility is encoded by immutable `keystone.region2` / `keystone.region3` branch tags; there is still no relic inventory.
+- Each new map offers two region-defined vows before any node is selected. `vow.elite_hunter` requires a completed elite node, `vow.no_rest` requires no visited rest node, and `vow.event_seeker` requires both event nodes completed. `PinRouteVowCommand` is valid only while `FurthestVisitedRow < 0`; failure has no penalty. Completion adds an evolution option only after a non-final boss, while every completed vow counts for profile mastery. `RouteVowPinned` and `RouteVowCompleted` expose the choice and payoff.
+- Cinderbloom events are `event.cinder.ember_orchard`, `ashen_nursery`, `stag_trail`, and `rootspeaker_shrine`; Voidglass events are `event.void.mirror_well`, `null_observatory`, `echo_prison`, and `broken_constellation`. Each later-region pool combines its four exclusive events with two generic anchors and assigns two without replacement. `story.cinder.seed` unlocks the Rootspeaker payoff and `story.void.echo` unlocks the Echo Prison payoff; a missing prerequisite hides only that conditional choice and leaves the event's fallback choice valid. `AddStoryFlag` and `StoryFlagAdded` are the generic effect/event contract.
+- The later-region roster expands by `enemy.sootcap_shaman`, `glassvine_serpent`, `ashen_dryad`, `furnace_matriarch`, `shard_leech`, `orbit_sentinel`, `parallax_knight`, and `singularity_seraph`. Every later region now selects from two elites and two bosses while retaining its expanded depth pools. New enemies and bosses use only ordered generic intent effects and existing status vocabulary.
+- An `ExpeditionDefinition` pins ID, seed, content version, region, difficulty, opening skill, opening board status, count, and optional date label. `expedition.daily.YYYY-MM-DD` uses a nonzero FNV-1a seed and cycles the three regions; the UI retains today plus six previous UTC dates. The permanent IDs are `expedition.trial.ember`, `tide`, `venom`, `volt`, `sparks`, `cascades`, `cleanse`, `prism`, `warden`, `treant`, `devourer`, and `perfect_facet`. Expeditions use all-content policy and set start/final region equal, so one regional boss resolves victory.
+- Profile schema 2 adds twelve cosmetic mastery challenges for cumulative enemy, elite, boss, victory, special, event, and vow totals; cascade 5/8; a difficulty-3 victory; and an expedition victory. Their rewards are the `emblem.*` content IDs and never modify simulation. The latest twenty `RunHistoryEntryState` records persist seed, result, difficulty, final region and boss, valid turns, remaining HP, largest cascade, challenge ID, ordered route node IDs, skills (including keystones/evolutions), and completed vows. Replay starts a fresh standard run with the archived seed and the highest currently available difficulty no greater than the archived value.
+- The new observable events are `SanctumEntered`, `RegionAdvanced`, `RouteVowPinned`, `RouteVowCompleted`, and `StoryFlagAdded`. The presentation may celebrate, archive, and describe these results but cannot evaluate vow conditions, choose evolution options, generate expedition seeds, or mutate story flags itself.
+- Enemy portraits use presentation-only procedural motion with grounded, hovering, and heavy profiles. Idle motion loops without affecting combat timing; `DamageApplied` targeting the enemy triggers a `0.20` second tint, shake, and squash reaction. `EnemyIntentStarted` owns one `0.34` second anticipation/strike/recovery window and temporarily swaps to the optional presentation key `{enemyId}.attack`, falling back to the base `{enemyId}` sprite when absent. Reduced motion disables idle and attack movement and keeps only a `0.10` second damage tint. These presentation keys and timings do not enter simulation state, checkpoints, hashes, or content definitions.
+
 ## Changed contracts — build distribution
 
 - The stable Android application ID is `ru.sergeiwork.threerow`. CI and local Android builds must use this exact identifier; changing it creates a different installed application and a different Google Play identity.
 - Android distribution builds use IL2CPP and include both ARMv7 and ARM64 native libraries in one APK. The minimum supported OS is Android 6.0 / API 23, matching the Unity 6 player baseline.
 - Android releases use the persistent `threerow-release` signing identity supplied to CI through repository secrets. The keystore and its credentials are never committed; losing them prevents future APKs from updating existing installations.
+- Every tagged release uses the matching version section from `CHANGELOG.md` as its GitHub Release description. These notes are maintained locally by the agent, written in Russian for players, committed before tagging, and validated by CI; publication fails instead of falling back to generated technical notes when the section is missing or invalid.

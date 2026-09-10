@@ -1,8 +1,9 @@
 # Content Expansion and Retention Roadmap
 
-**Status:** R1–R4 implemented and promoted to [GDD.md](GDD.md); R5 remains a proposal
+**Status:** R1–R8 implemented in content version `1.0.0`; the experimental shelf remains future-facing
 **Depends on:** [GDD.md](GDD.md), especially the deterministic content, command, event, and checkpoint boundaries  
-**Planning principle:** Ship the smallest stage that gives players a new reason to make another run, measure it, and expand only after its retention hypothesis is supported.
+**Planning principle:** Ship the smallest stage that creates a fresh run story, a new board question, or an appealing reason to return.
+**Current planning mode:** The `1.0.0` expansion was selected and built by player feel and production leverage, without a KPI or analytics gate.
 
 ## 1. Why this order
 
@@ -24,7 +25,9 @@ The highest-retention sequence is therefore:
 
 This plan intentionally does not start with a new normal gem. Four colors already create a readable tactical board; a fifth color would reduce match frequency, destabilize every balance assumption, and make existing builds less reliable.
 
-## 2. Retention ladder and measurement
+## 2. Historical R0–R5 retention ladder and measurement
+
+This section records the reasoning used for the implemented roadmap. It was not used as a gate for the vibe-first R6–R8 implementation.
 
 | Retention moment | Player question | Design answer | Primary signal |
 | --- | --- | --- | --- |
@@ -57,7 +60,10 @@ Do not use raw D1 or D7 percentages from small internal tests. For Stages 0–2,
 | **R2 — Meaningful paths** | Runs 2–5 / D0–D1 | Compact seeded run map, events, rest, elites, alternate boss | Large | R1 content produces at least three viable build identities |
 | **R3 — Reasons to return** | D1–D3 | Horizontal unlock challenges, codex, hybrid skills, discoveries | Medium | Players voluntarily replay and can explain route/build differences |
 | **R4 — Mastery** | D7+ | Difficulty ladder, challenge seeds, advanced enemies and bosses | Medium | Normal-mode win rate and dominant builds are understood |
-| **R5 — Breadth expansion** | Long tail | Second region/act; evaluate shop, charms, or multi-enemy combat separately | Very large | D7 retention justifies more production breadth |
+| **R5 — Breadth expansion** | Long tail | Two additional regions; evaluate shop, charms, or multi-enemy combat separately | Very large | Implemented in content `0.9.0` |
+| **R6 — Complete journey** | Mid-run renewal | Sanctum, eight evolutions, six regional keystones, route vows | Large | Implemented in content `1.0.0` |
+| **R7 — Regional stories** | Run-to-run surprise | Eight regional events, two story links, eight later-region enemies | Large | Implemented in content `1.0.0` |
+| **R8 — Return layer** | Short and self-directed replay | Daily expeditions, twelve trials, constellations, archive, lore | Large | Implemented in content `1.0.0` |
 
 ## 4. Stage R0 — Baseline truth
 
@@ -334,7 +340,7 @@ Each new effect needs a distinct icon, rule tooltip, event payload, AI/intent te
 
 ## 9. Stage R5 — Breadth expansion
 
-Begin this stage only if D7 behavior shows players want more run length and world variety. Evaluate the following as separate investments rather than one bundle.
+This stage shipped in content version `0.9.0`. Future breadth features should still be evaluated as separate investments rather than bundled automatically.
 
 ### Implemented in v0.9: two additional regions
 
@@ -355,46 +361,217 @@ Begin this stage only if D7 behavior shows players want more run length and worl
 | More than two active slots | More tools per run | Lower equip tension and crowded mobile HUD | Avoid unless testing shows learned actives feel unusable |
 | Permanent stat progression | Easy short-term compulsion | Undermines deterministic balance and skill mastery | Do not use as the default meta loop |
 
-## 10. Prioritized backlog by impact-to-effort
+## 10. Pre-R6 content read (historical)
 
-| Priority | Item | Retention impact | Effort | Why now / why later |
+The game no longer has a raw-content problem in its opening act. It already has a strong board vocabulary, four readable build branches, hybrid skills, route choices, events, elites, bosses, unlock goals, weekly seeds, and five mastery tiers. Adding a fourth region now would make the game longer without fixing where the existing three-region journey becomes thin.
+
+The most important creative gaps are:
+
+- **Build growth is front-loaded.** Standard upgrades arrive at XP `1 / 2 / 4`, so the build is largely formed in Crystal Spire and changes much less through Cinderbloom Wilds and Voidglass Depths.
+- **The later regions are narrower.** Each later region has three normal enemies, one elite, and one fixed boss, while Crystal Spire has broader depth pools and alternate finales.
+- **Events do not belong to places yet.** All three regions reuse the same generic event pool, so their visual and combat identities are stronger than their stories.
+- **Region transitions lack ceremony.** Defeating a boss immediately opens the next map; there is no satisfying chapter break, build reflection, loadout moment, or comfortable save-and-exit invitation.
+- **The return layer eventually runs out.** Ten unlock challenges and five difficulty steps are a good foundation, but most goals are one-and-done and the weekly challenge asks for another full three-region commitment.
+- **Routes are choices, not journeys.** Every node connects to every node in the next row, so the player chooses the next reward type but rarely commits to a recognizable path.
+
+R6–R8 were selected to **deepen, not lengthen**: power now continues evolving across the current run, each later region tells its own stories, and short expeditions provide reasons to return.
+
+## 11. Stage R6 — A complete three-region journey
+
+**Creative promise:** Every boss should feel like the end of a chapter and the beginning of a newly evolved build.
+
+**Implementation:** Shipped in `1.0.0` with the full eight-evolution set, six regional keystones, three vow definitions, and a checkpoint-safe Sanctum after both intermediate bosses.
+
+### 11.1 Inter-region sanctum
+
+After the Region 1 and Region 2 bosses, open a calm **Sanctum** screen before generating the next map. It should:
+
+- celebrate the defeated boss and summarize the build's strongest interactions;
+- offer one build-evolution draft;
+- allow active-skill loadout changes with all cooldowns shown;
+- preview the next region's dominant pressures and possible boss families;
+- offer **Continue** and **Save & Exit** with equal visual weight.
+
+This is a chapter break, not a shop. It needs no currency, inventory grid, or permanent reward.
+
+### 11.2 Branch evolutions
+
+Add **eight evolution definitions**, two for each core branch. A run may take one after the first regional boss and one after the second. Evolutions require at least two learned skills in their branch and should change board valuation rather than simply add damage.
+
+| Branch | Evolution directions | New question created on the board |
+| --- | --- | --- |
+| Ember | Spark chains; burning disruption into opportunity | “Do I detonate now or prepare a larger special sequence?” |
+| Tide | Store versus spend Focus; convert protection back into tempo | “Do I cross the threshold now or preserve the engine?” |
+| Venom | Extend or consume Poison; benefit from deliberate large Venom groups | “Do I race the next Poison tick or build a stronger stack?” |
+| Volt | Overclock one active slot; turn excess cooldown progress into another resource | “Which tool am I building this turn around?” |
+
+The shipped pair for each branch follows this accessible/expert split: Sparkstorm/Ashen Aegis, Deep Current/Tidal Memory, Virulent Bloom/Patient Venom, and Overclock/Storm Reserve. Exact values and stable IDs are locked in the GDD.
+
+### 11.3 Regional elite keystones
+
+Keep the current four keystones as the generic pool and add three Cinderbloom and three Voidglass keystones. A player may earn at most one keystone per region, so taking an elite can reshape each chapter without creating a separate relic inventory.
+
+Suggested themes:
+
+- **Cinderbloom:** tame Thorned damage, reward clearing Anchored gems, or turn enemy Barrier breaks into aggressive momentum.
+- **Voidglass:** exploit Jam instead of merely suffering it, reward exact cooldown timing, or create new Prism decisions from enemy disruption.
+
+The keystones should use generic hooks already exposed by status removal, Barrier changes, cooldown changes, special activation, and board-resolution batches.
+
+### 11.4 Route vows
+
+At the start of each region, show two optional **Route Vows** such as “defeat the elite,” “visit no rest site,” “clear six status gems,” or “win the boss with both actives ready.” The player may pin one vow for that region and earn an extra evolution option, a codex story, or a cosmetic mark.
+
+Vows should never punish failure or weaken the run. Their job is to give a route a personality and encourage a different style of play.
+
+### 11.5 Implemented slice
+
+The shipped slice includes the whole stage rather than a partial prototype: both evolution sets, loadout changes, Continue/Save & Exit, regional keystones, and optional route vows. Completing a vow expands the next evolution draft from three to four options.
+
+## 12. Stage R7 — Regions with stories and surprises
+
+**Creative promise:** Cinderbloom and Voidglass should feel like places with their own mysteries, not later combat skins using Crystal Spire's event deck.
+
+**Implementation:** Shipped in `1.0.0`; every listed event and enemy fantasy is present, with one persisted two-part story flag in each later region and randomized two-boss finales.
+
+### 12.1 Regional event packs
+
+Add four exclusive events to Cinderbloom and four to Voidglass. Keep several generic events in every region so familiar decisions still anchor the run.
+
+| Region | Event concepts | Tone |
+| --- | --- | --- |
+| Cinderbloom Wilds | Ember Orchard, Ashen Nursery, Stag's Trail, Rootspeaker Shrine | Living danger, bargains with growth, fire used as renewal |
+| Voidglass Depths | Mirror Well, Null Observatory, Echo Prison, Broken Constellation | Reflection, stolen possibilities, unstable time and identity |
+
+Each pack should include one recovery event, one build event, one dangerous board transformation, and one event that changes a later encounter.
+
+### 12.2 Linked story chains
+
+Create one two-part story chain per later region. An early choice adds a small persisted story flag; a later event or boss intro pays it off. The payoff may alter an opening board, reveal a boss intent, change a reward draft, or unlock a codex conclusion.
+
+Story chains should not require finding both halves in the same run. If the second half is absent, the first choice must still be worthwhile on its own.
+
+### 12.3 Later-region roster pack
+
+Bring both later regions closer to Crystal Spire's variety by adding:
+
+- two normal enemies per region;
+- one alternate elite per region;
+- one alternate boss per region after the normal and elite packs feel settled.
+
+Working fantasies:
+
+| Region | Normal enemies | Elite | Alternate boss |
+| --- | --- | --- | --- |
+| Cinderbloom | **Sootcap Shaman**, **Glassvine Serpent** | **Ashen Dryad** | **Furnace Matriarch** |
+| Voidglass | **Shard Leech**, **Orbit Sentinel** | **Parallax Knight** | **Singularity Seraph** |
+
+These enemies should recombine existing Barrier, Jam, Thorned, Frozen, Cracked, Anchored, drain, and direct-damage grammar before introducing another status. Alternate bosses may have unique phase rhythms, but should not require bespoke combat resolvers.
+
+### 12.4 Boss foreshadowing
+
+Once a regional boss is assigned, let one earlier event, map pressure icon, or enemy line foreshadow its signature problem. The finale then feels like the culmination of the path rather than a random content roll.
+
+## 13. Stage R8 — Reasons to return without chores
+
+**Creative promise:** Opening the game should present an inviting possibility, not an obligation or a lost streak.
+
+**Implementation:** Shipped in `1.0.0` with seven recent daily routes, twelve permanent one-region trials, the weekly Grand Expedition, twelve cosmetic constellation goals, a twenty-run seed archive, and codex lore.
+
+### 13.1 Expeditions
+
+Add a short one-region mode using existing maps, enemies, skills, and difficulty rules. The Expedition Board contains:
+
+- one rotating daily seed with a named modifier and a suggested build fantasy;
+- the existing weekly three-region challenge as the long-form “Grand Expedition”;
+- a permanent library of handcrafted trials that never expires.
+
+The daily expedition should remain playable after its day passes in a small recent-history list. There are no login streaks, energy, or exclusive power rewards.
+
+### 13.2 Handcrafted trial library
+
+Start with twelve trials:
+
+- four branch trials with a curated opening skill and a board problem suited to that branch;
+- four board-craft trials centered on specials, cascades, statuses, and active targeting;
+- four boss rematches with unusual starting conditions or restricted loadouts.
+
+Trials should be short enough to invite “one more attempt” and strange enough to teach interactions that normal runs may never demand.
+
+### 13.3 Mastery constellations
+
+Expand the current challenge list into visible constellations of milestones:
+
+- **Explorer:** discover regional events, enemies, and story conclusions;
+- **Artificer:** complete special, cascade, and active-skill feats;
+- **Pathfinder:** finish route vows and unusual node sequences;
+- **Conqueror:** defeat bosses with different branch identities and difficulty rules.
+
+Use a mixture of single-run feats and cumulative progress. Rewards are profile emblems, codex illustrations, board frames, and restrained VFX palettes—never permanent HP or damage.
+
+### 13.4 Run archive and seed replay
+
+Keep the latest twenty run summaries with seed, route, skills, keystones, evolutions, boss results, and memorable records. Allow one-tap replay of a seed and a copyable seed code. This turns good and disastrous runs into stories the player can revisit.
+
+### 13.5 Codex story layer
+
+Add short lore entries unlocked by meeting enemies, resolving linked events, defeating alternate bosses, and completing mastery constellations. Lore should connect existing content rather than become random collectible fragments hidden behind grind.
+
+## 14. Experimental shelf
+
+These ideas can be exciting, but they should not displace R6–R8 unless the team actively wants a larger mechanical reinvention.
+
+| Feature | What it could add | Why it stays experimental |
+| --- | --- | --- |
+| Shop + one-run currency | Stronger route planning and delayed purchases | Adds an economy to every reward decision and competes with clear event choices |
+| Six-to-eight charm prototype | Another build layer with broad combinations | Overlaps evolutions and keystones; interaction and tooltip burden grows quickly |
+| Boss rush or endless descent | A home for fully mastered builds | Needs scaling rules and risks flattening handcrafted region pacing |
+| Multiple enemies | Target priority and area effects | Rewrites targeting, intents, layout, balance, saves, and much of the skill catalog |
+| Fourth region | More world and enemy content | The current run is already long; add only with a different run format |
+| Online leaderboards/social layer | Competition and shared stories | Requires identity, anti-cheat, moderation, backend, and privacy scope |
+
+The fifth normal gem, more than two active slots, permanent stat progression, energy, and punitive login streaks remain outside the intended identity of the game.
+
+## 15. Vibe-first priority order
+
+| Priority | Addition | Impact | Effort | Why it belongs here |
 | --- | --- | --- | --- | --- |
-| 1 | First reward after encounter 1 | Very high | Small | Players see build agency before deciding whether to continue |
-| 2 | Complete 12-passive branch tree | Very high | Medium | Creates credible build promises and fixes uneven branches |
-| 3 | Depth-based enemy pools + four recombination enemies | High | Medium | Makes run two different using the current intent grammar |
-| 4 | Aegis and Infuse | High | Small/medium | Expands loadout decisions and proves board targeting |
-| 5 | Compact map | Very high | Large | Multiplies content value once choices have distinct outcomes |
-| 6 | Six events + rest | High | Medium | Adds non-combat stories and health/power tradeoffs |
-| 7 | Two elites + alternate boss | High | Medium | Gives route risk a concrete payoff and finale variety |
-| 8 | Horizontal challenges + codex | Medium/high | Medium | Creates D1 goals without stat grind |
-| 9 | Hybrid and advanced active skills | Medium/high | Medium | Deepens mastery after base branches are understood |
-| 10 | Difficulty ladder | Medium | Medium | Valuable only after normal-mode balance is trustworthy |
-| 11 | Second region | High for retained users | Very large | Content multiplier justified only by D7 evidence |
-| 12 | Shop, relic inventory, or multiple enemies | Unknown/high | Very large | Prototype separately after map behavior is known |
+| 1 | Sanctum + two inter-region evolution drafts | Very high | Medium | Fixes the quiet middle of the 30–45-minute run and gives both boss victories a payoff |
+| 2 | Eight region-specific events | High | Medium | Adds place, story, and new choices without new combat systems or portraits |
+| 3 | Six regional elite keystones | High | Medium | Makes elite routes and late builds much more personal using existing hooks |
+| 4 | Two linked event chains | High | Medium | Creates memorable run stories and payoff across a region |
+| 5 | One-region Expeditions | High | Medium | Gives returning players a satisfying short session using existing content |
+| 6 | Four later-region normal enemies + two elites | High | Medium/large | Reduces the biggest roster repetition without extending the run |
+| 7 | Twelve handcrafted trials | Medium/high | Medium | Turns current mechanics into authored puzzles and mastery goals |
+| 8 | Two alternate later-region bosses | High | Large | Makes repeated full clears surprising again after the cheaper pools are richer |
+| 9 | Mastery constellations + cosmetic marks | Medium/high | Medium/large | Extends the return layer without power creep or obligation |
+| 10 | Run archive, seed replay, and codex stories | Medium | Medium | Helps runs become personal stories and supports self-directed mastery |
+| 11 | Shop or charm prototype | Unknown/high | Large | Explore only after evolutions, keystones, and events reveal what is still missing |
 
-## 11. Production slicing
+## 16. Production slicing
 
-Each stage should be implemented in this order:
+For each selected stage:
 
-1. Lock the stage’s rule text, stable IDs, event order, RNG usage, and save changes in the GDD.
-2. Add pure-domain definitions and deterministic fixtures with placeholder presentation keys.
-3. Add application commands, screen derivation, and stable checkpoint boundaries.
-4. Add Russian UI text, icons, tooltips, reduced-motion behavior, and asset-ledger entries.
-5. Run automated seed sweeps, device layout checks, and observed playtests.
-6. Tune values without changing the stage’s rules; record the decision and retention result.
+1. Lock its rule text, stable IDs, event order, RNG usage, and save changes in the GDD.
+2. Implement the smallest complete content pack in pure domain code and deterministic fixtures.
+3. Add application flow and checkpoint boundaries.
+4. Add Russian text, icons, tooltips, reduced-motion behavior, audio/VFX, and asset-ledger entries.
+5. Play it from both a fresh profile and an all-content profile, across a complete three-region run.
+6. Tune or cut anything that is technically functional but does not create a new story, board question, or build fantasy.
 
-Do not start the next stage merely because the current one is code-complete. Start it when the current retention hypothesis is either supported or clearly falsified and the next experiment addresses what was learned.
-
-## 12. Locked R1–R4 implementation decisions
+## 17. Locked R1–R8 implementation decisions
 
 - Standard reward thresholds are `1 / 2 / 4`; there is no separate starter draft.
 - The six passives ship as proposed. Static Guard triggers once for one explicit non-turn-tick cooldown-reduction operation, even when both slots change.
 - Infuse targets one normal, non-special cell without Frozen or Anchored. Cracked is allowed and remains on the transformed gem.
 - Selected combat assignments are persisted on map nodes in `MapState`; `SelectedEncounterIds` is the ordered generated assignment ledger used by checkpoints and hashes.
-- Domain schema `6` intentionally rejects older development checkpoints and the existing Russian Resume error explains incompatibility.
-- R3 profile schema `1` is separate from the run checkpoint. Standard runs snapshot profile unlock IDs; weekly runs pin `unlock_policy.all_v0.8`.
+- Domain schema `6` was the R1/R2 boundary and intentionally rejected older development checkpoints; the current domain schema is `10` and content version is `1.0.0`.
+- Profile schema `2` is separate from the run checkpoint and migrates schema-1 profiles. Standard runs snapshot profile unlock IDs; weekly runs and expeditions pin `unlock_policy.all_v1.0`.
 - Hybrid prerequisites use required branch-tag arrays. Advanced actives resolve board changes through `BoardSpawn` and the ordinary clear/special event pipeline.
 - Difficulty tiers are cumulative immutable definitions. Tier 1 requires wins dominated by all four damage branches; tiers 2–5 unlock one at a time after a standard-run win on the preceding highest tier.
-- Weekly challenges use a UTC Monday ID, pinned content `0.8.0`, deterministic FNV-1a seed, difficulty 3, and local-only records.
+- Weekly challenges use a UTC Monday ID, pinned current content, deterministic FNV-1a seed, difficulty 3, and local-only records. Daily expedition IDs use UTC dates and retain the latest seven dates in the selection UI.
 - R4 Barrier, Jam, Thorned, and phase state is persisted and hashed. Jam targets are selected and persisted at telegraph time; Thorned damage is 2 per cleared gem and capped at 6 per board-resolution batch.
-- The combined R3/R4 run schema is `8`; schema `7` was reserved and never shipped.
+- Schema `8` was the combined R3/R4 boundary; schema `7` was reserved and never shipped. R5 added three-region state in schema `9` and content version `0.9.0`.
+- R6 defers next-map generation until `ContinueFromSanctum`; a completed optional vow gives one extra evolution option and never grants direct power on failure.
+- R7 uses two regional story flags and no new combat effect type. Each later region has two normal additions, two elites total, and two bosses total.
+- R8 expeditions are one-region all-content runs. Constellation rewards are cosmetic content IDs only, and the run archive stores at most twenty summaries.

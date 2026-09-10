@@ -25,7 +25,7 @@ namespace ThreeInARow.Infrastructure
             {
                 if (!File.Exists(_path)) return ProfileProgression.CreateFresh();
                 var dto = JsonUtility.FromJson<ProfileDto>(File.ReadAllText(_path));
-                if (dto == null || dto.schemaVersion != ProfileState.CurrentSchemaVersion)
+                if (dto == null || dto.schemaVersion < 1 || dto.schemaVersion > ProfileState.CurrentSchemaVersion)
                     return ProfileProgression.CreateFresh();
                 return dto.ToDomain();
             }
@@ -60,6 +60,8 @@ namespace ThreeInARow.Infrastructure
             public List<CodexDto> codex = new List<CodexDto>();
             public List<RecordDto> records = new List<RecordDto>();
             public AggregateDto aggregate = new AggregateDto();
+            public List<string> completedRouteVows = new List<string>();
+            public List<RunHistoryDto> runHistory = new List<RunHistoryDto>();
 
             public static ProfileDto FromDomain(ProfileState profile)
             {
@@ -73,6 +75,7 @@ namespace ThreeInARow.Infrastructure
                 AddIds(dto.unlockedContent, profile.UnlockedContentIds);
                 AddIds(dto.completedChallenges, profile.CompletedChallengeIds);
                 AddIds(dto.dominantBranchWins, profile.DominantBranchWins);
+                AddIds(dto.completedRouteVows, profile.CompletedRouteVowIds);
                 foreach (var entry in profile.CodexEntries)
                     if (entry != null) dto.codex.Add(new CodexDto
                     {
@@ -83,6 +86,8 @@ namespace ThreeInARow.Infrastructure
                     });
                 foreach (var record in profile.Records)
                     if (record != null) dto.records.Add(RecordDto.FromDomain(record));
+                foreach (var entry in profile.RunHistory)
+                    if (entry != null) dto.runHistory.Add(RunHistoryDto.FromDomain(entry));
                 return dto;
             }
 
@@ -98,7 +103,9 @@ namespace ThreeInARow.Infrastructure
                     DominantBranchWins = ToIds(dominantBranchWins),
                     CodexEntries = new List<CodexEntryState>(),
                     Records = new List<RunRecordState>(),
-                    Aggregate = aggregate == null ? new ProfileAggregateState() : aggregate.ToDomain()
+                    Aggregate = aggregate == null ? new ProfileAggregateState() : aggregate.ToDomain(),
+                    CompletedRouteVowIds = ToIds(completedRouteVows),
+                    RunHistory = new List<RunHistoryEntryState>()
                 };
                 if (codex != null)
                     foreach (var entry in codex) profile.CodexEntries.Add(new CodexEntryState
@@ -110,6 +117,8 @@ namespace ThreeInARow.Infrastructure
                     });
                 if (records != null)
                     foreach (var record in records) profile.Records.Add(record.ToDomain());
+                if (runHistory != null)
+                    foreach (var entry in runHistory) profile.RunHistory.Add(entry.ToDomain());
                 ProfileProgression.Normalize(profile);
                 return profile;
             }
@@ -122,6 +131,51 @@ namespace ThreeInARow.Infrastructure
             public string contentId;
             public string parentContentId;
             public int seenCount;
+        }
+
+        [Serializable]
+        private sealed class RunHistoryDto
+        {
+            public string seed;
+            public bool victory;
+            public int difficultyTier;
+            public int finalRegionIndex;
+            public int validTurnCount;
+            public int remainingHealth;
+            public int largestCascade;
+            public string bossId;
+            public string challengeId;
+            public List<string> skillIds = new List<string>();
+            public List<string> routeVowIds = new List<string>();
+            public List<string> routeNodeIds = new List<string>();
+
+            public static RunHistoryDto FromDomain(RunHistoryEntryState entry)
+            {
+                var dto = new RunHistoryDto
+                {
+                    seed = entry.Seed, victory = entry.Victory, difficultyTier = entry.DifficultyTier,
+                    finalRegionIndex = entry.FinalRegionIndex, validTurnCount = entry.ValidTurnCount,
+                    remainingHealth = entry.RemainingHealth, largestCascade = entry.LargestCascade,
+                    bossId = entry.BossId.Value, challengeId = entry.ChallengeId.Value
+                };
+                AddIds(dto.skillIds, entry.SkillIds);
+                AddIds(dto.routeVowIds, entry.RouteVowIds);
+                AddIds(dto.routeNodeIds, entry.RouteNodeIds);
+                return dto;
+            }
+
+            public RunHistoryEntryState ToDomain()
+            {
+                return new RunHistoryEntryState
+                {
+                    Seed = string.IsNullOrEmpty(seed) ? "0" : seed,
+                    Victory = victory, DifficultyTier = difficultyTier, FinalRegionIndex = finalRegionIndex,
+                    ValidTurnCount = validTurnCount, RemainingHealth = remainingHealth,
+                    LargestCascade = largestCascade, BossId = Content(bossId),
+                    ChallengeId = Content(challengeId), SkillIds = ToIds(skillIds),
+                    RouteVowIds = ToIds(routeVowIds), RouteNodeIds = ToIds(routeNodeIds)
+                };
+            }
         }
 
         [Serializable]
@@ -182,6 +236,10 @@ namespace ThreeInARow.Infrastructure
             public int enemiesDefeated;
             public int elitesDefeated;
             public int bossesDefeated;
+            public int specialActivations;
+            public int eventChoices;
+            public int routeVowsCompleted;
+            public int expeditionsCompleted;
 
             public static AggregateDto FromDomain(ProfileAggregateState value)
             {
@@ -190,7 +248,11 @@ namespace ThreeInARow.Infrastructure
                 {
                     runsStarted = value.RunsStarted, runsWon = value.RunsWon,
                     enemiesDefeated = value.EnemiesDefeated, elitesDefeated = value.ElitesDefeated,
-                    bossesDefeated = value.BossesDefeated
+                    bossesDefeated = value.BossesDefeated,
+                    specialActivations = value.SpecialActivations,
+                    eventChoices = value.EventChoices,
+                    routeVowsCompleted = value.RouteVowsCompleted,
+                    expeditionsCompleted = value.ExpeditionsCompleted
                 };
             }
 
@@ -199,7 +261,9 @@ namespace ThreeInARow.Infrastructure
                 return new ProfileAggregateState
                 {
                     RunsStarted = runsStarted, RunsWon = runsWon, EnemiesDefeated = enemiesDefeated,
-                    ElitesDefeated = elitesDefeated, BossesDefeated = bossesDefeated
+                    ElitesDefeated = elitesDefeated, BossesDefeated = bossesDefeated,
+                    SpecialActivations = specialActivations, EventChoices = eventChoices,
+                    RouteVowsCompleted = routeVowsCompleted, ExpeditionsCompleted = expeditionsCompleted
                 };
             }
         }

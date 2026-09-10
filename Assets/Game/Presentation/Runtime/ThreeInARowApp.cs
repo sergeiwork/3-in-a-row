@@ -805,8 +805,13 @@ namespace ThreeInARow.Presentation
                     foreach (var vowId in state.RouteVow.OfferedIds)
                     {
                         var capturedVow = vowId;
-                        vowCard.Add(ActionButton(PresentationText.Name(vowId) + " — " +
-                            PresentationText.RouteVowDescription(vowId), () => PinRouteVow(capturedVow), false));
+                        var vowButton = ActionButton(PresentationText.Name(vowId).ToUpperInvariant() + "\n" +
+                            PresentationText.RouteVowDescription(vowId), () => PinRouteVow(capturedVow), false);
+                        vowButton.style.height = StyleKeyword.Auto;
+                        vowButton.style.minHeight = 82;
+                        vowButton.style.fontSize = 18;
+                        vowButton.style.whiteSpace = WhiteSpace.Normal;
+                        vowCard.Add(vowButton);
                     }
                 }
                 else

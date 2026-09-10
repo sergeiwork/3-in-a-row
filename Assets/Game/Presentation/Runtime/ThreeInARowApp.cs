@@ -114,6 +114,11 @@ namespace ThreeInARow.Presentation
                 panelSettings.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
                 panelSettings.match = 0.5f;
             }
+            else
+            {
+                panelSettings = Instantiate(panelSettings);
+            }
+            panelSettings.match = Screen.width > Screen.height ? 1f : 0.5f;
             _document.panelSettings = panelSettings;
         }
 
@@ -761,12 +766,25 @@ namespace ThreeInARow.Presentation
         {
             BeginScreen();
             var state = _director.State;
+            var scroll = new ScrollView(ScrollViewMode.Vertical) { name = "map-scroll" };
+            scroll.style.flexGrow = 1;
+            scroll.style.width = Length.Percent(100);
+            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            _safeArea.Add(scroll);
+
+            var content = new VisualElement { name = "map-content" };
+            content.style.width = Length.Percent(100);
+            content.style.minHeight = Length.Percent(100);
+            content.style.justifyContent = Justify.Center;
+            content.style.flexShrink = 0;
+            scroll.Add(content);
+
             var top = Row();
             var heading = Title("КАРТА РЕГИОНА", 38, Gold);
             heading.style.flexGrow = 1;
             top.Add(heading);
             top.Add(SmallButton("?", () => BuildHelp(BuildForCurrentScreen)));
-            _safeArea.Add(top);
+            content.Add(top);
             var mapHint = LabelText(PresentationText.RegionName(state.RegionIndex) + " · " + RegionProgressText(state) + "\n" +
                 "Цель: " + PresentationText.Name(state.Map.BossEnemyId) +
                 " · сложность " + state.DifficultyTier +
@@ -774,7 +792,7 @@ namespace ThreeInARow.Presentation
                 " · выберите доступный путь", 20, Muted, TextAnchor.MiddleCenter);
             mapHint.style.whiteSpace = WhiteSpace.Normal;
             mapHint.style.marginBottom = 6;
-            _safeArea.Add(mapHint);
+            content.Add(mapHint);
             if (state.Map.FurthestVisitedRow < 0 && state.RouteVow != null)
             {
                 var vowCard = Card("ui.panel.inset");
@@ -796,11 +814,11 @@ namespace ThreeInARow.Presentation
                     vowCard.Add(LabelText(PresentationText.Name(state.RouteVow.PinnedId).ToUpperInvariant(), 17, Gold));
                     vowCard.Add(LabelText(PresentationText.RouteVowDescription(state.RouteVow.PinnedId), 15, TextColor));
                 }
-                _safeArea.Add(vowCard);
+                content.Add(vowCard);
             }
 
             var mapPanel = new VisualElement();
-            mapPanel.style.flexGrow = 1;
+            mapPanel.style.flexShrink = 0;
             mapPanel.style.justifyContent = Justify.Center;
             mapPanel.style.paddingLeft = 4;
             mapPanel.style.paddingRight = 4;
@@ -873,7 +891,7 @@ namespace ThreeInARow.Presentation
                     mapPanel.Add(connections);
                 }
             }
-            _safeArea.Add(mapPanel);
+            content.Add(mapPanel);
             var runStatus = Card("ui.panel.inset");
             runStatus.style.flexDirection = FlexDirection.Row;
             runStatus.style.justifyContent = Justify.SpaceAround;
@@ -883,8 +901,10 @@ namespace ThreeInARow.Presentation
             runStatus.Add(MapStat("ui.player_health", state.Player.Health + "/" + PlayerState.MaxHealth));
             runStatus.Add(MapStat("ui.shield", state.Player.Shield.ToString()));
             runStatus.Add(MapStat("ui.experience", "УР. " + state.Level));
-            _safeArea.Add(runStatus);
-            _safeArea.Add(ActionButton("НАСТРОИТЬ АКТИВНЫЕ НАВЫКИ", BuildLoadoutModal, false));
+            content.Add(runStatus);
+            content.Add(ActionButton("НАСТРОИТЬ АКТИВНЫЕ НАВЫКИ", BuildLoadoutModal, false));
+
+            foreach (var child in content.Children()) child.style.flexShrink = 0;
         }
 
         private static List<MapNodeState> MapNodesInRow(MapState map, int rowIndex)

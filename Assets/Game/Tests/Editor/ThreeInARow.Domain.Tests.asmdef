@@ -2,7 +2,8 @@
   "name": "ThreeInARow.Domain.Tests",
   "rootNamespace": "ThreeInARow.Tests",
   "references": [
-    "ThreeInARow.Domain"
+    "ThreeInARow.Domain",
+    "ThreeInARow.Presentation"
   ],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
@@ -12,6 +13,6 @@
   "autoReferenced": true,
   "defineConstraints": ["UNITY_INCLUDE_TESTS"],
   "versionDefines": [],
-  "noEngineReferences": true,
+  "noEngineReferences": false,
   "optionalUnityReferences": ["TestAssemblies"]
 }

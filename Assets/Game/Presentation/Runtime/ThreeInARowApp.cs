@@ -24,15 +24,15 @@ namespace ThreeInARow.Presentation
         private const string SoundEnabledKey = "three_in_a_row.sound_enabled";
         private const string MusicEnabledKey = "three_in_a_row.music_enabled";
         private const int SfxVoiceCount = 8;
-        private static readonly Color Background = Hex("#091419");
-        private static readonly Color Panel = Hex("#14282D");
-        private static readonly Color PanelLight = Hex("#234049");
-        private static readonly Color Gold = Hex("#EBC782");
-        private static readonly Color Cyan = Hex("#79E2D2");
-        private static readonly Color TextColor = Hex("#F8FAFC");
-        private static readonly Color Muted = Hex("#A1B9B9");
-        private static readonly Color Danger = Hex("#F06C75");
-        private static readonly Color Success = Hex("#6ED69B");
+        private static readonly Color Background = Hex("#061116");
+        private static readonly Color Panel = Hex("#10272F");
+        private static readonly Color PanelLight = Hex("#1B3A43");
+        private static readonly Color Gold = Hex("#F2CC7B");
+        private static readonly Color Cyan = Hex("#68E4D0");
+        private static readonly Color TextColor = Hex("#F4FAFA");
+        private static readonly Color Muted = Hex("#9CB6B9");
+        private static readonly Color Danger = Hex("#FF7180");
+        private static readonly Color Success = Hex("#7CE3A5");
 
         private PresentationCatalog _catalog;
         private RunDirector _director;
@@ -147,10 +147,12 @@ namespace ThreeInARow.Presentation
             var safe = Screen.safeArea;
             var scaleX = _root.resolvedStyle.width / Screen.width;
             var scaleY = _root.resolvedStyle.height / Screen.height;
-            _safeArea.style.paddingLeft = 16 + safe.xMin * scaleX;
-            _safeArea.style.paddingRight = 16 + (Screen.width - safe.xMax) * scaleX;
-            _safeArea.style.paddingBottom = 12 + safe.yMin * scaleY;
-            _safeArea.style.paddingTop = 12 + (Screen.height - safe.yMax) * scaleY;
+            var metrics = ResponsiveLayoutPolicy.Measure(_root.resolvedStyle.width, _root.resolvedStyle.height);
+            _safeArea.style.maxWidth = metrics.MaxContentWidth;
+            _safeArea.style.paddingLeft = metrics.HorizontalPadding + safe.xMin * scaleX;
+            _safeArea.style.paddingRight = metrics.HorizontalPadding + (Screen.width - safe.xMax) * scaleX;
+            _safeArea.style.paddingBottom = metrics.VerticalPadding + safe.yMin * scaleY;
+            _safeArea.style.paddingTop = metrics.VerticalPadding + (Screen.height - safe.yMax) * scaleY;
         }
 
         private void BeginScreen()
@@ -175,20 +177,18 @@ namespace ThreeInARow.Presentation
             _playerHealthChip = null;
             _playerHealthLabel = null;
             _message = null;
+            _contentHost = null;
             _inputLocked = false;
             _hasPlayerAttackOrigin = false;
 
             AddDungeonBackdrop();
             _safeArea = new VisualElement { name = "safe-area" };
             _safeArea.style.width = Length.Percent(100);
-            _safeArea.style.maxWidth = 780;
             _safeArea.style.alignSelf = Align.Center;
             _safeArea.style.flexGrow = 1;
-            _safeArea.style.paddingLeft = 24;
-            _safeArea.style.paddingRight = 24;
-            _safeArea.style.paddingTop = 18;
-            _safeArea.style.paddingBottom = 18;
+            _safeArea.style.overflow = Overflow.Hidden;
             _root.Add(_safeArea);
+            _contentHost = _safeArea;
             _feedbackLayer?.BringToFront();
             ApplySafeArea();
         }
@@ -217,40 +217,26 @@ namespace ThreeInARow.Presentation
         private void BuildTitle()
         {
             BeginScreen();
-            var scroll = new ScrollView(ScrollViewMode.Vertical) { name = "title-scroll" };
-            scroll.style.flexGrow = 1;
-            scroll.style.width = Length.Percent(100);
-            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
-            _safeArea.Add(scroll);
-
-            var content = new VisualElement { name = "title-content" };
-            content.style.width = Length.Percent(100);
+            var content = CreateScrollBody("title-scroll");
             content.style.minHeight = Length.Percent(100);
             content.style.alignItems = Align.Center;
             content.style.justifyContent = Justify.Center;
-            content.style.flexShrink = 0;
-            scroll.Add(content);
 
-            var crystal = Icon("gem.prism", 170);
+            var crystal = Icon("gem.prism", 118);
             var crest = new DungeonOrnament(false);
-            crest.style.height = 44;
-            crest.style.width = 240;
+            crest.style.height = 30;
+            crest.style.width = 210;
             content.Add(crest);
-            crystal.style.marginBottom = 22;
+            crystal.style.marginBottom = 8;
             content.Add(crystal);
-            content.Add(Title("ТРИ В РЯД", 54, Gold));
-            var subtitle = LabelText("КРИСТАЛЬНЫЙ РОГАЛИК", 24, Cyan, TextAnchor.MiddleCenter);
-            subtitle.style.letterSpacing = 4;
-            subtitle.style.marginBottom = 54;
+            content.Add(Title("ТРИ В РЯД", 50, Gold));
+            var subtitle = LabelText("КРИСТАЛЬНЫЙ РОГАЛИК", 18, Cyan, TextAnchor.MiddleCenter);
+            subtitle.style.letterSpacing = 3;
+            subtitle.style.marginBottom = 24;
             content.Add(subtitle);
 
-            var menu = new VisualElement();
+            var menu = new VisualElement { name = "main-actions" };
             menu.style.width = Length.Percent(100);
-            menu.style.maxWidth = 720;
-            menu.style.paddingLeft = 18;
-            menu.style.paddingRight = 18;
-            menu.style.paddingTop = 16;
-            menu.style.paddingBottom = 16;
             var start = ActionButton("НАЧАТЬ ЗАБЕГ", StartRun, true);
             start.tooltip = "Начать новый забег через три региона по семь этапов.";
             menu.Add(start);
@@ -260,20 +246,32 @@ namespace ThreeInARow.Presentation
                 resume.tooltip = "Продолжить с последней сохранённой контрольной точки.";
                 menu.Add(resume);
             }
-            menu.Add(DifficultyGoalCard(true));
-            menu.Add(ActionButton("ЦЕЛИ, КОДЕКС И РЕКОРДЫ", BuildCodex, false));
-            menu.Add(ActionButton("ЭКСПЕДИЦИИ И ИСПЫТАНИЯ", BuildExpeditionBoard, false));
-            menu.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildTitle), false));
-            menu.Add(ActionButton("НАСТРОЙКИ И АВТОРЫ", BuildSettings, false));
             content.Add(menu);
+
+            var navigation = Row();
+            navigation.name = "main-navigation";
+            navigation.style.width = Length.Percent(100);
+            navigation.style.flexWrap = Wrap.Wrap;
+            navigation.style.marginTop = 8;
+            navigation.Add(NavigationTile("ЦЕЛИ И КОДЕКС", "Прогресс, записи мира и архив забегов", BuildCodex));
+            navigation.Add(NavigationTile("ЭКСПЕДИЦИИ", "Ежедневные маршруты и постоянные испытания", BuildExpeditionBoard));
+            navigation.Add(NavigationTile("КАК ИГРАТЬ", "Правила поля, боя и активных навыков", () => BuildHelp(BuildTitle)));
+            navigation.Add(NavigationTile("НАСТРОЙКИ", "Звук, движение и сведения об авторах", BuildSettings));
+            content.Add(navigation);
+
+            var difficulty = DifficultyGoalCard(true);
+            difficulty.style.width = Length.Percent(100);
+            content.Add(difficulty);
 
             var profile = _director.Profile;
             var progress = LabelText("Побед: " + profile.Aggregate.RunsWon + " · открыто целей: " +
                 profile.CompletedChallengeIds.Count + " · сложность: " + profile.BestDifficultyUnlocked, 18, Muted, TextAnchor.MiddleCenter);
-            progress.style.marginTop = 24;
+            progress.style.whiteSpace = WhiteSpace.Normal;
+            progress.style.marginTop = 14;
             content.Add(progress);
-            var version = LabelText("Контент R1–R8 · v" + RunState.CurrentContentVersion, 18, Muted, TextAnchor.MiddleCenter);
-            version.style.marginTop = 36;
+            var version = LabelText("Контент R1–R8 · v" + RunState.CurrentContentVersion, 15, Muted, TextAnchor.MiddleCenter);
+            version.style.marginTop = 12;
+            version.style.marginBottom = 8;
             content.Add(version);
 
             foreach (var child in content.Children()) child.style.flexShrink = 0;
@@ -282,8 +280,9 @@ namespace ThreeInARow.Presentation
         private void BuildSettings()
         {
             BeginScreen();
-            _safeArea.Add(Title("НАСТРОЙКИ", 42, Gold));
-            _safeArea.Add(Paragraph("Настройки отображения хранятся на этом устройстве. У каждого состояния на поле есть значок и описание по нажатию."));
+            var body = CreateScrollBody("settings-scroll");
+            AddScreenHeading("ИГРА И ДОСТУПНОСТЬ", "НАСТРОЙКИ",
+                "Параметры хранятся на этом устройстве. Значки состояний на поле можно нажать, чтобы прочитать их описание.");
 
             var motion = ActionButton(_reducedMotion ? "УМЕНЬШЕНИЕ ДВИЖЕНИЯ: ВКЛ." : "УМЕНЬШЕНИЕ ДВИЖЕНИЯ: ВЫКЛ.", () =>
             {
@@ -293,16 +292,16 @@ namespace ThreeInARow.Presentation
                 BuildSettings();
             }, true);
             motion.tooltip = "Включить или выключить необязательные движения и задержки анимации.";
-            _safeArea.Add(motion);
+            body.Add(motion);
 
-            _safeArea.Add(ActionButton(_soundEnabled ? "ЗВУКОВЫЕ ЭФФЕКТЫ: ВКЛ." : "ЗВУКОВЫЕ ЭФФЕКТЫ: ВЫКЛ.", () =>
+            body.Add(ActionButton(_soundEnabled ? "ЗВУКОВЫЕ ЭФФЕКТЫ: ВКЛ." : "ЗВУКОВЫЕ ЭФФЕКТЫ: ВЫКЛ.", () =>
             {
                 _soundEnabled = !_soundEnabled;
                 PlayerPrefs.SetInt(SoundEnabledKey, _soundEnabled ? 1 : 0);
                 PlayerPrefs.Save();
                 BuildSettings();
             }, false));
-            _safeArea.Add(ActionButton(_musicEnabled ? "МУЗЫКА: ВКЛ." : "МУЗЫКА: ВЫКЛ.", () =>
+            body.Add(ActionButton(_musicEnabled ? "МУЗЫКА: ВКЛ." : "МУЗЫКА: ВЫКЛ.", () =>
             {
                 _musicEnabled = !_musicEnabled;
                 PlayerPrefs.SetInt(MusicEnabledKey, _musicEnabled ? 1 : 0);
@@ -310,18 +309,15 @@ namespace ThreeInARow.Presentation
                 BuildSettings();
             }, false));
 
-            _safeArea.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildSettings), false));
+            body.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildSettings), false));
 
-            _safeArea.Add(SectionHeading("ОБЯЗАТЕЛЬНОЕ УКАЗАНИЕ АВТОРСТВА"));
-            _safeArea.Add(Paragraph("Автор значков — Lorc. Опубликованы на game-icons.net по лицензии CC BY 3.0."));
-            _safeArea.Add(ActionButton("ОТКРЫТЬ GAME-ICONS.NET", () => UnityEngine.Application.OpenURL("https://game-icons.net/"), false));
-            _safeArea.Add(ActionButton("ОТКРЫТЬ CC BY 3.0", () => UnityEngine.Application.OpenURL("https://creativecommons.org/licenses/by/3.0/"), false));
-            _safeArea.Add(SectionHeading("ДРУГИЕ АВТОРЫ"));
-            _safeArea.Add(Paragraph("Кристаллы: Andrew Tidey · Интерфейс и часть звуков: Kenney · Звуки: rubberduck, Brian MacIntosh, IgnasD и JaggedStone · Музыка: The Cynic Project и Cleyton Kauffman · Портреты врагов: временные материалы проекта."));
-            var spacer = new VisualElement();
-            spacer.style.flexGrow = 1;
-            _safeArea.Add(spacer);
-            _safeArea.Add(ActionButton("НАЗАД", BuildTitle, false));
+            body.Add(SectionHeading("ОБЯЗАТЕЛЬНОЕ УКАЗАНИЕ АВТОРСТВА"));
+            body.Add(Paragraph("Автор значков — Lorc. Опубликованы на game-icons.net по лицензии CC BY 3.0."));
+            body.Add(ActionButton("ОТКРЫТЬ GAME-ICONS.NET", () => UnityEngine.Application.OpenURL("https://game-icons.net/"), false));
+            body.Add(ActionButton("ОТКРЫТЬ CC BY 3.0", () => UnityEngine.Application.OpenURL("https://creativecommons.org/licenses/by/3.0/"), false));
+            body.Add(SectionHeading("ДРУГИЕ АВТОРЫ"));
+            body.Add(Paragraph("Кристаллы: Andrew Tidey · Интерфейс и часть звуков: Kenney · Звуки: rubberduck, Brian MacIntosh, IgnasD и JaggedStone · Музыка: The Cynic Project и Cleyton Kauffman · Портреты врагов: временные материалы проекта."));
+            Footer(ActionButton("НАЗАД", BuildTitle, false));
         }
 
         private void BuildHelp(Action back)
@@ -420,40 +416,66 @@ namespace ThreeInARow.Presentation
         private void BuildExpeditionBoard()
         {
             BeginScreen();
-            _safeArea.Add(Title("ЭКСПЕДИЦИИ", 42, Gold));
-            _safeArea.Add(Paragraph("Короткие забеги проходят в одном регионе. Пропущенные ежедневные маршруты ещё семь дней остаются доступными без серии входов и штрафов."));
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            scroll.style.flexGrow = 1;
-            scroll.Add(SectionHeading("ЕЖЕДНЕВНЫЕ МАРШРУТЫ"));
-            for (var dayOffset = 0; dayOffset < 7; dayOffset++)
+            var body = CreateScrollBody("expedition-scroll");
+            AddScreenHeading("РЕЖИМЫ ЗАБЕГА", "ЭКСПЕДИЦИИ",
+                "Короткие маршруты занимают один регион. Выберите коллекцию, затем конкретное испытание.");
+            body.Add(TabStrip(new[] { "ЕЖЕДНЕВНЫЕ", "ИСПЫТАНИЯ", "НЕДЕЛЬНЫЙ" }, _expeditionSection, section =>
             {
-                var expedition = DailyExpedition.ForUtcDate(DateTime.UtcNow.AddDays(-dayOffset));
-                var captured = expedition;
-                scroll.Add(ExpeditionCard(expedition, () => StartExpedition(captured)));
-            }
-            scroll.Add(SectionHeading("ПОСТОЯННЫЕ ИСПЫТАНИЯ"));
-            foreach (var expedition in TrialExpeditions.All)
+                _expeditionSection = section;
+                BuildExpeditionBoard();
+            }));
+
+            if (_expeditionSection == 0)
             {
-                var captured = expedition;
-                scroll.Add(ExpeditionCard(expedition, () => StartExpedition(captured)));
+                body.Add(Paragraph("Сегодняшний маршрут и шесть предыдущих дней доступны без серии входов и штрафов."));
+                for (var dayOffset = 0; dayOffset < 7; dayOffset++)
+                {
+                    var expedition = DailyExpedition.ForUtcDate(DateTime.UtcNow.AddDays(-dayOffset));
+                    var captured = expedition;
+                    body.Add(ExpeditionCard(expedition, () => StartExpedition(captured)));
+                }
             }
-            scroll.Add(SectionHeading("БОЛЬШОЙ НЕДЕЛЬНЫЙ МАРШРУТ"));
-            var weekly = WeeklyChallenge.ForUtcDate(DateTime.UtcNow);
-            scroll.Add(ActionButton("ТРИ РЕГИОНА · " + weekly.WeekStartUtc,
-                () => StartWeeklyRun(weekly), true));
-            _safeArea.Add(scroll);
-            _safeArea.Add(ActionButton("НАЗАД", BuildTitle, false));
+            else if (_expeditionSection == 1)
+            {
+                body.Add(Paragraph("Постоянные сценарии проверяют конкретные навыки, статусы и типы сборок."));
+                foreach (var expedition in TrialExpeditions.All)
+                {
+                    var captured = expedition;
+                    body.Add(ExpeditionCard(expedition, () => StartExpedition(captured)));
+                }
+            }
+            else
+            {
+                var weekly = WeeklyChallenge.ForUtcDate(DateTime.UtcNow);
+                var weeklyCard = Card();
+                weeklyCard.Add(Title("БОЛЬШОЙ МАРШРУТ", 28, Gold));
+                weeklyCard.Add(LabelText("Три региона · фиксированная сложность 3", 18, TextColor,
+                    TextAnchor.MiddleCenter));
+                weeklyCard.Add(LabelText("Неделя от " + weekly.WeekStartUtc +
+                    ". Этот режим не открывает следующий уровень сложности.", 16, Muted,
+                    TextAnchor.MiddleCenter));
+                weeklyCard.Add(ActionButton("НАЧАТЬ НЕДЕЛЬНОЕ ИСПЫТАНИЕ", () => StartWeeklyRun(weekly), true));
+                body.Add(weeklyCard);
+            }
+
+            Footer(ActionButton("НАЗАД", BuildTitle, false));
         }
 
         private VisualElement ExpeditionCard(ExpeditionDefinition expedition, Action start)
         {
             var card = Card();
-            card.Add(Title(PresentationText.Name(expedition.Id), 23, Gold));
-            card.Add(LabelText(PresentationText.RegionName(expedition.RegionIndex) + " · сложность " +
+            var heading = Title(PresentationText.Name(expedition.Id), 23, Gold);
+            heading.style.unityTextAlign = TextAnchor.MiddleLeft;
+            card.Add(heading);
+            var details = LabelText(PresentationText.RegionName(expedition.RegionIndex) + " · сложность " +
                 expedition.DifficultyTier + " · стартовый навык: " + PresentationText.Name(expedition.StartingSkillId),
-                17, TextColor));
-            card.Add(LabelText("Начальное давление: " + PresentationText.Name(expedition.StartingStatusId) +
-                " ×" + expedition.StartingStatusCount, 16, Muted));
+                17, TextColor);
+            details.style.whiteSpace = WhiteSpace.Normal;
+            card.Add(details);
+            var pressure = LabelText("Начальное давление: " + PresentationText.Name(expedition.StartingStatusId) +
+                " ×" + expedition.StartingStatusCount, 16, Muted);
+            pressure.style.whiteSpace = WhiteSpace.Normal;
+            card.Add(pressure);
             card.Add(ActionButton("НАЧАТЬ", start, true));
             return card;
         }
@@ -473,73 +495,114 @@ namespace ThreeInARow.Presentation
         private void BuildCodex()
         {
             BeginScreen();
-            _safeArea.Add(Title("ЦЕЛИ, КОДЕКС И РЕКОРДЫ", 38, Gold));
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            scroll.style.flexGrow = 1;
-            scroll.Add(SectionHeading("СЛЕДУЮЩАЯ СЛОЖНОСТЬ"));
-            scroll.Add(DifficultyGoalCard(false));
-            scroll.Add(SectionHeading("ДОСТУПНЫЕ ЦЕЛИ"));
-            var availableGoals = 0;
-            foreach (var goal in ProfileContentCatalog.Instance.Challenges)
+            var body = CreateScrollBody("codex-scroll");
+            AddScreenHeading("ПРОФИЛЬ И МИР", "АРХИВ КРИСТАЛЛОВ",
+                "Цели, найденные записи и результаты теперь разделены, чтобы коллекция оставалась удобной по мере роста.");
+            body.Add(TabStrip(new[] { "ЦЕЛИ", "КОДЕКС", "РЕКОРДЫ", "ЗАБЕГИ" }, _codexSection, section =>
             {
-                if (goal.Id.Equals(ProfileContentIds.ChallengeDifficultyOne) || IsGoalComplete(goal)) continue;
-                scroll.Add(GoalCard(goal, false, false));
-                availableGoals++;
-            }
-            if (availableGoals == 0) scroll.Add(Paragraph("Все цели выполнены."));
-            scroll.Add(SectionHeading("ВЫПОЛНЕНО"));
-            var completedGoals = 0;
-            foreach (var goal in ProfileContentCatalog.Instance.Challenges)
+                _codexSection = section;
+                BuildCodex();
+            }));
+
+            if (_codexSection == 0)
             {
-                if (!IsGoalComplete(goal)) continue;
-                scroll.Add(GoalCard(goal, true, false));
-                completedGoals++;
-            }
-            if (completedGoals == 0) scroll.Add(Paragraph("Пока выполненных целей нет."));
-            scroll.Add(SectionHeading("ОТКРЫТЫЕ ЗАПИСИ"));
-            if (_director.Profile.CodexEntries.Count == 0) scroll.Add(Paragraph("Пока записей нет."));
-            foreach (var entry in _director.Profile.CodexEntries)
-            {
-                var line = Card("ui.panel.inset");
-                line.Add(StatLine(entry.Category + " · " +
-                    (entry.Category == CodexCategory.Intent ? PresentationText.Name(entry.ParentContentId) + " / " : string.Empty) +
-                    PresentationText.Name(entry.ContentId), entry.SeenCount.ToString()));
-                var lore = PresentationText.CodexLore(entry.ContentId);
-                if (!string.IsNullOrEmpty(lore)) line.Add(LabelText(lore, 15, Muted));
-                scroll.Add(line);
-            }
-            scroll.Add(SectionHeading("РЕКОРДЫ"));
-            if (_director.Profile.Records.Count == 0) scroll.Add(Paragraph("Первая победа создаст запись."));
-            foreach (var record in _director.Profile.Records)
-                scroll.Add(Paragraph(PresentationText.Name(record.BossId) + " · сложность " + record.DifficultyTier +
-                    " · побед " + record.Wins + " · ходов " + record.FastestValidTurnCount +
-                    " · здоровье " + record.BestRemainingHealth + " · каскад " + record.LargestCascade));
-            scroll.Add(SectionHeading("АРХИВ ЗАБЕГОВ"));
-            if (_director.Profile.RunHistory.Count == 0) scroll.Add(Paragraph("Завершённые забеги появятся здесь."));
-            foreach (var history in _director.Profile.RunHistory)
-            {
-                var captured = history;
-                var card = Card("ui.panel.inset");
-                card.Add(LabelText((history.Victory ? "ПОБЕДА" : "ПОРАЖЕНИЕ") + " · сложность " +
-                    history.DifficultyTier + " · ходов " + history.ValidTurnCount + " · зерно " + history.Seed,
-                    16, history.Victory ? Success : Muted));
-                card.Add(LabelText("Финал: " + PresentationText.Name(history.BossId) + " · каскад " +
-                    history.LargestCascade + " · путь " + (history.RouteNodeIds == null ? 0 : history.RouteNodeIds.Count) +
-                    " узлов · навыков " + (history.SkillIds == null ? 0 : history.SkillIds.Count), 15, TextColor));
-                if (history.RouteVowIds != null && history.RouteVowIds.Count > 0)
+                body.Add(SectionHeading("СЛЕДУЮЩАЯ СЛОЖНОСТЬ"));
+                body.Add(DifficultyGoalCard(false));
+                body.Add(SectionHeading("ДОСТУПНЫЕ ЦЕЛИ"));
+                var availableGoals = 0;
+                foreach (var goal in ProfileContentCatalog.Instance.Challenges)
                 {
-                    var vows = new List<string>();
-                    foreach (var vowId in history.RouteVowIds) vows.Add(PresentationText.Name(vowId));
-                    card.Add(LabelText("Обеты: " + string.Join(" · ", vows.ToArray()), 15, Gold));
+                    if (goal.Id.Equals(ProfileContentIds.ChallengeDifficultyOne) || IsGoalComplete(goal)) continue;
+                    body.Add(GoalCard(goal, false, false));
+                    availableGoals++;
                 }
-                var actions = Row();
-                actions.Add(SmallButton("КОПИРОВАТЬ", () => GUIUtility.systemCopyBuffer = captured.Seed));
-                actions.Add(SmallButton("ПОВТОРИТЬ", () => ReplayArchivedRun(captured)));
-                card.Add(actions);
-                scroll.Add(card);
+                if (availableGoals == 0) body.Add(Paragraph("Все цели выполнены."));
+                body.Add(SectionHeading("ВЫПОЛНЕНО"));
+                var completedGoals = 0;
+                foreach (var goal in ProfileContentCatalog.Instance.Challenges)
+                {
+                    if (!IsGoalComplete(goal)) continue;
+                    body.Add(GoalCard(goal, true, false));
+                    completedGoals++;
+                }
+                if (completedGoals == 0) body.Add(Paragraph("Пока выполненных целей нет."));
             }
-            _safeArea.Add(scroll);
-            _safeArea.Add(ActionButton("НАЗАД", BuildTitle, false));
+            else if (_codexSection == 1)
+            {
+                body.Add(SectionHeading("ОТКРЫТЫЕ ЗАПИСИ"));
+                if (_director.Profile.CodexEntries.Count == 0) body.Add(Paragraph("Пока записей нет."));
+                foreach (var entry in _director.Profile.CodexEntries)
+                {
+                    var line = Card("ui.panel.inset");
+                    line.Add(StatLine(entry.Category + " · " +
+                        (entry.Category == CodexCategory.Intent ? PresentationText.Name(entry.ParentContentId) + " / " : string.Empty) +
+                        PresentationText.Name(entry.ContentId), entry.SeenCount.ToString()));
+                    var lore = PresentationText.CodexLore(entry.ContentId);
+                    if (!string.IsNullOrEmpty(lore))
+                    {
+                        var loreLabel = LabelText(lore, 15, Muted);
+                        loreLabel.style.whiteSpace = WhiteSpace.Normal;
+                        line.Add(loreLabel);
+                    }
+                    body.Add(line);
+                }
+            }
+            else if (_codexSection == 2)
+            {
+                body.Add(SectionHeading("ЛУЧШИЕ РЕЗУЛЬТАТЫ"));
+                if (_director.Profile.Records.Count == 0) body.Add(Paragraph("Первая победа создаст запись."));
+                foreach (var record in _director.Profile.Records)
+                {
+                    var recordCard = Card("ui.panel.inset");
+                    recordCard.Add(Title(PresentationText.Name(record.BossId), 22, Gold));
+                    recordCard.Add(StatLine("Сложность", record.DifficultyTier.ToString()));
+                    recordCard.Add(StatLine("Победы", record.Wins.ToString()));
+                    recordCard.Add(StatLine("Лучший темп", record.FastestValidTurnCount + " ходов"));
+                    recordCard.Add(StatLine("Здоровье", record.BestRemainingHealth.ToString()));
+                    recordCard.Add(StatLine("Каскад", record.LargestCascade.ToString()));
+                    body.Add(recordCard);
+                }
+            }
+            else
+            {
+                body.Add(SectionHeading("АРХИВ ЗАБЕГОВ"));
+                if (_director.Profile.RunHistory.Count == 0) body.Add(Paragraph("Завершённые забеги появятся здесь."));
+                foreach (var history in _director.Profile.RunHistory)
+                {
+                    var captured = history;
+                    var card = Card("ui.panel.inset");
+                    var result = LabelText((history.Victory ? "ПОБЕДА" : "ПОРАЖЕНИЕ") + " · сложность " +
+                        history.DifficultyTier + " · ходов " + history.ValidTurnCount + " · зерно " + history.Seed,
+                        16, history.Victory ? Success : Muted);
+                    result.style.whiteSpace = WhiteSpace.Normal;
+                    card.Add(result);
+                    var route = LabelText("Финал: " + PresentationText.Name(history.BossId) + " · каскад " +
+                        history.LargestCascade + " · путь " + (history.RouteNodeIds == null ? 0 : history.RouteNodeIds.Count) +
+                        " узлов · навыков " + (history.SkillIds == null ? 0 : history.SkillIds.Count), 15, TextColor);
+                    route.style.whiteSpace = WhiteSpace.Normal;
+                    card.Add(route);
+                    if (history.RouteVowIds != null && history.RouteVowIds.Count > 0)
+                    {
+                        var vows = new List<string>();
+                        foreach (var vowId in history.RouteVowIds) vows.Add(PresentationText.Name(vowId));
+                        var vowLabel = LabelText("Обеты: " + string.Join(" · ", vows.ToArray()), 15, Gold);
+                        vowLabel.style.whiteSpace = WhiteSpace.Normal;
+                        card.Add(vowLabel);
+                    }
+                    var actions = Row();
+                    actions.style.flexWrap = Wrap.Wrap;
+                    var copy = SmallButton("КОПИРОВАТЬ", () => GUIUtility.systemCopyBuffer = captured.Seed);
+                    var replay = SmallButton("ПОВТОРИТЬ", () => ReplayArchivedRun(captured));
+                    copy.style.flexGrow = 1;
+                    replay.style.flexGrow = 1;
+                    actions.Add(copy);
+                    actions.Add(replay);
+                    card.Add(actions);
+                    body.Add(card);
+                }
+            }
+
+            Footer(ActionButton("НАЗАД", BuildTitle, false));
         }
 
         private void ReplayArchivedRun(RunHistoryEntryState history)
@@ -1003,9 +1066,15 @@ namespace ThreeInARow.Presentation
         {
             BeginScreen();
             var pending = _director.State.PendingEvent;
-            _safeArea.style.justifyContent = Justify.Center;
-            _safeArea.Add(Title(rest ? "ПРИВАЛ" : PresentationText.Name(pending.EventId).ToUpperInvariant(), 42, Gold));
-            _safeArea.Add(Paragraph(PresentationText.EventDescription(pending.EventId)));
+            var body = CreateScrollBody("event-scroll");
+            body.style.minHeight = Length.Percent(100);
+            body.style.justifyContent = Justify.Center;
+            var icon = Icon(rest ? "ui.player_health" : "gem.prism", 82);
+            icon.style.alignSelf = Align.Center;
+            body.Add(icon);
+            AddScreenHeading(rest ? "БЕЗОПАСНАЯ ОСТАНОВКА" : "СОБЫТИЕ ПУТИ",
+                rest ? "ПРИВАЛ" : PresentationText.Name(pending.EventId).ToUpperInvariant(),
+                PresentationText.EventDescription(pending.EventId));
             foreach (var choiceId in pending.ChoiceIds)
             {
                 var captured = choiceId;
@@ -1015,7 +1084,7 @@ namespace ThreeInARow.Presentation
                 button.style.whiteSpace = WhiteSpace.Normal;
                 button.style.paddingLeft = 18;
                 button.style.paddingRight = 18;
-                _safeArea.Add(button);
+                body.Add(button);
             }
         }
 
@@ -1044,6 +1113,8 @@ namespace ThreeInARow.Presentation
                     line.style.alignItems = Align.Center;
                     var name = LabelText(PresentationText.Name(skill.Id), 18, TextColor);
                     name.style.flexGrow = 1;
+                    name.style.minWidth = 0;
+                    name.style.whiteSpace = WhiteSpace.Normal;
                     line.Add(name);
                     for (var slot = 0; slot < 2; slot++)
                     {
@@ -1067,6 +1138,7 @@ namespace ThreeInARow.Presentation
         private void BuildEncounter()
         {
             BeginScreen();
+            var encounterContent = CreateScrollBody("encounter-scroll");
             var state = _director.State;
             var encounter = MvpCombatContentCatalog.Instance.GetEncounter(state.CurrentEncounterId);
             var enemy = encounter.Enemy;
@@ -1087,7 +1159,7 @@ namespace ThreeInARow.Presentation
             });
             help.tooltip = "Как играть и что делают навыки";
             top.Add(help);
-            _safeArea.Add(top);
+            encounterContent.Add(top);
 
             var enemyPanel = new VisualElement { name = "enemy-stage" };
             enemyPanel.style.flexDirection = FlexDirection.Row;
@@ -1136,7 +1208,7 @@ namespace ThreeInARow.Presentation
             if (state.Enemy.PoisonStacks > 0)
                 enemyInfo.Add(InlineIconLabel("status.poison", "Отравление: " + state.Enemy.PoisonStacks, PresentationText.StatusDescription("status.poison")));
             enemyPanel.Add(enemyInfo);
-            _safeArea.Add(enemyPanel);
+            encounterContent.Add(enemyPanel);
             StartEnemyIdleMotion();
 
             var intentCycle = state.Enemy.Phase > 0 && enemy.SecondPhaseIntentCycle.Count > 0
@@ -1172,7 +1244,7 @@ namespace ThreeInARow.Presentation
             intentText.style.whiteSpace = WhiteSpace.Normal;
             intentText.style.marginLeft = 10;
             intentPanel.Add(intentText);
-            _safeArea.Add(intentPanel);
+            encounterContent.Add(intentPanel);
 
             BuildBoard(state.Board);
             BuildResources(state);
@@ -1184,8 +1256,8 @@ namespace ThreeInARow.Presentation
             _message.style.minHeight = 30;
             _message.style.marginTop = 4;
             _message.style.whiteSpace = WhiteSpace.Normal;
-            _safeArea.Add(_message);
-            foreach (var child in _safeArea.Children()) child.style.flexShrink = 0;
+            encounterContent.Add(_message);
+            foreach (var child in encounterContent.Children()) child.style.flexShrink = 0;
             _safeArea.schedule.Execute(SizeEncounterBoard);
 
         }
@@ -1267,7 +1339,7 @@ namespace ThreeInARow.Presentation
             _gemMotionLayer.style.bottom = 0;
             _gemMotionLayer.style.overflow = Overflow.Visible;
             _board.Add(_gemMotionLayer);
-            _safeArea.Add(_board);
+            ContentHost.Add(_board);
         }
 
         private VisualElement BuildCell(BoardGemState gem)
@@ -1517,7 +1589,7 @@ namespace ThreeInARow.Presentation
             resources.Add(ResourceChip("ui.focus", "ФОКУС", state.Player.Focus, 9, Cyan));
             resources.Add(ResourceChip("ui.toxic", "ТОКСИН", state.Player.Toxic, 9, Success));
             resources.Add(ResourceChip("ui.shield", "ЩИТ", state.Player.Shield, -1, Gold));
-            _safeArea.Add(resources);
+            ContentHost.Add(resources);
             _playerFeedbackAnchor = resources;
         }
 
@@ -1569,7 +1641,7 @@ namespace ThreeInARow.Presentation
                     row.Add(skillPanel);
                 }
             }
-            _safeArea.Add(row);
+            ContentHost.Add(row);
         }
 
         private void SkillPressed(SkillDefinition definition)
@@ -1687,11 +1759,15 @@ namespace ThreeInARow.Presentation
                 ExecuteSkill(definition.Id, _skillTargets);
             }, true);
             confirm.style.flexGrow = 1;
+            confirm.style.flexBasis = 0;
+            confirm.style.width = StyleKeyword.Auto;
             var cancel = ActionButton("ОТМЕНА", CancelSkillTargeting, false);
             cancel.style.flexGrow = 1;
+            cancel.style.flexBasis = 0;
+            cancel.style.width = StyleKeyword.Auto;
             controls.Add(confirm);
             controls.Add(cancel);
-            _safeArea.Add(controls);
+            ContentHost.Add(controls);
         }
 
         private void ShowInfuseTargeting(SkillDefinition definition)
@@ -1709,11 +1785,15 @@ namespace ThreeInARow.Presentation
                 ExecuteSkill(definition.Id, _skillTargets);
             }, true);
             confirm.style.flexGrow = 1;
+            confirm.style.flexBasis = 0;
+            confirm.style.width = StyleKeyword.Auto;
             var cancel = ActionButton("ОТМЕНА", CancelSkillTargeting, false);
             cancel.style.flexGrow = 1;
+            cancel.style.flexBasis = 0;
+            cancel.style.width = StyleKeyword.Auto;
             controls.Add(confirm);
             controls.Add(cancel);
-            _safeArea.Add(controls);
+            ContentHost.Add(controls);
         }
 
         private void ShowMutationTargeting(SkillDefinition definition)
@@ -1737,7 +1817,7 @@ namespace ThreeInARow.Presentation
                     button.style.flexGrow = 1;
                     colors.Add(button);
                 }
-                _safeArea.Add(colors);
+                ContentHost.Add(colors);
             }
             var controls = Row();
             var confirm = ActionButton("ПОДТВЕРДИТЬ", () =>
@@ -1751,11 +1831,15 @@ namespace ThreeInARow.Presentation
                 ExecuteSkill(definition.Id, _skillTargets, _skillOption);
             }, true);
             confirm.style.flexGrow = 1;
+            confirm.style.flexBasis = 0;
+            confirm.style.width = StyleKeyword.Auto;
             var cancel = ActionButton("ОТМЕНА", CancelSkillTargeting, false);
             cancel.style.flexGrow = 1;
+            cancel.style.flexBasis = 0;
+            cancel.style.width = StyleKeyword.Auto;
             controls.Add(confirm);
             controls.Add(cancel);
-            _safeArea.Add(controls);
+            ContentHost.Add(controls);
         }
 
         private void ExecuteSkill(ContentId skillId, IEnumerable<GridCell> targets)
@@ -1794,18 +1878,20 @@ namespace ThreeInARow.Presentation
         {
             BeginScreen();
             var state = _director.State;
-            _safeArea.Add(Icon("ui.level_up", 100));
+            var body = CreateScrollBody("reward-scroll");
+            var rewardIcon = Icon("ui.level_up", 84);
+            rewardIcon.style.alignSelf = Align.Center;
+            body.Add(rewardIcon);
             var rewardTitle = state.PendingChoice.ChoiceId.Value.StartsWith("choice.evolution.", StringComparison.Ordinal)
                 ? "ЭВОЛЮЦИЯ СБОРКИ"
                 : state.PendingChoice.ChoiceId.Value == "choice.elite_keystone"
                     ? "ЭЛИТНОЕ УЛУЧШЕНИЕ"
                     : state.PendingChoice.Level > 0 ? "УРОВЕНЬ " + state.PendingChoice.Level : "НАГРАДА";
-            _safeArea.Add(Title(rewardTitle, 46, Gold));
-            _safeArea.Add(LabelText("Нажмите карточку, прочитайте полное описание и выберите одно улучшение.", 20, Muted, TextAnchor.MiddleCenter));
+            AddScreenHeading("РАЗВИТИЕ СБОРКИ", rewardTitle,
+                "Откройте карточку, прочитайте полное описание и выберите одно улучшение.");
 
             var cards = new VisualElement();
-            cards.style.flexGrow = 1;
-            cards.style.justifyContent = Justify.Center;
+            cards.style.width = Length.Percent(100);
             foreach (var optionId in state.PendingChoice.OptionIds)
             {
                 var skill = MvpProgressionContentCatalog.Instance.GetSkill(optionId);
@@ -1845,7 +1931,7 @@ namespace ThreeInARow.Presentation
                 card.Add(text);
                 cards.Add(card);
             }
-            _safeArea.Add(cards);
+            body.Add(cards);
         }
 
         private void SelectReward(ContentId rewardId)
@@ -1889,12 +1975,15 @@ namespace ThreeInARow.Presentation
         {
             BeginScreen();
             var state = _director.State;
-            _safeArea.style.justifyContent = Justify.Center;
-            _safeArea.Add(Icon("ui.level_up", 118));
-            _safeArea.Add(Title("СВЯТИЛИЩЕ МЕЖДУ МИРАМИ", 40, Gold));
-            _safeArea.Add(LabelText(PresentationText.RegionName(state.Sanctum.CompletedRegionIndex) +
-                " пройден. Здесь можно осмотреть сборку и переставить активные навыки перед новым регионом.",
-                20, TextColor, TextAnchor.MiddleCenter));
+            var body = CreateScrollBody("sanctum-scroll");
+            body.style.minHeight = Length.Percent(100);
+            body.style.justifyContent = Justify.Center;
+            var sanctumIcon = Icon("ui.level_up", 92);
+            sanctumIcon.style.alignSelf = Align.Center;
+            body.Add(sanctumIcon);
+            AddScreenHeading("МЕЖДУ РЕГИОНАМИ", "СВЯТИЛИЩЕ",
+                PresentationText.RegionName(state.Sanctum.CompletedRegionIndex) +
+                " пройден. Осмотрите сборку и подготовьте активные навыки к следующему региону.");
 
             if (state.Sanctum.ChosenEvolutionId.Value != null &&
                 state.Sanctum.ChosenEvolutionId.Value != "skill.none")
@@ -1904,22 +1993,23 @@ namespace ThreeInARow.Presentation
                 evolution.Add(Title(PresentationText.Name(state.Sanctum.ChosenEvolutionId), 28, Gold));
                 evolution.Add(LabelText(PresentationText.SkillDescription(
                     MvpProgressionContentCatalog.Instance.GetSkill(state.Sanctum.ChosenEvolutionId)), 18, TextColor));
-                _safeArea.Add(evolution);
+                body.Add(evolution);
             }
 
             var summary = Card("ui.panel.inset");
             summary.Add(StatLine("Здоровье", state.Player.Health + "/" + PlayerState.MaxHealth));
             summary.Add(StatLine("Изучено навыков", state.SelectedSkillIds.Count.ToString()));
             summary.Add(StatLine("Исполнено обетов", _director.Statistics.CompletedRouteVows.ToString()));
-            _safeArea.Add(summary);
-            _safeArea.Add(ActionButton("НАСТРОИТЬ АКТИВНЫЕ НАВЫКИ", BuildLoadoutModal, false));
-            _safeArea.Add(ActionButton("ВОЙТИ В «" + PresentationText.RegionName(state.RegionIndex + 1).ToUpperInvariant() + "»",
-                ContinueFromSanctum, true));
-            _safeArea.Add(ActionButton("СОХРАНИТЬСЯ И ВЫЙТИ", () =>
-            {
-                _director.ReturnToTitle(false);
-                BuildTitle();
-            }, false));
+            body.Add(summary);
+            body.Add(ActionButton("НАСТРОИТЬ АКТИВНЫЕ НАВЫКИ", BuildLoadoutModal, false));
+            Footer(
+                ActionButton("ВОЙТИ В «" + PresentationText.RegionName(state.RegionIndex + 1).ToUpperInvariant() + "»",
+                    ContinueFromSanctum, true),
+                ActionButton("СОХРАНИТЬСЯ И ВЫЙТИ", () =>
+                {
+                    _director.ReturnToTitle(false);
+                    BuildTitle();
+                }, false));
         }
 
         private void ContinueFromSanctum()
@@ -1939,24 +2029,35 @@ namespace ThreeInARow.Presentation
         {
             BeginScreen();
             var state = _director.State;
-            _safeArea.Add(Icon("ui.victory", 130));
-            _safeArea.Add(Title("ВРАГ ПОВЕРЖЕН", 42, Gold));
-            _safeArea.Add(LabelText("Восстановлено 4 здоровья · Сейчас " + state.Player.Health + " / " + PlayerState.MaxHealth,
-                21, TextColor, TextAnchor.MiddleCenter));
-            _safeArea.Add(SectionHeading("АКТИВНЫЕ НАВЫКИ"));
-            _safeArea.Add(Paragraph("Изученные активные навыки сохраняют перезарядку после снятия. Перед продолжением выберите левую или правую ячейку."));
+            var body = CreateScrollBody("between-encounters-scroll");
+            var victoryIcon = Icon("ui.victory", 92);
+            victoryIcon.style.alignSelf = Align.Center;
+            body.Add(victoryIcon);
+            AddScreenHeading("ПЕРЕД СЛЕДУЮЩИМ БОЕМ", "ВРАГ ПОВЕРЖЕН",
+                "Восстановлено 4 здоровья · Сейчас " + state.Player.Health + " / " + PlayerState.MaxHealth);
+            body.Add(SectionHeading("АКТИВНЫЕ НАВЫКИ"));
+            body.Add(Paragraph("Изученные активные навыки сохраняют перезарядку после снятия. Перед продолжением выберите левую или правую ячейку."));
 
             foreach (var skill in MvpProgressionContentCatalog.Instance.Skills)
             {
                 if (skill.SlotType != SkillSlotType.Active || !Contains(state.SelectedSkillIds, skill.Id)) continue;
                 var line = Card();
-                line.style.flexDirection = FlexDirection.Row;
-                line.style.alignItems = Align.Center;
-                line.Add(Icon(skill.Id.Value, 62));
+                var skillHeader = Row();
+                skillHeader.style.alignItems = Align.Center;
+                skillHeader.Add(Icon(skill.Id.Value, 56));
                 var description = LabelText(PresentationText.Name(skill.Id) + "\n" + PresentationText.SkillDescription(skill), 18, TextColor);
                 description.style.flexGrow = 1;
+                description.style.minWidth = 0;
+                description.style.whiteSpace = WhiteSpace.Normal;
                 description.style.marginLeft = 10;
-                line.Add(description);
+                skillHeader.Add(description);
+                var info = SmallButton("?", () => ShowSkillDetails(skill));
+                info.tooltip = "Полное описание навыка";
+                skillHeader.Add(info);
+                line.Add(skillHeader);
+
+                var slotActions = Row();
+                slotActions.style.marginTop = 7;
                 for (var slot = 0; slot < 2; slot++)
                 {
                     var capturedSlot = slot;
@@ -1965,17 +2066,14 @@ namespace ThreeInARow.Presentation
                     var button = SmallButton(isCurrent ? (slot == 0 ? "ЛЕВО ✓" : "ПРАВО ✓") : (slot == 0 ? "ЛЕВО" : "ПРАВО"),
                         () => EquipSkill(skill.Id, capturedSlot));
                     button.SetEnabled(!isCurrent);
-                    line.Add(button);
+                    button.style.flexGrow = 1;
+                    button.style.flexBasis = 0;
+                    slotActions.Add(button);
                 }
-                var info = SmallButton("?", () => ShowSkillDetails(skill));
-                info.tooltip = "Полное описание навыка";
-                line.Add(info);
-                _safeArea.Add(line);
+                line.Add(slotActions);
+                body.Add(line);
             }
-            var spacer = new VisualElement();
-            spacer.style.flexGrow = 1;
-            _safeArea.Add(spacer);
-            _safeArea.Add(ActionButton("СЛЕДУЮЩИЙ БОЙ", NextEncounter, true));
+            Footer(ActionButton("СЛЕДУЮЩИЙ БОЙ", NextEncounter, true));
         }
 
         private void EquipSkill(ContentId skillId, int slot)
@@ -2289,15 +2387,19 @@ namespace ThreeInARow.Presentation
         {
             var element = new VisualElement();
             element.style.backgroundColor = Panel;
-            element.style.paddingLeft = 14;
-            element.style.paddingRight = 14;
-            element.style.paddingTop = 10;
-            element.style.paddingBottom = 10;
-            element.style.marginTop = 6;
-            element.style.marginBottom = 6;
-            SetBorder(element, Hex("#355054"), 1);
-            element.style.borderTopWidth = 2;
-            element.style.borderTopColor = Hex("#8B7955");
+            element.style.paddingLeft = 18;
+            element.style.paddingRight = 18;
+            element.style.paddingTop = 14;
+            element.style.paddingBottom = 14;
+            element.style.marginTop = 7;
+            element.style.marginBottom = 7;
+            SetBorder(element, Hex("#31515A"), 1);
+            element.style.borderLeftWidth = 3;
+            element.style.borderLeftColor = Hex("#8B7955");
+            element.style.borderTopLeftRadius = 10;
+            element.style.borderTopRightRadius = 10;
+            element.style.borderBottomLeftRadius = 10;
+            element.style.borderBottomRightRadius = 10;
             return element;
         }
 
@@ -2334,13 +2436,19 @@ namespace ThreeInARow.Presentation
         {
             var button = new Button(action) { text = text };
             button.style.unityTextAlign = TextAnchor.MiddleCenter;
-            button.style.height = 68;
+            button.style.height = StyleKeyword.Auto;
+            button.style.minHeight = 62;
             button.style.width = Length.Percent(100);
             button.style.maxWidth = 720;
             button.style.alignSelf = Align.Center;
-            button.style.marginTop = 7;
-            button.style.marginBottom = 7;
-            button.style.fontSize = 23;
+            button.style.marginTop = 5;
+            button.style.marginBottom = 5;
+            button.style.paddingLeft = 16;
+            button.style.paddingRight = 16;
+            button.style.paddingTop = 10;
+            button.style.paddingBottom = 10;
+            button.style.whiteSpace = WhiteSpace.Normal;
+            button.style.fontSize = 21;
             button.style.unityFontStyleAndWeight = FontStyle.Bold;
             button.style.color = TextColor;
             SkinButton(button,
@@ -2354,9 +2462,15 @@ namespace ThreeInARow.Presentation
             var button = new Button(action) { text = text };
             button.style.unityTextAlign = TextAnchor.MiddleCenter;
             button.style.minWidth = 72;
-            button.style.height = 46;
+            button.style.height = StyleKeyword.Auto;
+            button.style.minHeight = 44;
             button.style.marginLeft = 4;
             button.style.marginRight = 4;
+            button.style.paddingLeft = 9;
+            button.style.paddingRight = 9;
+            button.style.paddingTop = 6;
+            button.style.paddingBottom = 6;
+            button.style.whiteSpace = WhiteSpace.Normal;
             button.style.fontSize = 16;
             button.style.color = TextColor;
             var square = text.Length <= 2;
@@ -2463,15 +2577,17 @@ namespace ThreeInARow.Presentation
 
         private static Label SectionHeading(string text)
         {
-            var label = Title(text, 24, Gold);
-            label.style.marginTop = 22;
-            label.style.marginBottom = 7;
+            var label = Title(text, 21, Gold);
+            label.style.unityTextAlign = TextAnchor.MiddleLeft;
+            label.style.letterSpacing = 1;
+            label.style.marginTop = 20;
+            label.style.marginBottom = 6;
             return label;
         }
 
         private static Label Paragraph(string text)
         {
-            var label = LabelText(text, 20, TextColor, TextAnchor.MiddleLeft);
+            var label = LabelText(text, 18, TextColor, TextAnchor.MiddleLeft);
             label.style.whiteSpace = WhiteSpace.Normal;
             label.style.marginTop = 7;
             label.style.marginBottom = 7;
@@ -2493,8 +2609,13 @@ namespace ThreeInARow.Presentation
             row.style.minHeight = 34;
             var label = LabelText(name, 19, Muted);
             label.style.flexGrow = 1;
+            label.style.minWidth = 0;
+            label.style.whiteSpace = WhiteSpace.Normal;
             row.Add(label);
-            row.Add(LabelText(value, 19, TextColor));
+            var valueLabel = LabelText(value, 19, TextColor);
+            valueLabel.style.flexShrink = 0;
+            valueLabel.style.marginLeft = 10;
+            row.Add(valueLabel);
             return row;
         }
 

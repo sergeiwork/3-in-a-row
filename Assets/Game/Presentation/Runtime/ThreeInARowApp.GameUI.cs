@@ -8,14 +8,10 @@ namespace ThreeInARow.Presentation
         private void SizeEncounterBoard()
         {
             if (_board == null || _safeArea == null || _board.panel == null) return;
-            var reserved = 0f;
-            foreach (var child in _safeArea.Children())
-            {
-                if (child == _board || child.resolvedStyle.position == Position.Absolute) continue;
-                reserved += child.layout.height + child.resolvedStyle.marginTop + child.resolvedStyle.marginBottom;
-            }
-            var side = Mathf.Min(720f, _safeArea.contentRect.width,
-                Mathf.Max(0f, _safeArea.contentRect.height - reserved - 8f));
+            var availableWidth = ContentHost == null || ContentHost.contentRect.width <= 0f
+                ? _safeArea.contentRect.width
+                : ContentHost.contentRect.width;
+            var side = ResponsiveLayoutPolicy.BoardSide(availableWidth, _safeArea.contentRect.height);
             if (float.IsNaN(side) || side < 1f) return;
             _board.style.width = side;
             _board.style.height = side;
@@ -34,7 +30,7 @@ namespace ThreeInARow.Presentation
 
         private void StyleGameButton(Button button, bool primary)
         {
-            var resting = primary ? Hex("#234542") : Hex("#14282D");
+            var resting = primary ? Hex("#1F4B47") : Hex("#10272F");
             var edge = primary ? Gold : Hex("#4A696A");
             button.AddToClassList("game-button");
             if (_reducedMotion) button.AddToClassList("reduced-motion");
@@ -42,10 +38,10 @@ namespace ThreeInARow.Presentation
             button.style.backgroundColor = resting;
             SetBorder(button, edge, 1);
             button.style.borderBottomWidth = 3;
-            button.style.borderTopLeftRadius = 3;
-            button.style.borderTopRightRadius = 3;
-            button.style.borderBottomLeftRadius = 3;
-            button.style.borderBottomRightRadius = 3;
+            button.style.borderTopLeftRadius = 9;
+            button.style.borderTopRightRadius = 9;
+            button.style.borderBottomLeftRadius = 9;
+            button.style.borderBottomRightRadius = 9;
             button.RegisterCallback<PointerDownEvent>(_ =>
             {
                 if (button.enabledInHierarchy) button.style.backgroundColor = Hex("#39625A");

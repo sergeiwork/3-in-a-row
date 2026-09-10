@@ -2,8 +2,8 @@
 
 Button {
     -unity-text-align: middle-center;
-    transition-duration: 0.1s;
-    transition-property: opacity, background-color;
+    transition-duration: 0.12s;
+    transition-property: opacity, background-color, border-color;
 }
 
 Button:disabled {
@@ -13,6 +13,7 @@ Button:disabled {
 .game-button:hover:enabled {
     border-left-color: rgb(121, 226, 210);
     border-right-color: rgb(121, 226, 210);
+    background-color: rgb(39, 79, 77);
 }
 
 .game-button:focus {
@@ -22,4 +23,8 @@ Button:disabled {
 
 .reduced-motion {
     transition-duration: 0s;
+}
+
+Scroller {
+    opacity: 0.76;
 }

@@ -170,10 +170,10 @@ namespace ThreeInARow.Presentation
 
         public static string GemDescription(ContentId gem, ContentId special)
         {
-            var baseDescription = gem.Value == "gem.ember" ? "При исчезновении наносит 4 прямого урона."
-                : gem.Value == "gem.tide" ? "Добавляет концентрацию; каждые 3 ед. наносят урон."
-                : gem.Value == "gem.venom" ? "Добавляет токсин; 5 ед. взрываются и накладывают отравление."
-                : gem.Value == "gem.volt" ? "Наносит 2 урона и ускоряет перезарядку активных навыков."
+            var baseDescription = gem.Value == "gem.ember" ? "При исчезновении наносит 3 прямого урона."
+                : gem.Value == "gem.tide" ? "Добавляет концентрацию; каждые 3 ед. наносят 9 урона."
+                : gem.Value == "gem.venom" ? "Добавляет токсин; 5 ед. наносят 13 урона и накладывают отравление."
+                : gem.Value == "gem.volt" ? "Наносит 3 урона и ускоряет перезарядку активных навыков."
                 : "Убирает все кристаллы цвета, с которым её поменяли.";
             if (!string.IsNullOrEmpty(special.Value) && special.Value != "special.none")
                 return "Особый кристалл «" + Name(special) + "». " + baseDescription;

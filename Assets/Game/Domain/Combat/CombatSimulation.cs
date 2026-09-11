@@ -59,9 +59,10 @@ namespace ThreeInARow.Domain.Combat
     public static class CombatSimulation
     {
         private const int FocusThreshold = 3;
-        private const int BaseFocusDamage = 6;
+        private const int BaseEmberDamage = 3;
+        private const int BaseFocusDamage = 9;
         private const int ToxicThreshold = 5;
-        private const int ToxicDamage = 12;
+        private const int ToxicDamage = 13;
         private const int PoisonStackCap = 3;
         private const int BasePoisonDamagePerStack = 3;
         private const int ResourceCap = 9;
@@ -284,7 +285,7 @@ namespace ThreeInARow.Domain.Combat
 
             if (item.SourceId.Equals(BoardContentIds.Ember))
             {
-                var damage = 4 + ProgressionRules.GetModifier(
+                var damage = BaseEmberDamage + ProgressionRules.GetModifier(
                     state, PassiveModifierType.EmberClearDamage);
                 if (state.Player.EmpoweredEmberClearDamage > 0)
                 {
@@ -303,7 +304,7 @@ namespace ThreeInARow.Domain.Combat
             }
             else if (item.SourceId.Equals(BoardContentIds.Volt))
             {
-                DamageEnemy(state, BoardContentIds.Volt, 2, "gem_clear", output);
+                DamageEnemy(state, BoardContentIds.Volt, 3, "gem_clear", output);
                 AddVoltProgress(state, 1, output);
             }
         }
@@ -316,7 +317,7 @@ namespace ThreeInARow.Domain.Combat
                 var firstSparkBonus = CountEvents(output, SimulationEventType.SpecialActivated, BoardContentIds.Spark) <= 1
                     ? ProgressionRules.GetModifier(state, PassiveModifierType.SparkFirstDamage)
                     : 0;
-                DamageEnemy(state, specialId, 16 + firstSparkBonus, "special", output);
+                DamageEnemy(state, specialId, 12 + firstSparkBonus, "special", output);
                 var shield = ProgressionRules.GetModifier(state, PassiveModifierType.SparkShield);
                 if (shield > 0)
                 {
@@ -337,7 +338,7 @@ namespace ThreeInARow.Domain.Combat
             }
             else if (specialId.Equals(BoardContentIds.Charge))
             {
-                DamageEnemy(state, specialId, 8, "special", output);
+                DamageEnemy(state, specialId, 10, "special", output);
                 var reduction = 1 + ProgressionRules.GetModifier(state, PassiveModifierType.ChargeCooldownReduction);
                 ReduceAllCooldowns(state, reduction, "charge", output, true);
             }

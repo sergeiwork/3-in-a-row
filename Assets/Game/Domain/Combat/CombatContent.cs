@@ -275,32 +275,32 @@ namespace ThreeInARow.Domain.Combat
         private MvpCombatContentCatalog()
         {
             var mite = new EnemyDefinition(
-                CombatContentIds.GeodeMite, "enemy.geode_mite.name", 52, 1, "pressure.crack",
+                CombatContentIds.GeodeMite, "enemy.geode_mite.name", 68, 1, "pressure.crack",
                 Intent("intent.geode_mite.chip_5", "intent.chip", IntentEffectDefinition.Damage(5)),
                 Intent("intent.geode_mite.crack_3", "intent.crack", IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 3)),
                 Intent("intent.geode_mite.chip_6", "intent.chip", IntentEffectDefinition.Damage(6)));
 
             var oracle = new EnemyDefinition(
-                CombatContentIds.FrostOracle, "enemy.frost_oracle.name", 66, 1, "pressure.freeze",
+                CombatContentIds.FrostOracle, "enemy.frost_oracle.name", 86, 1, "pressure.freeze",
                 Intent("intent.frost_oracle.freeze_2", "intent.chill", IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2)),
                 Intent("intent.frost_oracle.needle_7", "intent.needle", IntentEffectDefinition.Damage(7)),
                 Intent("intent.frost_oracle.freeze_3", "intent.chill", IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 3)));
 
             var elite = new EnemyDefinition(
-                CombatContentIds.GeodeMiteElite, "enemy.geode_mite_elite.name", 84, 1, "pressure.crack",
+                CombatContentIds.GeodeMiteElite, "enemy.geode_mite_elite.name", 109, 1, "pressure.crack",
                 Intent("intent.geode_mite_elite.crush", "intent.crush",
                     IntentEffectDefinition.Damage(8), IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)),
                 Intent("intent.geode_mite_elite.chip_7", "intent.chip", IntentEffectDefinition.Damage(7)),
                 Intent("intent.geode_mite_elite.crack_4", "intent.crack", IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 4)));
 
             var stalker = new EnemyDefinition(
-                CombatContentIds.PrismStalker, "enemy.prism_stalker.name", 92, 1, "pressure.drain",
+                CombatContentIds.PrismStalker, "enemy.prism_stalker.name", 120, 1, "pressure.drain",
                 Intent("intent.prism_stalker.bolt_8", "intent.bolt", IntentEffectDefinition.Damage(8)),
                 Intent("intent.prism_stalker.drain", "intent.drain", IntentEffectDefinition.Drain(3, 3)),
                 Intent("intent.prism_stalker.bolt_10", "intent.bolt", IntentEffectDefinition.Damage(10)));
 
             var warden = new EnemyDefinition(
-                CombatContentIds.CrystalWarden, "enemy.crystal_warden.name", 128, 1, "pressure.anchor", false, true, 50,
+                CombatContentIds.CrystalWarden, "enemy.crystal_warden.name", 166, 1, "pressure.anchor", false, true, 50,
                 new[]
                 {
                     Intent("intent.crystal_warden.seal", "intent.seal", IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
@@ -318,41 +318,41 @@ namespace ThreeInARow.Domain.Combat
                 });
 
             var tick = new EnemyDefinition(
-                CombatContentIds.CrystalTick, "enemy.crystal_tick.name", 56, 1, "pressure.drain",
+                CombatContentIds.CrystalTick, "enemy.crystal_tick.name", 73, 1, "pressure.drain",
                 Intent("intent.crystal_tick.drain_1", "intent.drain", IntentEffectDefinition.Drain(1, 1)),
                 Intent("intent.crystal_tick.bite_6", "intent.bite", IntentEffectDefinition.Damage(6)),
                 Intent("intent.crystal_tick.crack_2", "intent.crack", IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)));
             var moth = new EnemyDefinition(
-                CombatContentIds.RimeMoth, "enemy.rime_moth.name", 70, 1, "pressure.freeze",
+                CombatContentIds.RimeMoth, "enemy.rime_moth.name", 91, 1, "pressure.freeze",
                 Intent("intent.rime_moth.freeze_hit", "intent.freeze_hit",
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 1), IntentEffectDefinition.Damage(4)),
                 Intent("intent.rime_moth.needle_7", "intent.needle", IntentEffectDefinition.Damage(7)),
                 Intent("intent.rime_moth.freeze_2", "intent.chill", IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2)));
             var crab = new EnemyDefinition(
-                CombatContentIds.AnchorCrab, "enemy.anchor_crab.name", 86, 1, "pressure.anchor",
+                CombatContentIds.AnchorCrab, "enemy.anchor_crab.name", 112, 1, "pressure.anchor",
                 Intent("intent.anchor_crab.anchor_2", "intent.seal", IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
                 Intent("intent.anchor_crab.claw_8", "intent.claw", IntentEffectDefinition.Damage(8)),
                 Intent("intent.anchor_crab.hit_crack", "intent.crush",
                     IntentEffectDefinition.Damage(5), IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)));
             var idol = new EnemyDefinition(
-                CombatContentIds.HollowIdol, "enemy.hollow_idol.name", 94, 1, "pressure.drain",
+                CombatContentIds.HollowIdol, "enemy.hollow_idol.name", 122, 1, "pressure.drain",
                 Intent("intent.hollow_idol.drain_2", "intent.drain", IntentEffectDefinition.Drain(2, 2)),
                 Intent("intent.hollow_idol.crack_3", "intent.crack", IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 3)),
                 Intent("intent.hollow_idol.bolt_10", "intent.bolt", IntentEffectDefinition.Damage(10)));
             var golem = new EnemyDefinition(
-                CombatContentIds.FractureGolem, "enemy.fracture_golem.name", 112, 1, "pressure.crack", true, false,
+                CombatContentIds.FractureGolem, "enemy.fracture_golem.name", 146, 1, "pressure.crack", true, false,
                 Intent("intent.fracture_golem.hit_crack", "intent.crush",
                     IntentEffectDefinition.Damage(7), IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)),
                 Intent("intent.fracture_golem.anchor_2", "intent.seal", IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
                 Intent("intent.fracture_golem.hit_11", "intent.crush", IntentEffectDefinition.Damage(11)));
             var roc = new EnemyDefinition(
-                CombatContentIds.StormglassRoc, "enemy.stormglass_roc.name", 108, 1, "pressure.mixed", true, false,
+                CombatContentIds.StormglassRoc, "enemy.stormglass_roc.name", 140, 1, "pressure.mixed", true, false,
                 Intent("intent.stormglass_roc.freeze_2", "intent.chill", IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2)),
                 Intent("intent.stormglass_roc.hit_drain", "intent.drain",
                     IntentEffectDefinition.Damage(6), IntentEffectDefinition.Drain(2, 2)),
                 Intent("intent.stormglass_roc.hit_10", "intent.bolt", IntentEffectDefinition.Damage(10)));
             var engine = new EnemyDefinition(
-                CombatContentIds.FacetEngine, "enemy.facet_engine.name", 132, 1, "pressure.mixed", false, true, 50,
+                CombatContentIds.FacetEngine, "enemy.facet_engine.name", 172, 1, "pressure.mixed", false, true, 50,
                 new[]
                 {
                     Intent("intent.facet_engine.anchor_2", "intent.seal", IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
@@ -371,7 +371,7 @@ namespace ThreeInARow.Domain.Combat
 
             // Region 2: the Cinderbloom Wilds introduces Thorned as sustained board pressure.
             var briarWisp = new EnemyDefinition(
-                CombatContentIds.BriarWisp, "enemy.briar_wisp.name", 112, 1, "pressure.thorns",
+                CombatContentIds.BriarWisp, "enemy.briar_wisp.name", 146, 1, "pressure.thorns",
                 Intent("intent.briar_wisp.thorn_kiss", "intent.thorn_kiss",
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
                 Intent("intent.briar_wisp.needleflare", "intent.needleflare",
@@ -379,27 +379,27 @@ namespace ThreeInARow.Domain.Combat
                 Intent("intent.briar_wisp.bramble_burst", "intent.bramble_burst",
                     IntentEffectDefinition.Damage(4), IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 3)));
             var ashbackBoar = new EnemyDefinition(
-                CombatContentIds.AshbackBoar, "enemy.ashback_boar.name", 126, 1, "pressure.crack",
+                CombatContentIds.AshbackBoar, "enemy.ashback_boar.name", 164, 1, "pressure.crack",
                 Intent("intent.ashback_boar.cinder_charge", "intent.cinder_charge", IntentEffectDefinition.Damage(10)),
                 Intent("intent.ashback_boar.faultline", "intent.faultline",
                     IntentEffectDefinition.Damage(7), IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)),
                 Intent("intent.ashback_boar.magma_hide", "intent.magma_hide", IntentEffectDefinition.Barrier(12)));
             var cinderNymph = new EnemyDefinition(
-                CombatContentIds.CinderNymph, "enemy.cinder_nymph.name", 118, 1, "pressure.jam",
+                CombatContentIds.CinderNymph, "enemy.cinder_nymph.name", 153, 1, "pressure.jam",
                 Intent("intent.cinder_nymph.ember_veil", "intent.ember_veil", IntentEffectDefinition.Barrier(10)),
                 Intent("intent.cinder_nymph.wildfire", "intent.wildfire",
                     IntentEffectDefinition.Damage(8), IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
                 Intent("intent.cinder_nymph.hexflare", "intent.hexflare",
                     IntentEffectDefinition.Damage(6), IntentEffectDefinition.Jam(1)));
             var thornboundStag = new EnemyDefinition(
-                CombatContentIds.ThornboundStag, "enemy.thornbound_stag.name", 154, 2, "pressure.thorns", true, false,
+                CombatContentIds.ThornboundStag, "enemy.thornbound_stag.name", 200, 2, "pressure.thorns", true, false,
                 Intent("intent.thornbound_stag.antler_sweep", "intent.antler_sweep",
                     IntentEffectDefinition.Damage(12), IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
                 Intent("intent.thornbound_stag.root_snare", "intent.root_snare",
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1)),
                 Intent("intent.thornbound_stag.heartfire", "intent.heartfire", IntentEffectDefinition.Damage(15)));
             var pyreheartTreant = new EnemyDefinition(
-                CombatContentIds.PyreheartTreant, "enemy.pyreheart_treant.name", 188, 2, "pressure.thorns", false, true, 50,
+                CombatContentIds.PyreheartTreant, "enemy.pyreheart_treant.name", 244, 2, "pressure.thorns", false, true, 50,
                 new[]
                 {
                     Intent("intent.pyreheart_treant.bramble_crown", "intent.bramble_crown",
@@ -419,21 +419,21 @@ namespace ThreeInARow.Domain.Combat
                     Intent("intent.pyreheart_treant.phase2.inferno", "intent.inferno", IntentEffectDefinition.Damage(18))
                 });
             var sootcapShaman = new EnemyDefinition(
-                CombatContentIds.SootcapShaman, "enemy.sootcap_shaman.name", 120, 1, "pressure.jam",
+                CombatContentIds.SootcapShaman, "enemy.sootcap_shaman.name", 156, 1, "pressure.jam",
                 Intent("intent.sootcap_shaman.spore_haze", "intent.spore_haze",
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
                 Intent("intent.sootcap_shaman.ash_sip", "intent.ash_sip", IntentEffectDefinition.Drain(2, 1)),
                 Intent("intent.sootcap_shaman.flare_hex", "intent.flare_hex",
                     IntentEffectDefinition.Damage(9), IntentEffectDefinition.Jam(1)));
             var glassvineSerpent = new EnemyDefinition(
-                CombatContentIds.GlassvineSerpent, "enemy.glassvine_serpent.name", 134, 1, "pressure.anchor",
+                CombatContentIds.GlassvineSerpent, "enemy.glassvine_serpent.name", 174, 1, "pressure.anchor",
                 Intent("intent.glassvine_serpent.glass_skin", "intent.glass_skin", IntentEffectDefinition.Barrier(12)),
                 Intent("intent.glassvine_serpent.coiling_roots", "intent.coiling_roots",
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1),
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 1)),
                 Intent("intent.glassvine_serpent.venomous_glare", "intent.venomous_glare", IntentEffectDefinition.Damage(13)));
             var ashenDryad = new EnemyDefinition(
-                CombatContentIds.AshenDryad, "enemy.ashen_dryad.name", 170, 2, "pressure.mixed", true, false,
+                CombatContentIds.AshenDryad, "enemy.ashen_dryad.name", 221, 2, "pressure.mixed", true, false,
                 Intent("intent.ashen_dryad.cinder_bark", "intent.cinder_bark",
                     IntentEffectDefinition.Barrier(18), IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
                 Intent("intent.ashen_dryad.ashfall", "intent.ashfall",
@@ -441,7 +441,7 @@ namespace ThreeInARow.Domain.Combat
                 Intent("intent.ashen_dryad.dryad_wail", "intent.dryad_wail",
                     IntentEffectDefinition.Damage(16), IntentEffectDefinition.Jam(1)));
             var furnaceMatriarch = new EnemyDefinition(
-                CombatContentIds.FurnaceMatriarch, "enemy.furnace_matriarch.name", 205, 2, "pressure.mixed", false, true, 50,
+                CombatContentIds.FurnaceMatriarch, "enemy.furnace_matriarch.name", 267, 2, "pressure.mixed", false, true, 50,
                 new[]
                 {
                     Intent("intent.furnace_matriarch.brood_barrier", "intent.brood_barrier", IntentEffectDefinition.Barrier(22)),
@@ -460,19 +460,19 @@ namespace ThreeInARow.Domain.Combat
 
             // Region 3: the Voidglass Depths attacks active-skill timing and board mobility.
             var nullwingBat = new EnemyDefinition(
-                CombatContentIds.NullwingBat, "enemy.nullwing_bat.name", 142, 1, "pressure.jam",
+                CombatContentIds.NullwingBat, "enemy.nullwing_bat.name", 185, 1, "pressure.jam",
                 Intent("intent.nullwing_bat.null_screech", "intent.null_screech", IntentEffectDefinition.Jam(2)),
                 Intent("intent.nullwing_bat.void_bite", "intent.void_bite", IntentEffectDefinition.Damage(12)),
                 Intent("intent.nullwing_bat.nightglass", "intent.nightglass",
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2), IntentEffectDefinition.Jam(1)));
             var mirrorEel = new EnemyDefinition(
-                CombatContentIds.MirrorEel, "enemy.mirror_eel.name", 150, 1, "pressure.barrier",
+                CombatContentIds.MirrorEel, "enemy.mirror_eel.name", 195, 1, "pressure.barrier",
                 Intent("intent.mirror_eel.reflection", "intent.reflection", IntentEffectDefinition.Barrier(16)),
                 Intent("intent.mirror_eel.prism_lash", "intent.prism_lash", IntentEffectDefinition.Damage(13)),
                 Intent("intent.mirror_eel.siphon_glide", "intent.siphon_glide",
                     IntentEffectDefinition.Damage(7), IntentEffectDefinition.Drain(3, 3)));
             var riftWeaver = new EnemyDefinition(
-                CombatContentIds.RiftWeaver, "enemy.rift_weaver.name", 164, 1, "pressure.mixed",
+                CombatContentIds.RiftWeaver, "enemy.rift_weaver.name", 213, 1, "pressure.mixed",
                 Intent("intent.rift_weaver.rift_tether", "intent.rift_tether",
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1),
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Thorned, 2)),
@@ -481,14 +481,14 @@ namespace ThreeInARow.Domain.Combat
                 Intent("intent.rift_weaver.entropy_thread", "intent.entropy_thread",
                     IntentEffectDefinition.Drain(2, 2), IntentEffectDefinition.Jam(1)));
             var eclipseChimera = new EnemyDefinition(
-                CombatContentIds.EclipseChimera, "enemy.eclipse_chimera.name", 198, 2, "pressure.mixed", true, false,
+                CombatContentIds.EclipseChimera, "enemy.eclipse_chimera.name", 257, 2, "pressure.mixed", true, false,
                 Intent("intent.eclipse_chimera.eclipse_veil", "intent.eclipse_veil", IntentEffectDefinition.Barrier(22)),
                 Intent("intent.eclipse_chimera.umbra_talon", "intent.umbra_talon",
                     IntentEffectDefinition.Damage(14), IntentEffectDefinition.Jam(1)),
                 Intent("intent.eclipse_chimera.gravity_knot", "intent.gravity_knot",
                     IntentEffectDefinition.Damage(8), IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 3, 1)));
             var astralDevourer = new EnemyDefinition(
-                CombatContentIds.AstralDevourer, "enemy.astral_devourer.name", 260, 3, "pressure.mixed", false, true, 50,
+                CombatContentIds.AstralDevourer, "enemy.astral_devourer.name", 338, 3, "pressure.mixed", false, true, 50,
                 new[]
                 {
                     Intent("intent.astral_devourer.singularity_drag", "intent.singularity_drag",
@@ -509,13 +509,13 @@ namespace ThreeInARow.Domain.Combat
                     Intent("intent.astral_devourer.phase2.devour", "intent.devour", IntentEffectDefinition.Damage(22))
                 });
             var shardLeech = new EnemyDefinition(
-                CombatContentIds.ShardLeech, "enemy.shard_leech.name", 152, 1, "pressure.drain",
+                CombatContentIds.ShardLeech, "enemy.shard_leech.name", 198, 1, "pressure.drain",
                 Intent("intent.shard_leech.essence_siphon", "intent.essence_siphon", IntentEffectDefinition.Drain(3, 3)),
                 Intent("intent.shard_leech.shard_bite", "intent.shard_bite",
                     IntentEffectDefinition.Damage(10), IntentEffectDefinition.ApplyStatus(BoardContentIds.Cracked, 2)),
                 Intent("intent.shard_leech.crystal_gorge", "intent.crystal_gorge", IntentEffectDefinition.Barrier(14)));
             var orbitSentinel = new EnemyDefinition(
-                CombatContentIds.OrbitSentinel, "enemy.orbit_sentinel.name", 172, 1, "pressure.anchor",
+                CombatContentIds.OrbitSentinel, "enemy.orbit_sentinel.name", 224, 1, "pressure.anchor",
                 Intent("intent.orbit_sentinel.gravity_ring", "intent.gravity_ring",
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Anchored, 2, 1),
                     IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 1)),
@@ -523,14 +523,14 @@ namespace ThreeInARow.Domain.Combat
                 Intent("intent.orbit_sentinel.comet_lance", "intent.comet_lance",
                     IntentEffectDefinition.Damage(15), IntentEffectDefinition.Jam(1)));
             var parallaxKnight = new EnemyDefinition(
-                CombatContentIds.ParallaxKnight, "enemy.parallax_knight.name", 212, 2, "pressure.mixed", true, false,
+                CombatContentIds.ParallaxKnight, "enemy.parallax_knight.name", 276, 2, "pressure.mixed", true, false,
                 Intent("intent.parallax_knight.mirror_guard", "intent.mirror_guard", IntentEffectDefinition.Barrier(24)),
                 Intent("intent.parallax_knight.split_horizon", "intent.split_horizon",
                     IntentEffectDefinition.Damage(14), IntentEffectDefinition.ApplyStatus(BoardContentIds.Frozen, 2)),
                 Intent("intent.parallax_knight.parallax_cut", "intent.parallax_cut",
                     IntentEffectDefinition.Damage(17), IntentEffectDefinition.Jam(2)));
             var singularitySeraph = new EnemyDefinition(
-                CombatContentIds.SingularitySeraph, "enemy.singularity_seraph.name", 275, 3, "pressure.mixed", false, true, 50,
+                CombatContentIds.SingularitySeraph, "enemy.singularity_seraph.name", 358, 3, "pressure.mixed", false, true, 50,
                 new[]
                 {
                     Intent("intent.singularity_seraph.halo_lock", "intent.halo_lock",

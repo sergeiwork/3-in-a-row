@@ -18,7 +18,7 @@ namespace ThreeInARow.Domain.Harness
             {
                 Seed = seed,
                 EncounterIndex = 0,
-                Enemy = new EnemyState { DefinitionId = "enemy.geode_mite", Health = 52, IntentIndex = 0 },
+                Enemy = new EnemyState { DefinitionId = "enemy.geode_mite", Health = 68, IntentIndex = 0 },
                 RandomStreams = RandomStreams.Create(seed)
             };
             state.SelectedSkillIds.Add("skill.sunder");
@@ -32,9 +32,9 @@ namespace ThreeInARow.Domain.Harness
             events.Add(SimulationEventType.SwapAccepted, "system.foundation", "scripted swap accepted", cell: new GridCell(3, 3));
             events.Add(SimulationEventType.GemsMatched, "gem.ember", "scripted three-match", 3);
             events.Add(SimulationEventType.GemCleared, "gem.ember", "scripted clear", 1, new GridCell(scriptedRoll % 7, scriptedRoll / 7));
-            state.Enemy.Health -= 4;
+            state.Enemy.Health -= 3;
             state.ResolvedTurnCount = 1;
-            events.Add(SimulationEventType.DamageApplied, "gem.ember", "enemy direct damage", 4);
+            events.Add(SimulationEventType.DamageApplied, "gem.ember", "enemy direct damage", 3);
 
             return new FoundationScenarioResult(state, events, DeterministicStateHasher.Hash(state, events));
         }

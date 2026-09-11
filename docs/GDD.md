@@ -110,17 +110,17 @@ A valid player swap causes exactly one complete board-resolution phase and, unle
 
 | Gem | Base clear effect | Match 4 result | Match 5 / special interaction |
 | --- | --- | --- | --- |
-| **Ember** (red) | Deal **4 direct damage** per cleared gem | Create **Spark**; clearing it deals 16 direct damage | A 5-match creates Prism; Ember gems cleared by Prism still deal Ember damage |
-| **Tide** (blue) | Gain 1 **Focus** per cleared gem; every 3 Focus deals 6 damage and spends 3 Focus | Create **Current**; clearing it grants 5 Focus | Prism may overcap Focus; at turn end, retained excess Focus becomes 1:1 Shield |
-| **Venom** (green) | Apply 1 **Toxic** per cleared gem; at 5 Toxic, consume 5, deal 12 damage, apply 1 Poison | Create **Spore**; clearing it adds 5 Toxic | Prism applies Toxic for each green gem cleared |
-| **Volt** (yellow) | Deal 2 damage; each three cleared Volt reduces one equipped active cooldown by 1 | Create **Charge**; clearing it deals 8 damage and reduces both active cooldowns by 1 | Prism counts every cleared Volt toward cooldown progress |
+| **Ember** (red) | Deal **3 direct damage** per cleared gem | Create **Spark**; clearing it deals 12 direct damage | A 5-match creates Prism; Ember gems cleared by Prism still deal Ember damage |
+| **Tide** (blue) | Gain 1 **Focus** per cleared gem; every 3 Focus deals 9 damage and spends 3 Focus | Create **Current**; clearing it grants 5 Focus | Prism may overcap Focus; at turn end, retained excess Focus becomes 1:1 Shield |
+| **Venom** (green) | Apply 1 **Toxic** per cleared gem; at 5 Toxic, consume 5, deal 13 damage, apply 1 Poison | Create **Spore**; clearing it adds 5 Toxic | Prism applies Toxic for each green gem cleared |
+| **Volt** (yellow) | Deal 3 damage; each three cleared Volt reduces one equipped active cooldown by 1 | Create **Charge**; clearing it deals 10 damage and reduces both active cooldowns by 1 | Prism counts every cleared Volt toward cooldown progress |
 | **Prism** (special) | Created only by 5+ match; swap with a normal gem to clear every gem of that color and resolve their normal effects | N/A; Prisms do not form line matches with one another | Prism + special triggers both special effects, then clears Prism |
 
 ### Pattern specials
 
 | Special | Creation | Clear behavior | Purpose |
 | --- | --- | --- | --- |
-| Spark | Match 4 Ember in a line | 16 direct damage | Teaches delayed burst from a large match |
+| Spark | Match 4 Ember in a line | 12 direct damage | Teaches delayed burst from a large match |
 | Current / Spore / Charge | Match 4 of respective gem color | Use intensified gem-specific effect; no separate targeting pattern in MVP | Preserves gem identity without increasing board-rule complexity |
 | Prism | Match 5 or T/L intersection | Board-wide color clear | High-clarity “big turn” payoff |
 
@@ -136,7 +136,9 @@ For a player-created special, the destination cell is preferred, then the source
 
 ### Balance seed
 
-Initial numbers should result in a normal enemy defeat in **5–7 valid turns** without a high-value special and **3–5 turns** with sensible combo use. Treat this as a playtest target, not a launch value.
+The four normal gems target roughly 3 damage per clear before branch upgrades: Ember and Volt deal it immediately, Tide converts three clears into 9 damage, and Venom trades a smaller 13-damage conversion for delayed Poison. This keeps incidental cascades neutral in the dominant-damage race while preserving each branch's timing and utility identity.
+
+Initial numbers should result in a normal enemy defeat in **6–9 valid turns** without a high-value special and **5–7 turns** with sensible combo use. Treat this as a playtest target, not a launch value.
 
 ---
 
@@ -147,8 +149,8 @@ Initial numbers should result in a normal enemy defeat in **5–7 valid turns** 
 | State | Initial rule |
 | --- | --- |
 | Player HP | Start at 40. No full healing between fights; victory restores 4 HP, up to max. |
-| Focus | 0–9. Every three Focus deals 6 damage; leftover Focus remains during the player turn. |
-| Toxic | 0–9. At five, deal 12 and apply one Poison; Concentrate changes the threshold to four. Can trigger multiple times during a cascade. |
+| Focus | 0–9. Every three Focus deals 9 damage; leftover Focus remains during the player turn. |
+| Toxic | 0–9. At five, deal 13 and apply one Poison; Concentrate changes the threshold to four. Can trigger multiple times during a cascade. |
 | Poison | Stored on the enemy. At the start of each enemy response, deal 3 per stack then reduce stacks by 1. Cap at 3 stacks. |
 | Shield | Absorbs damage before HP; expires at start of the player's next valid swap. |
 | Enemy intent | Always visible before player input. Intent may be attack-only, status-only, or both. |
@@ -182,15 +184,15 @@ Intent effects execute in definition order. The current intent advances only aft
 
 | Encounter | Enemy / HP | Intent cycle | Teaching goal |
 | --- | --- | --- | --- |
-| 1 | Geode Mite — 52 HP | Chip 5 → Crack: 3 Cracked gems → Chip 6 | Baseline damage and board disruption |
-| 2 | Frost Oracle — 66 HP | Chill: freeze 2 → Needle 7 → Chill: freeze 3 | Frozen gems can still be cleared; learn to read intent |
-| 3 | Geode Mite Elite — 84 HP | Crush 8 + 2 Cracked → Chip 7 → Crack: 4 Cracked | Damage race and status cleanup |
-| 4 | Prism Stalker — 92 HP | Bolt 8 → Drain: -3 Focus/-3 Toxic (min. 0) → Bolt 10 | Direct damage remains useful when resources are disrupted |
-| 5 | Crystal Warden — 128 HP | Seal: 2 Anchored → Shardstorm 10 → Freeze 2 + Anchor 2 → Shardstorm 12 | Boss combines disruption with telegraphed pressure |
+| 1 | Geode Mite — 68 HP | Chip 5 → Crack: 3 Cracked gems → Chip 6 | Baseline damage and board disruption |
+| 2 | Frost Oracle — 86 HP | Chill: freeze 2 → Needle 7 → Chill: freeze 3 | Frozen gems can still be cleared; learn to read intent |
+| 3 | Geode Mite Elite — 109 HP | Crush 8 + 2 Cracked → Chip 7 → Crack: 4 Cracked | Damage race and status cleanup |
+| 4 | Prism Stalker — 120 HP | Bolt 8 → Drain: -3 Focus/-3 Toxic (min. 0) → Bolt 10 | Direct damage remains useful when resources are disrupted |
+| 5 | Crystal Warden — 166 HP | Seal: 2 Anchored → Shardstorm 10 → Freeze 2 + Anchor 2 → Shardstorm 12 | Boss combines disruption with telegraphed pressure |
 
 R1 replaces fixed non-boss advancement with persisted depth pools selected through `EncounterSelection`: depth 1 uses Geode Mite/Crystal Tick; depth 2 uses Frost Oracle/Crystal Tick/Rime Moth; depth 3 uses Geode Mite Elite/Rime Moth/Anchor Crab; depth 4 uses Prism Stalker/Anchor Crab/Hollow Idol. Selection avoids duplicate enemies while possible and caps one dominant pressure family at two planned normal encounters while alternatives remain.
 
-R2 adds Fracture Golem (112 HP) and Stormglass Roc (108 HP) as elite definitions, plus Facet Engine (132 HP) as the alternate Region 1 boss.
+R2 adds Fracture Golem (146 HP) and Stormglass Roc (140 HP) as elite definitions, plus Facet Engine (172 HP) as the alternate Region 1 boss.
 
 After either Region 1 boss falls, the run continues into **Cinderbloom Wilds**. Its roster adds Briar Wisp, Ashback Boar, Cinder Nymph, Sootcap Shaman, Glassvine Serpent, Thornbound Stag and Ashen Dryad elites, plus Pyreheart Treant and Furnace Matriarch bosses.
 
@@ -206,7 +208,7 @@ Event choices show exact outcomes and resolve through generic effect definitions
 
 ### Tuning method
 
-Tune health from recorded median turns-to-kill with a no-upgrade baseline, then recheck every build path. Do not tune only from theoretical gem averages; cascades and Prism availability widen the real result distribution.
+Tune health from recorded median turns-to-kill with a no-upgrade baseline, then recheck every build path. The current roster uses health values 30% above the original vertical-slice baseline to give intents, resources, and active-skill cooldowns time to matter. Do not tune only from theoretical gem averages; cascades and Prism availability widen the real result distribution.
 
 ---
 

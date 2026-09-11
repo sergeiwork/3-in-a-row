@@ -56,4 +56,13 @@ namespace ThreeInARow.Domain.Commands
     {
         public ContentId VowId;
     }
+
+    [Serializable]
+    public sealed class AdvanceDecisionTimeCommand : ISimulationCommand
+    {
+        public int ElapsedMilliseconds;
+    }
+
+    [Serializable]
+    public sealed class ActivateSurgeCommand : ISimulationCommand { }
 }

@@ -536,6 +536,7 @@ namespace ThreeInARow.Presentation
 
         private void PlayBatch(EventBatch events, Action finished)
         {
+            CapturePulseEventOrder(events);
             if (_root == null)
             {
                 finished?.Invoke();
@@ -596,6 +597,13 @@ namespace ThreeInARow.Presentation
                 SetMessage("Босс переходит во вторую фазу!", Danger);
             else if (item.Type == SimulationEventType.StatusTicked)
                 SetMessage("Отравление срабатывает: " + item.Amount + " зар.", Success);
+            else if (item.Type == SimulationEventType.EnemyPulseQueued)
+                SetMessage("Намерение готово и поставлено в очередь.", Danger);
+            else if (item.Type == SimulationEventType.EnemyPulseStarted)
+                SetMessage("Импульс врага!", Danger);
+            else if (item.Type == SimulationEventType.SurgeChanged &&
+                     item.Detail.IndexOf("reason=activated", StringComparison.Ordinal) >= 0)
+                SetMessage("Натиск активирован: таймер врага заморожен.", Cyan);
 
             var feedbackKey = item.Type == SimulationEventType.GemCleared ? "feedback.clear"
                 : item.Type == SimulationEventType.SpecialCreated || item.Type == SimulationEventType.SpecialActivated

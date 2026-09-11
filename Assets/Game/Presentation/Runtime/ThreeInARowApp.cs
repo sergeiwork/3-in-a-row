@@ -23,6 +23,7 @@ namespace ThreeInARow.Presentation
         private const string ReducedMotionKey = "three_in_a_row.reduced_motion";
         private const string SoundEnabledKey = "three_in_a_row.sound_enabled";
         private const string MusicEnabledKey = "three_in_a_row.music_enabled";
+        private const string PulseNumericTimerKey = "three_in_a_row.pulse_numeric_timer";
         private const int SfxVoiceCount = 8;
         private static readonly Color Background = Hex("#061116");
         private static readonly Color Panel = Hex("#10272F");
@@ -68,6 +69,7 @@ namespace ThreeInARow.Presentation
         private bool _reducedMotion;
         private bool _soundEnabled;
         private bool _musicEnabled;
+        private bool _pulseNumericTimer;
         private ContentId? _targetingSkill;
         private readonly List<GridCell> _skillTargets = new List<GridCell>();
         private ContentId _skillOption = "content.none";
@@ -84,6 +86,7 @@ namespace ThreeInARow.Presentation
             _reducedMotion = PlayerPrefs.GetInt(ReducedMotionKey, 0) != 0;
             _soundEnabled = PlayerPrefs.GetInt(SoundEnabledKey, 1) != 0;
             _musicEnabled = PlayerPrefs.GetInt(MusicEnabledKey, 1) != 0;
+            _pulseNumericTimer = PlayerPrefs.GetInt(PulseNumericTimerKey, 1) != 0;
             _catalog = Resources.Load<PresentationCatalog>("E0PresentationCatalog");
             _director = new RunDirector(new JsonCheckpointStore(), new JsonProfileStore());
             if (FindAnyObjectByType<AudioListener>() == null)
@@ -340,6 +343,9 @@ namespace ThreeInARow.Presentation
             scroll.Add(Paragraph("1. До перестановки можно применить готовый активный навык.\n2. Поменяйте местами два соседних подвижных кристалла так, чтобы собрать ряд из трёх или больше. Неверная перестановка не расходует ход.\n3. Все совпадения и каскады срабатывают автоматически.\n4. Если враг выжил, он выполняет действие из панели «Далее»."));
             scroll.Add(Paragraph("Совпадение из четырёх создаёт особый кристалл того же цвета. Совпадение из пяти создаёт Призму. Нажмите на значок состояния прямо на поле, чтобы прочитать его правило."));
 
+            scroll.Add(SectionHeading("РЕЖИМ «ПУЛЬС»"));
+            scroll.Add(Paragraph("В «Пульсе» враг действует, когда заполняется видимый таймер. Время идёт только на стабильном поле: анимации, прицеливание навыка, справка, пауза и свёрнутое приложение его останавливают. Быстрые успешные перестановки повышают Поток до 3. Убранные кристаллы и особые эффекты заряжают Натиск; полный Натиск замораживает таймер на 4 секунды активного времени."));
+
             scroll.Add(SectionHeading("МАРШРУТ И СВЯТИЛИЩЕ"));
             scroll.Add(Paragraph("В начале региона можно выбрать один необязательный обет пути. За провал нет штрафа, а выполненный обет добавляет четвёртый вариант в следующем выборе эволюции. После первых двух боссов Святилище позволяет осмотреть сборку, сменить активные навыки, продолжить или сохраниться и выйти."));
 
@@ -379,8 +385,9 @@ namespace ThreeInARow.Presentation
 
         private void StartRun()
         {
-            ShowModal("ВЫБЕРИТЕ РЕЖИМ", "Каждый уровень сложности добавляет правило к предыдущим.", modal =>
+            ShowModal("ВЫБЕРИТЕ РЕЖИМ", "Стандартный забег играется по ходам. В режиме «Пульс» враги действуют по видимому таймеру.", modal =>
             {
+                modal.Add(ActionButton("ПУЛЬС · КОРОТКИЙ ЗАБЕГ", ShowPulseRunOptions, true));
                 for (var tier = 0; tier <= _director.Profile.BestDifficultyUnlocked; tier++)
                 {
                     var captured = tier;
@@ -821,7 +828,11 @@ namespace ThreeInARow.Presentation
 
         private void ResumeRun()
         {
-            if (_director.Resume()) BuildForCurrentScreen();
+            if (_director.Resume())
+            {
+                BeginPulseResumeCountdown();
+                BuildForCurrentScreen();
+            }
             else
             {
                 BuildTitle();
@@ -1203,12 +1214,13 @@ namespace ThreeInARow.Presentation
             var enemyName = Title(PresentationText.Name(enemy.Id), 29, TextColor);
             enemyName.style.unityTextAlign = TextAnchor.MiddleLeft;
             enemyInfo.Add(enemyName);
-            var enemyHealthBar = Bar("ЗДОРОВЬЕ " + state.Enemy.Health + " / " + enemy.MaxHealth,
-                enemy.MaxHealth <= 0 ? 0 : (float)state.Enemy.Health / enemy.MaxHealth, Danger);
+            var enemyMaximumHealth = state.Enemy.MaximumHealth > 0 ? state.Enemy.MaximumHealth : enemy.MaxHealth;
+            var enemyHealthBar = Bar("ЗДОРОВЬЕ " + state.Enemy.Health + " / " + enemyMaximumHealth,
+                enemyMaximumHealth <= 0 ? 0 : (float)state.Enemy.Health / enemyMaximumHealth, Danger);
             _enemyHealthFill = enemyHealthBar.Q<VisualElement>("bar-fill");
             _enemyHealthLabel = enemyHealthBar.Q<Label>("bar-label");
             _presentedEnemyHealth = state.Enemy.Health;
-            _presentedEnemyMaxHealth = enemy.MaxHealth;
+            _presentedEnemyMaxHealth = enemyMaximumHealth;
             enemyInfo.Add(enemyHealthBar);
             if (state.Enemy.Barrier > 0)
                 enemyInfo.Add(InlineIconLabel("ui.shield", "Барьер врага: " + state.Enemy.Barrier,
@@ -1256,13 +1268,17 @@ namespace ThreeInARow.Presentation
             intentPanel.Add(intentText);
             encounterContent.Add(intentPanel);
 
+            if (PulseSimulation.IsPulse(state)) BuildPulseHud(encounterContent, state);
+
             BuildBoard(state.Board);
             BuildResources(state);
             BuildSkills(state);
 
             _message = LabelText(_director.Screen == RunScreen.SkillWindow
-                ? "Враг готовит ответ..."
-                : "Нажмите на соседние кристаллы или проведите пальцем, чтобы собрать ряд.", 18, Muted, TextAnchor.MiddleCenter);
+                ? (PulseSimulation.IsPulse(state) ? "Намерение поставлено в очередь..." : "Враг готовит ответ...")
+                : PulseSimulation.IsPulse(state)
+                    ? "Собирайте ряды до следующего импульса врага. Во время анимаций время остановлено."
+                    : "Нажмите на соседние кристаллы или проведите пальцем, чтобы собрать ряд.", 18, Muted, TextAnchor.MiddleCenter);
             _message.style.minHeight = 30;
             _message.style.marginTop = 4;
             _message.style.whiteSpace = WhiteSpace.Normal;
@@ -1297,6 +1313,14 @@ namespace ThreeInARow.Presentation
                     PlayerPrefs.Save();
                     BuildForCurrentScreen();
                 }, false));
+                if (PulseSimulation.IsPulse(_director.State))
+                    modal.Add(ActionButton(_pulseNumericTimer ? "ЦИФРЫ ТАЙМЕРА: ВКЛ." : "ЦИФРЫ ТАЙМЕРА: ВЫКЛ.", () =>
+                    {
+                        _pulseNumericTimer = !_pulseNumericTimer;
+                        PlayerPrefs.SetInt(PulseNumericTimerKey, _pulseNumericTimer ? 1 : 0);
+                        PlayerPrefs.Save();
+                        BuildForCurrentScreen();
+                    }, false));
                 modal.Add(ActionButton("КАК ИГРАТЬ", () => BuildHelp(BuildForCurrentScreen), false));
                 modal.Add(Paragraph("Автор значков — Lorc. Опубликованы на game-icons.net по лицензии CC BY 3.0."));
                 modal.Add(ActionButton("GAME-ICONS.NET", () => UnityEngine.Application.OpenURL("https://game-icons.net/"), false));
@@ -1657,6 +1681,7 @@ namespace ThreeInARow.Presentation
         private void SkillPressed(SkillDefinition definition)
         {
             if (_inputLocked) return;
+            if (!FlushPulseClockBeforeInput()) return;
             if (_targetingSkill.HasValue)
             {
                 var cancel = _targetingSkill.Value.Equals(definition.Id);
@@ -2028,6 +2053,7 @@ namespace ThreeInARow.Presentation
         private void ContinueFromSanctum()
         {
             if (_inputLocked) return;
+            if (!FlushPulseClockBeforeInput()) return;
             _inputLocked = true;
             var result = _director.ContinueFromSanctum();
             if (!result.Accepted)
@@ -2125,6 +2151,14 @@ namespace ThreeInARow.Presentation
             summary.Add(StatLine("Самая длинная цепочка", statistics.BiggestCascade.ToString()));
             summary.Add(StatLine("Общий урон", statistics.TotalDamage.ToString()));
             summary.Add(StatLine("Завершено ходов", _director.State.ResolvedTurnCount.ToString()));
+            if (PulseSimulation.IsPulse(_director.State))
+            {
+                summary.Add(StatLine("Перестановок", _director.State.Pulse.AcceptedSwapCount.ToString()));
+                summary.Add(StatLine("Импульсов врагов", _director.State.Pulse.EnemyPulseCount.ToString()));
+                summary.Add(StatLine("Активаций Натиска", statistics.PulseSurgeActivations.ToString()));
+                summary.Add(StatLine("Активное время", FormatPulseTime(_director.State.Pulse.ActiveDecisionMilliseconds)));
+                summary.Add(StatLine("Рекорд Потока", statistics.PulseHighestFlow.ToString()));
+            }
             summary.Add(StatLine("Посещено узлов", statistics.RouteNodeIds == null ? "0" : statistics.RouteNodeIds.Count.ToString()));
             summary.Add(StatLine("Исполнено обетов", statistics.CompletedRouteVows.ToString()));
             summary.Add(StatLine("Сложность", _director.State.DifficultyTier.ToString()));
@@ -2253,6 +2287,8 @@ namespace ThreeInARow.Presentation
             var sequence = clearEvents[0].Sequence;
             var variant = Mathf.Min(Mathf.Max(cascadeStep, 1), 5);
             var pitch = 1f + 0.055f * Mathf.Min(cascadeStep - 1, 5);
+            if (PulseSimulation.IsPulse(_director == null ? null : _director.State))
+                pitch += 0.04f * _director.State.Pulse.Flow;
             PlayOneShot("feedback.clear.crystal." + variant, 0.82f, pitch);
 
             var gemId = DominantClearedGem(clearEvents);

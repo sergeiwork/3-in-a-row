@@ -44,7 +44,12 @@ namespace ThreeInARow.Domain.Events
         RegionAdvanced,
         RouteVowPinned,
         RouteVowCompleted,
-        StoryFlagAdded
+        StoryFlagAdded,
+        DecisionClockChanged,
+        EnemyPulseQueued,
+        EnemyPulseStarted,
+        FlowChanged,
+        SurgeChanged
     }
 
     [Serializable]

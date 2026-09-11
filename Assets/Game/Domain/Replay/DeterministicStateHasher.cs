@@ -23,14 +23,26 @@ namespace ThreeInARow.Domain.Replay
                 .Append("unlock:").Append(state.UnlockPolicyId).Append('|')
                 .Append("challenge:").Append(state.IsChallengeRun).Append(':').Append(state.ChallengeId).Append(':')
                 .Append(state.ChallengeContentVersion).Append('|')
+                .Append("ruleset:").Append(state.RunRulesetId).Append('|')
                 .Append(state.Player.Health).Append('|').Append(state.Player.Shield).Append('|').Append(state.Player.Focus).Append('|')
                 .Append(state.Player.Toxic).Append('|')
                 .Append(state.Player.VoltClearProgress).Append('|').Append(state.Player.FocusConversionsThisEncounter).Append('|')
                 .Append(state.Player.EmpoweredEmberClearDamage).Append('|')
-                .Append(state.Enemy.DefinitionId).Append('|').Append(state.Enemy.Health).Append('|')
+                .Append(state.Enemy.DefinitionId).Append('|').Append(state.Enemy.MaximumHealth).Append('|')
+                .Append(state.Enemy.Health).Append('|')
                 .Append(state.Enemy.IntentIndex).Append('|').Append(state.Enemy.PoisonStacks).Append('|')
                 .Append(state.Enemy.Barrier).Append('|').Append(state.Enemy.Phase).Append('|')
                 .Append(state.Enemy.TelegraphedTargetId).Append('|');
+
+            if (state.Pulse != null)
+                text.Append("pulse:").Append(state.Pulse.ClockPresetId).Append(':').Append(state.Pulse.TrialId).Append(':')
+                    .Append(state.Pulse.AcceptedSwapCount).Append(':').Append(state.Pulse.EnemyPulseCount).Append(':')
+                    .Append(state.Pulse.PulseDurationMilliseconds).Append(':').Append(state.Pulse.PulseRemainingMilliseconds).Append(':')
+                    .Append(state.Pulse.EnemyPulsePending).Append(':').Append(state.Pulse.Flow).Append(':')
+                    .Append(state.Pulse.SurgeCharge).Append(':').Append(state.Pulse.SurgeRemainingMilliseconds).Append(':')
+                    .Append(state.Pulse.ActiveDecisionMilliseconds).Append(':').Append(state.Pulse.SwapsSincePulse).Append(':')
+                    .Append(state.Pulse.OnboardingPulsesRemaining).Append(':').Append(state.Pulse.FirstSparkConsumed).Append(':')
+                    .Append(state.Pulse.BossDraftRegion).Append(':').Append(state.Pulse.PendingBossNodeId).Append('|');
 
             if (state.Sanctum != null)
                 text.Append("sanctum:").Append(state.Sanctum.Active).Append(':')

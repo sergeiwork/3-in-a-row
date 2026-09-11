@@ -97,12 +97,16 @@ namespace ThreeInARow.Domain.Combat
             if (state.PendingCombatTurn.AwaitingEnemyResponse)
                 throw new InvalidOperationException("Complete the pending combat turn before starting an encounter.");
             var encounter = catalog.GetEncounter(encounterId);
+            var maximumHealth = encounter.Enemy.MaxHealth;
+            if (PulseSimulation.IsPulse(state))
+                maximumHealth = maximumHealth * (encounter.Enemy.IsBoss || encounter.Enemy.IsElite ? 135 : 125) / 100;
             state.EncounterIndex = tuningDepth;
             state.CurrentEncounterId = encounter.Id;
             state.Enemy = new EnemyState
             {
                 DefinitionId = encounter.Enemy.Id,
-                Health = encounter.Enemy.MaxHealth,
+                MaximumHealth = maximumHealth,
+                Health = maximumHealth,
                 IntentIndex = 0,
                 PoisonStacks = 0,
                 Barrier = 0,
@@ -185,31 +189,27 @@ namespace ThreeInARow.Domain.Combat
                 throw new InvalidOperationException("An accepted board swap must emit SwapAccepted.");
             events.Add(boardResult.Events.Events[0]);
 
-            // Shield lasts through the enemy response that created it and expires on this next accepted swap.
-            if (state.Player.Shield > 0)
-            {
-                var expiredShield = state.Player.Shield;
-                var hardLightCap = ProgressionRules.GetModifier(state, PassiveModifierType.ShieldExpiryDamage);
-                if (hardLightCap > 0)
-                    DamageEnemy(state, ProgressionContentIds.HardLight,
-                        Math.Min(hardLightCap, expiredShield / 2), "shield_expiry", events);
-                state.Player.Shield = 0;
-                events.Add(
-                    SimulationEventType.ResourceChanged,
-                    CombatContentIds.SystemCombat,
-                    "resource=shield;reason=next_valid_swap;current=0",
-                    -expiredShield);
-            }
+            // Standard shield expires on the next swap. Pulse shield instead lasts through the next enemy pulse.
+            if (!PulseSimulation.IsPulse(state)) ExpireShield(state, events, "next_valid_swap");
 
             ResolvePlayerEffects(state, boardResult.Events, events, 1);
-            ExpireTimedBoardStatuses(state.Board, events);
+            if (!PulseSimulation.IsPulse(state)) ExpireTimedBoardStatuses(state.Board, events);
             ConvertFocusOverflowToShield(state, events);
+
+            if (PulseSimulation.IsPulse(state))
+                PulseSimulation.RecordAcceptedSwap(state, events, events);
 
             if (state.Enemy.Health <= 0)
             {
                 ResolveVictory(state, combatCatalog, events);
-                FinishAcceptedTurn(state, events);
+                FinishAcceptedTurn(state, events, !PulseSimulation.IsPulse(state));
                 return EncounterTurnResult.Accept(events, boardResult.CascadeCount, true, false);
+            }
+
+            if (PulseSimulation.IsPulse(state))
+            {
+                FinishAcceptedTurn(state, events, false);
+                return EncounterTurnResult.Accept(events, boardResult.CascadeCount, false, false);
             }
 
             state.PendingCombatTurn.AwaitingEnemyResponse = true;
@@ -231,8 +231,33 @@ namespace ThreeInARow.Domain.Combat
             var events = new EventBatch();
             var won = ResolveEnemyResponse(state, combatCatalog, boardCatalog, events);
             var lost = state.Player.Health <= 0;
-            FinishAcceptedTurn(state, events);
+            FinishAcceptedTurn(state, events, true);
             return EncounterTurnResult.Accept(events, cascadeCount, won, lost);
+        }
+
+        public static EncounterTurnResult CompletePulse(
+            RunState state,
+            IBoardContentCatalog boardCatalog = null,
+            ICombatContentCatalog combatCatalog = null)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (!PulseSimulation.IsPulse(state) || state.Pulse == null || !state.Pulse.EnemyPulsePending)
+                throw new InvalidOperationException("There is no pending enemy pulse to complete.");
+            combatCatalog = combatCatalog ?? MvpCombatContentCatalog.Instance;
+            var events = new EventBatch();
+            events.Add(SimulationEventType.EnemyPulseStarted, PulseContentIds.SystemPulse,
+                "pulse=" + (state.Pulse.EnemyPulseCount + 1), state.Pulse.EnemyPulseCount + 1);
+            var won = ResolveEnemyResponse(state, combatCatalog, boardCatalog, events);
+            var lost = state.Player.Health <= 0;
+            ExpireTimedBoardStatuses(state.Board, events);
+            ExpireShield(state, events, "enemy_pulse_complete");
+            if (!won && state.Enemy.Health <= 0)
+            {
+                ResolveVictory(state, combatCatalog, events);
+                won = true;
+            }
+            PulseSimulation.CompletePulse(state, events, combatCatalog);
+            return EncounterTurnResult.Accept(events, 0, won, lost);
         }
 
         private static void ResolvePlayerEffects(
@@ -314,9 +339,12 @@ namespace ThreeInARow.Domain.Combat
         {
             if (specialId.Equals(BoardContentIds.Spark))
             {
-                var firstSparkBonus = CountEvents(output, SimulationEventType.SpecialActivated, BoardContentIds.Spark) <= 1
-                    ? ProgressionRules.GetModifier(state, PassiveModifierType.SparkFirstDamage)
-                    : 0;
+                var isFirstSpark = PulseSimulation.IsPulse(state)
+                    ? !state.Pulse.FirstSparkConsumed
+                    : CountEvents(output, SimulationEventType.SpecialActivated, BoardContentIds.Spark) <= 1;
+                var firstSparkBonus = isFirstSpark
+                    ? ProgressionRules.GetModifier(state, PassiveModifierType.SparkFirstDamage) : 0;
+                if (PulseSimulation.IsPulse(state)) state.Pulse.FirstSparkConsumed = true;
                 DamageEnemy(state, specialId, 12 + firstSparkBonus, "special", output);
                 var shield = ProgressionRules.GetModifier(state, PassiveModifierType.SparkShield);
                 if (shield > 0)
@@ -655,7 +683,20 @@ namespace ThreeInARow.Domain.Combat
             EventBatch events)
         {
             ResolveVictory(state, catalog, events);
-            FinishAcceptedTurn(state, events);
+            FinishAcceptedTurn(state, events, !PulseSimulation.IsPulse(state));
+        }
+
+        private static void ExpireShield(RunState state, EventBatch events, string reason)
+        {
+            if (state.Player.Shield <= 0) return;
+            var expiredShield = state.Player.Shield;
+            var hardLightCap = ProgressionRules.GetModifier(state, PassiveModifierType.ShieldExpiryDamage);
+            if (hardLightCap > 0)
+                DamageEnemy(state, ProgressionContentIds.HardLight,
+                    Math.Min(hardLightCap, expiredShield / 2), "shield_expiry", events);
+            state.Player.Shield = 0;
+            events.Add(SimulationEventType.ResourceChanged, CombatContentIds.SystemCombat,
+                "resource=shield;reason=" + reason + ";current=0", -expiredShield);
         }
 
         private static void ResolveVictory(RunState state, ICombatContentCatalog catalog, EventBatch events)
@@ -663,9 +704,12 @@ namespace ThreeInARow.Domain.Combat
             var enemy = catalog.GetEnemy(state.Enemy.DefinitionId);
             state.Enemy.Health = 0;
             events.Add(SimulationEventType.EnemyDefeated, enemy.Id, "victory", 1);
-            ProgressionSimulation.GrantExperience(state, enemy.RewardXp, enemy.Id, events);
-            if (enemy.IsElite)
-                ProgressionSimulation.QueueEliteReward(state, enemy.Id, events);
+            if (!PulseSimulation.IsPulse(state))
+            {
+                ProgressionSimulation.GrantExperience(state, enemy.RewardXp, enemy.Id, events);
+                if (enemy.IsElite)
+                    ProgressionSimulation.QueueEliteReward(state, enemy.Id, events);
+            }
             var victoryHeal = MasteryRules.For(state).BaseVictoryHealing +
                 ProgressionRules.GetModifier(state, PassiveModifierType.VictoryHeal);
             var restored = Math.Min(victoryHeal, PlayerState.MaxHealth - state.Player.Health);
@@ -805,13 +849,13 @@ namespace ThreeInARow.Domain.Combat
             }
         }
 
-        private static void FinishAcceptedTurn(RunState state, EventBatch events)
+        private static void FinishAcceptedTurn(RunState state, EventBatch events, bool countStandardTurn)
         {
             var usedSkills = state.PendingCombatTurn == null
                 ? null
                 : state.PendingCombatTurn.SkillIdsUsed;
             TickSkillCooldowns(state.Player, usedSkills, events);
-            state.ResolvedTurnCount++;
+            if (countStandardTurn) state.ResolvedTurnCount++;
             if (state.PendingCombatTurn == null)
                 state.PendingCombatTurn = new PendingCombatTurnState();
             state.PendingCombatTurn.AwaitingEnemyResponse = false;
@@ -836,7 +880,8 @@ namespace ThreeInARow.Domain.Combat
             try { enemy = MvpCombatContentCatalog.Instance.GetEnemy(state.Enemy.DefinitionId); }
             catch (KeyNotFoundException) { return; }
             if (!enemy.IsBoss || enemy.SecondPhaseIntentCycle == null || enemy.SecondPhaseIntentCycle.Count == 0) return;
-            var threshold = enemy.MaxHealth * enemy.SecondPhaseHealthPercent / 100;
+            var maximumHealth = state.Enemy.MaximumHealth > 0 ? state.Enemy.MaximumHealth : enemy.MaxHealth;
+            var threshold = maximumHealth * enemy.SecondPhaseHealthPercent / 100;
             if (beforeHealth <= threshold || state.Enemy.Health > threshold) return;
             state.Enemy.Phase = 1;
             state.Enemy.IntentIndex = 0;

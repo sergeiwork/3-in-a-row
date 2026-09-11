@@ -141,6 +141,9 @@ namespace ThreeInARow.Presentation
                 return;
             }
 
+            if (!FlushPulseClockBeforeInput()) return;
+            _director.SaveCurrentCheckpoint();
+
             ShowModal("ВЕРНУТЬСЯ В ГЛАВНОЕ МЕНЮ?",
                 "Последняя безопасная точка забега сохранена. Его можно будет продолжить с главного экрана.", modal =>
                 {

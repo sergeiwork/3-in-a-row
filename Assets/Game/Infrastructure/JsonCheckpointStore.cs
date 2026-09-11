@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using ThreeInARow.Application;
 using ThreeInARow.Domain.Ids;
+using ThreeInARow.Domain.Combat;
 using ThreeInARow.Domain.Mastery;
 using ThreeInARow.Domain.Random;
 using ThreeInARow.Domain.State;
@@ -32,6 +33,9 @@ namespace ThreeInARow.Infrastructure
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             if (snapshot.State.PendingCombatTurn != null && snapshot.State.PendingCombatTurn.AwaitingEnemyResponse)
                 throw new InvalidOperationException("A checkpoint cannot be written during the post-cascade command window.");
+            if (PulseSimulation.IsPulse(snapshot.State) && snapshot.State.Pulse != null &&
+                snapshot.State.Pulse.EnemyPulsePending)
+                throw new InvalidOperationException("A checkpoint cannot be written while an enemy pulse is pending.");
 
             var envelope = new CheckpointEnvelope
             {
@@ -67,7 +71,8 @@ namespace ThreeInARow.Infrastructure
                     state.RegionIndex < 0 || state.RegionIndex >= ThreeInARow.Domain.Map.MapSimulation.RegionCount ||
                     state.FinalRegionIndex < state.RegionIndex || state.FinalRegionIndex >= ThreeInARow.Domain.Map.MapSimulation.RegionCount ||
                     state.AvailableContentIds == null || !ValidMasteryHeader(state) ||
-                    (state.PendingCombatTurn != null && state.PendingCombatTurn.AwaitingEnemyResponse))
+                    (state.PendingCombatTurn != null && state.PendingCombatTurn.AwaitingEnemyResponse) ||
+                    (PulseSimulation.IsPulse(state) && state.Pulse != null && state.Pulse.EnemyPulsePending))
                     return false;
                 snapshot = new CheckpointSnapshot(state, envelope.statistics ?? new RunStatistics());
                 return true;
@@ -84,6 +89,8 @@ namespace ThreeInARow.Infrastructure
             try
             {
                 if (!MasteryContentCatalog.Instance.Get(state.DifficultyTier).Id.Equals(state.DifficultyId)) return false;
+                if (state.RunRulesetId.Equals(RunRulesetIds.Pulse))
+                    return !state.IsChallengeRun && state.ChallengeId.Equals(RunRulesetIds.Pulse);
                 if (state.IsChallengeRun)
                     return !state.ChallengeId.Equals(MasteryContentIds.StandardRun) &&
                            string.Equals(state.ChallengeContentVersion, RunState.CurrentContentVersion, StringComparison.Ordinal);
@@ -146,6 +153,8 @@ namespace ThreeInARow.Infrastructure
             public SanctumDto sanctum;
             public List<string> storyFlags = new List<string>();
             public RouteVowDto routeVow;
+            public string runRulesetId;
+            public PulseDto pulse;
 
             public static RunDto FromDomain(RunState state)
             {
@@ -175,7 +184,9 @@ namespace ThreeInARow.Infrastructure
                     challengeId = Id(state.ChallengeId),
                     challengeContentVersion = state.ChallengeContentVersion,
                     sanctum = SanctumDto.FromDomain(state.Sanctum),
-                    routeVow = RouteVowDto.FromDomain(state.RouteVow)
+                    routeVow = RouteVowDto.FromDomain(state.RouteVow),
+                    runRulesetId = Id(state.RunRulesetId),
+                    pulse = PulseDto.FromDomain(state.Pulse)
                 };
                 if (state.Board != null && state.Board.Gems != null)
                     foreach (var gem in state.Board.Gems) dto.gems.Add(GemDto.FromDomain(gem));
@@ -241,7 +252,9 @@ namespace ThreeInARow.Infrastructure
                     AvailableContentIds = ToIds(availableContent),
                     Sanctum = sanctum == null ? new SanctumState() : sanctum.ToDomain(),
                     StoryFlagIds = ToIds(storyFlags),
-                    RouteVow = routeVow == null ? new RouteVowState() : routeVow.ToDomain()
+                    RouteVow = routeVow == null ? new RouteVowState() : routeVow.ToDomain(),
+                    RunRulesetId = Content(runRulesetId),
+                    Pulse = pulse == null ? new PulseState() : pulse.ToDomain()
                 };
                 if (gems != null)
                     foreach (var gem in gems) state.Board.Gems.Add(gem.ToDomain());
@@ -264,6 +277,63 @@ namespace ThreeInARow.Infrastructure
                         state.PendingEncounterModifiers.Add(new PendingEncounterModifierState
                             { Id = Content(modifier.id), Amount = modifier.amount });
                 return state;
+            }
+        }
+
+        [Serializable]
+        private sealed class PulseDto
+        {
+            public string clockPresetId;
+            public string trialId;
+            public int acceptedSwapCount;
+            public int enemyPulseCount;
+            public int pulseDurationMilliseconds;
+            public int pulseRemainingMilliseconds;
+            public bool enemyPulsePending;
+            public int flow;
+            public int surgeCharge;
+            public int surgeRemainingMilliseconds;
+            public int activeDecisionMilliseconds;
+            public int swapsSincePulse;
+            public int onboardingPulsesRemaining;
+            public bool firstSparkConsumed;
+            public int bossDraftRegion;
+            public string pendingBossNodeId;
+
+            public static PulseDto FromDomain(PulseState value)
+            {
+                value = value ?? new PulseState();
+                return new PulseDto
+                {
+                    clockPresetId = Id(value.ClockPresetId), trialId = Id(value.TrialId),
+                    acceptedSwapCount = value.AcceptedSwapCount, enemyPulseCount = value.EnemyPulseCount,
+                    pulseDurationMilliseconds = value.PulseDurationMilliseconds,
+                    pulseRemainingMilliseconds = value.PulseRemainingMilliseconds,
+                    enemyPulsePending = value.EnemyPulsePending, flow = value.Flow,
+                    surgeCharge = value.SurgeCharge, surgeRemainingMilliseconds = value.SurgeRemainingMilliseconds,
+                    activeDecisionMilliseconds = value.ActiveDecisionMilliseconds,
+                    swapsSincePulse = value.SwapsSincePulse,
+                    onboardingPulsesRemaining = value.OnboardingPulsesRemaining,
+                    firstSparkConsumed = value.FirstSparkConsumed, bossDraftRegion = value.BossDraftRegion,
+                    pendingBossNodeId = Id(value.PendingBossNodeId)
+                };
+            }
+
+            public PulseState ToDomain()
+            {
+                return new PulseState
+                {
+                    ClockPresetId = Content(clockPresetId), TrialId = Content(trialId),
+                    AcceptedSwapCount = acceptedSwapCount, EnemyPulseCount = enemyPulseCount,
+                    PulseDurationMilliseconds = pulseDurationMilliseconds,
+                    PulseRemainingMilliseconds = pulseRemainingMilliseconds,
+                    EnemyPulsePending = enemyPulsePending, Flow = flow, SurgeCharge = surgeCharge,
+                    SurgeRemainingMilliseconds = surgeRemainingMilliseconds,
+                    ActiveDecisionMilliseconds = activeDecisionMilliseconds,
+                    SwapsSincePulse = swapsSincePulse, OnboardingPulsesRemaining = onboardingPulsesRemaining,
+                    FirstSparkConsumed = firstSparkConsumed, BossDraftRegion = bossDraftRegion,
+                    PendingBossNodeId = Content(pendingBossNodeId)
+                };
             }
         }
 
@@ -480,6 +550,7 @@ namespace ThreeInARow.Infrastructure
         private sealed class EnemyDto
         {
             public string definitionId;
+            public int maximumHealth;
             public int health;
             public int intentIndex;
             public int poisonStacks;
@@ -493,6 +564,7 @@ namespace ThreeInARow.Infrastructure
                 return new EnemyDto
                 {
                     definitionId = Id(enemy.DefinitionId),
+                    maximumHealth = enemy.MaximumHealth,
                     health = enemy.Health,
                     intentIndex = enemy.IntentIndex,
                     poisonStacks = enemy.PoisonStacks,
@@ -507,6 +579,7 @@ namespace ThreeInARow.Infrastructure
                 return new EnemyState
                 {
                     DefinitionId = Content(definitionId),
+                    MaximumHealth = maximumHealth,
                     Health = health,
                     IntentIndex = intentIndex,
                     PoisonStacks = poisonStacks,

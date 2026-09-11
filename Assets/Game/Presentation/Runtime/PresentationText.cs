@@ -147,8 +147,15 @@ namespace ThreeInARow.Presentation
             { "ui.focus", "Концентрация" }, { "ui.toxic", "Токсин" }, { "ui.shield", "Щит" },
             { "ui.experience", "Опыт" }, { "ui.level_up", "Новый уровень" },
             { "ui.victory", "Победа" }, { "ui.defeat", "Поражение" },
+            { "run.standard_turns_v1", "Стандартный забег" }, { "run.pulse_v1", "Пульс" },
+            { "pulse.clock.relaxed", "Спокойный" }, { "pulse.clock.standard", "Стандартный" },
+            { "pulse.clock.intense", "Напряжённый" }, { "pulse.trial.none", "Короткий забег" },
+            { "pulse.trial.frozen_opening", "Ледяной старт" },
+            { "pulse.trial.venom_rush", "Ядовитый рывок" },
+            { "pulse.trial.three_regions", "Три региона" },
             { "system.board", "Поле" }, { "system.combat", "Бой" },
-            { "system.progression", "Развитие" }, { "system.foundation", "Система" }
+            { "system.progression", "Развитие" }, { "system.foundation", "Система" },
+            { "system.pulse", "Пульс" }
         };
 
         public static string Name(ContentId id)

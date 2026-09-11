@@ -49,6 +49,8 @@ namespace ThreeInARow.Application
         public int PoisonApplications;
         public int CompletedRouteVows;
         public List<string> CompletedRouteVowIds = new List<string>();
+        public int PulseSurgeActivations;
+        public int PulseHighestFlow;
     }
 
     [Serializable]
@@ -163,11 +165,31 @@ namespace ThreeInARow.Application
                 expedition.StartingStatusId, expedition.StartingStatusCount);
         }
 
+        public RunActionResult StartPulseRun(ulong seed, ContentId clockPresetId,
+            int startRegionIndex = 0, int finalRegionIndex = 0,
+            ContentId trialId = default(ContentId), ContentId startingSkillId = default(ContentId),
+            ContentId startingStatusId = default(ContentId), int startingStatusCount = 0)
+        {
+            if (startRegionIndex < 0 || startRegionIndex >= MapSimulation.RegionCount ||
+                finalRegionIndex < startRegionIndex || finalRegionIndex >= MapSimulation.RegionCount)
+                return RunActionResult.Reject("InvalidPulseRegionRange");
+            if (!clockPresetId.Equals(PulseContentIds.Relaxed) &&
+                !clockPresetId.Equals(PulseContentIds.Standard) &&
+                !clockPresetId.Equals(PulseContentIds.Intense))
+                return RunActionResult.Reject("UnknownPulseClockPreset");
+            if (string.IsNullOrEmpty(trialId.Value)) trialId = PulseContentIds.NoTrial;
+            return StartRun(seed, 0, false, RunRulesetIds.Pulse,
+                MasteryContentIds.AllContentUnlockPolicy, RunState.CurrentContentVersion,
+                startRegionIndex, finalRegionIndex, startingSkillId, startingStatusId, startingStatusCount,
+                RunRulesetIds.Pulse, clockPresetId, trialId);
+        }
+
         private RunActionResult StartRun(ulong seed, int difficultyTier, bool isChallenge,
             ContentId challengeId, ContentId unlockPolicyId, string challengeContentVersion,
             int startRegionIndex = 0, int finalRegionIndex = 2,
             ContentId startingSkillId = default(ContentId), ContentId startingStatusId = default(ContentId),
-            int startingStatusCount = 0)
+            int startingStatusCount = 0, ContentId runRulesetId = default(ContentId),
+            ContentId pulseClockPresetId = default(ContentId), ContentId pulseTrialId = default(ContentId))
         {
             _checkpoints.Clear();
             var difficulty = MasteryContentCatalog.Instance.Get(difficultyTier);
@@ -183,7 +205,13 @@ namespace ThreeInARow.Application
                 ChallengeContentVersion = challengeContentVersion,
                 AvailableContentIds = new List<ContentId>(),
                 RegionIndex = startRegionIndex,
-                FinalRegionIndex = finalRegionIndex
+                FinalRegionIndex = finalRegionIndex,
+                RunRulesetId = string.IsNullOrEmpty(runRulesetId.Value) ? RunRulesetIds.Standard : runRulesetId,
+                Pulse = new PulseState
+                {
+                    ClockPresetId = string.IsNullOrEmpty(pulseClockPresetId.Value) ? PulseContentIds.Standard : pulseClockPresetId,
+                    TrialId = string.IsNullOrEmpty(pulseTrialId.Value) ? PulseContentIds.NoTrial : pulseTrialId
+                }
             };
             if (unlockPolicyId.Equals(MasteryContentIds.AllContentUnlockPolicy))
             {
@@ -198,7 +226,7 @@ namespace ThreeInARow.Application
             Statistics = new RunStatistics();
             LastProfileUpdate = new ProfileUpdateResult();
             _profileRunCompleted = false;
-            Profile.Aggregate.RunsStarted++;
+            if (!PulseSimulation.IsPulse(State)) Profile.Aggregate.RunsStarted++;
             _profiles.Save(Profile);
             ProgressionSimulation.InitializeRun(State);
             var events = new EventBatch();
@@ -218,7 +246,10 @@ namespace ThreeInARow.Application
             if (startingStatusCount > 0 && !string.IsNullOrEmpty(startingStatusId.Value))
                 events.Append(MapSimulation.ApplyStartingStatus(State, startingStatusId, startingStatusCount));
             events.Append(MapSimulation.Generate(State));
-            Screen = RunScreen.Map;
+            if (PulseSimulation.IsPulse(State))
+                ProgressionSimulation.OfferEventReward(State, PulseContentIds.SystemPulse,
+                    SkillSlotType.Passive, 3, events);
+            Screen = State.PendingChoice != null && State.PendingChoice.IsPending ? RunScreen.Reward : RunScreen.Map;
             Record(events, 0);
             SaveStableCheckpoint();
             return RunActionResult.Accept(events);
@@ -231,6 +262,7 @@ namespace ThreeInARow.Application
             State = snapshot.State;
             Statistics = snapshot.Statistics;
             ProgressionSimulation.InitializeRun(State);
+            PulseSimulation.Normalize(State);
             BoardSimulation.EnsurePlayable(State);
             Screen = DeriveStableScreen();
             _profileRunCompleted = Screen == RunScreen.Victory || Screen == RunScreen.Defeat;
@@ -250,10 +282,62 @@ namespace ThreeInARow.Application
                 ResolvePostActionScreen(result.Events);
                 SaveStableCheckpoint();
             }
-            else
+            else if (!PulseSimulation.IsPulse(State))
             {
                 Screen = RunScreen.SkillWindow;
             }
+            else
+            {
+                Screen = RunScreen.Encounter;
+                SaveStableCheckpoint();
+            }
+            return RunActionResult.Accept(result.Events);
+        }
+
+        public RunActionResult AdvanceDecisionTime(int elapsedMilliseconds)
+        {
+            if (Screen != RunScreen.Encounter || !PulseSimulation.IsPulse(State))
+                return RunActionResult.Reject("DecisionClockPaused");
+            EventBatch events;
+            try
+            {
+                events = PulseSimulation.Advance(State,
+                    new AdvanceDecisionTimeCommand { ElapsedMilliseconds = elapsedMilliseconds });
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return RunActionResult.Reject("InvalidDecisionTimeSlice");
+            }
+            if (State.Pulse.EnemyPulsePending) Screen = RunScreen.SkillWindow;
+            return RunActionResult.Accept(events);
+        }
+
+        public RunActionResult ActivateSurge()
+        {
+            if (Screen != RunScreen.Encounter || !PulseSimulation.IsPulse(State))
+                return RunActionResult.Reject("SurgeUnavailable");
+            try
+            {
+                var events = PulseSimulation.ActivateSurge(State, new ActivateSurgeCommand());
+                Statistics.PulseSurgeActivations++;
+                Record(events, 0);
+                SaveStableCheckpoint();
+                return RunActionResult.Accept(events);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return RunActionResult.Reject(exception.Message);
+            }
+        }
+
+        public RunActionResult ResolveEnemyPulse()
+        {
+            if (!PulseSimulation.IsPulse(State) || State.Pulse == null || !State.Pulse.EnemyPulsePending)
+                return RunActionResult.Reject("NoPendingEnemyPulse");
+            var result = CombatSimulation.CompletePulse(State);
+            Record(result.Events, result.CascadeCount);
+            ResolvePostActionScreen(result.Events);
+            SaveStableCheckpoint();
             return RunActionResult.Accept(result.Events);
         }
 
@@ -266,11 +350,16 @@ namespace ThreeInARow.Application
         {
             if (Screen != RunScreen.Encounter && Screen != RunScreen.SkillWindow)
                 return RunActionResult.Reject("SkillWindowClosed");
+            if (PulseSimulation.IsPulse(State) && State.Pulse != null && State.Pulse.EnemyPulsePending)
+                return RunActionResult.Reject("EnemyPulsePending");
             var command = new UseSkillCommand { SkillId = skillId };
             if (targets != null) command.Targets.AddRange(targets);
             command.OptionId = optionId;
             var result = ProgressionSimulation.UseActiveSkill(State, command);
             if (!result.Accepted) return RunActionResult.Reject(result.RejectionReason);
+
+            if (PulseSimulation.IsPulse(State))
+                PulseSimulation.RecordResolvedEventsCharge(State, result.Events, result.Events);
 
             Record(result.Events, 0);
             if (result.EncounterWon)
@@ -288,6 +377,7 @@ namespace ThreeInARow.Application
         public RunActionResult ContinueTurn()
         {
             if (Screen != RunScreen.SkillWindow) return RunActionResult.Reject("NoPendingEnemyResponse");
+            if (PulseSimulation.IsPulse(State)) return RunActionResult.Reject("EnemyPulsePending");
             var result = CombatSimulation.CompleteTurn(State);
             Record(result.Events, result.CascadeCount);
             ResolvePostActionScreen(result.Events);
@@ -298,10 +388,26 @@ namespace ThreeInARow.Application
         public RunActionResult SelectReward(ContentId rewardId)
         {
             if (Screen != RunScreen.Reward) return RunActionResult.Reject("NoPendingChoice");
+            var resumeBossNode = PulseSimulation.IsPulse(State) && State.Pulse != null
+                ? State.Pulse.PendingBossNodeId
+                : (ContentId)"map.node.none";
             var result = ProgressionSimulation.SelectReward(State, new SelectRewardCommand { RewardId = rewardId });
             if (!result.Accepted) return RunActionResult.Reject(result.RejectionReason);
             Record(result.Events, 0);
             ResolvePostActionScreen(result.Events);
+            if (PulseSimulation.IsPulse(State) && resumeBossNode.Value != null &&
+                resumeBossNode.Value != "map.node.none" && Screen == RunScreen.Map)
+            {
+                State.Pulse.PendingBossNodeId = "map.node.none";
+                var bossStart = SelectMapNode(resumeBossNode);
+                if (bossStart.Accepted)
+                {
+                    var combined = new EventBatch();
+                    combined.Append(result.Events);
+                    combined.Append(bossStart.Events);
+                    return RunActionResult.Accept(combined);
+                }
+            }
             SaveStableCheckpoint();
             return RunActionResult.Accept(result.Events);
         }
@@ -327,6 +433,27 @@ namespace ThreeInARow.Application
         public RunActionResult SelectMapNode(ContentId nodeId)
         {
             if (Screen != RunScreen.Map) return RunActionResult.Reject("MapSelectionLocked");
+            if (PulseSimulation.IsPulse(State) && State.Pulse.BossDraftRegion != State.RegionIndex)
+            {
+                MapNodeState requestedNode = null;
+                foreach (var candidate in State.Map.Nodes)
+                    if (candidate != null && candidate.Id.Equals(nodeId)) { requestedNode = candidate; break; }
+                if (requestedNode != null && requestedNode.Type == MapNodeType.Boss)
+                {
+                    var draftEvents = new EventBatch();
+                    State.Pulse.BossDraftRegion = State.RegionIndex;
+                    State.Pulse.PendingBossNodeId = nodeId;
+                    ProgressionSimulation.OfferEventReward(State, PulseContentIds.SystemPulse,
+                        SkillSlotType.Passive, 3, draftEvents);
+                    if (State.PendingChoice != null && State.PendingChoice.IsPending)
+                    {
+                        Screen = RunScreen.Reward;
+                        Record(draftEvents, 0);
+                        SaveStableCheckpoint();
+                        return RunActionResult.Accept(draftEvents);
+                    }
+                }
+            }
             var selection = MapSimulation.SelectNode(State, new SelectMapNodeCommand { NodeId = nodeId });
             if (!selection.Accepted) return RunActionResult.Reject(selection.Rejection);
 
@@ -341,6 +468,7 @@ namespace ThreeInARow.Application
                 var tuningDepth = Math.Max(0, Math.Min(4, node.Row));
                 var encounterEvents = CombatSimulation.StartEncounter(State, node.ContentId, tuningDepth);
                 events.Append(encounterEvents);
+                if (PulseSimulation.IsPulse(State)) events.Append(PulseSimulation.BeginEncounter(State));
                 Screen = RunScreen.Encounter;
                 Record(encounterEvents, 0);
             }
@@ -404,6 +532,11 @@ namespace ThreeInARow.Application
             State = null;
             Statistics = null;
             Screen = RunScreen.Title;
+        }
+
+        public void SaveCurrentCheckpoint()
+        {
+            SaveStableCheckpoint();
         }
 
         private void ResolvePostActionScreen(EventBatch events)
@@ -507,21 +640,23 @@ namespace ThreeInARow.Application
         {
             if (Statistics == null) Statistics = new RunStatistics();
             Statistics.BiggestCascade = Math.Max(Statistics.BiggestCascade, cascadeCount);
+            if (PulseSimulation.IsPulse(State) && State.Pulse != null)
+                Statistics.PulseHighestFlow = Math.Max(Statistics.PulseHighestFlow, State.Pulse.Flow);
             var cleanseKinds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var item in events.Events)
             {
                 if (item.Type == SimulationEventType.EnemyDefeated)
                 {
                     Statistics.EncountersCleared++;
-                    Profile.Aggregate.EnemiesDefeated++;
+                    if (!PulseSimulation.IsPulse(State)) Profile.Aggregate.EnemiesDefeated++;
                     var enemy = MvpCombatContentCatalog.Instance.GetEnemy(item.SourceId);
                     if (enemy.IsElite)
                     {
-                        Profile.Aggregate.ElitesDefeated++;
+                        if (!PulseSimulation.IsPulse(State)) Profile.Aggregate.ElitesDefeated++;
                         if (Statistics.CurrentEncounterHealthDamageTaken == 0)
                             Statistics.FlawlessEliteVictories++;
                     }
-                    if (enemy.IsBoss) Profile.Aggregate.BossesDefeated++;
+                    if (enemy.IsBoss && !PulseSimulation.IsPulse(State)) Profile.Aggregate.BossesDefeated++;
                 }
                 if (item.Type == SimulationEventType.MapNodeSelected)
                     Statistics.RouteNodeIds.Add(item.SourceId.Value);
@@ -581,6 +716,13 @@ namespace ThreeInARow.Application
         {
             if (_profileRunCompleted || State == null || Statistics == null) return;
             _profileRunCompleted = true;
+            if (PulseSimulation.IsPulse(State))
+            {
+                UpdatePulseRecord(victory);
+                LastProfileUpdate = new ProfileUpdateResult();
+                _profiles.Save(Profile);
+                return;
+            }
             var dominantBranches = DominantDamageBranches(Statistics.DamageBySource);
             var signals = new RunCompletionSignals
             {
@@ -615,6 +757,35 @@ namespace ThreeInARow.Application
                 foreach (var id in Statistics.RouteNodeIds) signals.RouteNodeIds.Add((ContentId)id);
             LastProfileUpdate = ProfileProgression.CompleteRun(Profile, signals);
             _profiles.Save(Profile);
+        }
+
+        private void UpdatePulseRecord(bool victory)
+        {
+            ProfileProgression.Normalize(Profile);
+            PulseRecordState record = null;
+            foreach (var candidate in Profile.PulseRecords)
+                if (candidate.ClockPresetId.Equals(State.Pulse.ClockPresetId) &&
+                    candidate.TrialId.Equals(State.Pulse.TrialId)) { record = candidate; break; }
+            if (record == null)
+            {
+                record = new PulseRecordState
+                {
+                    ClockPresetId = State.Pulse.ClockPresetId,
+                    TrialId = State.Pulse.TrialId
+                };
+                Profile.PulseRecords.Add(record);
+            }
+            record.RunsCompleted++;
+            if (victory)
+            {
+                record.Wins++;
+                record.BestRemainingHealth = Math.Max(record.BestRemainingHealth, State.Player.Health);
+                if (record.FewestEnemyPulses == 0 || State.Pulse.EnemyPulseCount < record.FewestEnemyPulses)
+                    record.FewestEnemyPulses = State.Pulse.EnemyPulseCount;
+            }
+            record.MostAcceptedSwaps = Math.Max(record.MostAcceptedSwaps, State.Pulse.AcceptedSwapCount);
+            record.MostSurges = Math.Max(record.MostSurges, Statistics.PulseSurgeActivations);
+            record.HighestFlow = Math.Max(record.HighestFlow, Statistics.PulseHighestFlow);
         }
 
         private int CountLearnedBranch(string branch)
@@ -722,6 +893,7 @@ namespace ThreeInARow.Application
         private void SaveStableCheckpoint()
         {
             if (State == null || (State.PendingCombatTurn != null && State.PendingCombatTurn.AwaitingEnemyResponse)) return;
+            if (PulseSimulation.IsPulse(State) && State.Pulse != null && State.Pulse.EnemyPulsePending) return;
             _checkpoints.Save(new CheckpointSnapshot(State, Statistics));
         }
     }

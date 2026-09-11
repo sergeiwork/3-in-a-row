@@ -90,6 +90,8 @@ Defeat ends the run and returns to the title screen. The MVP has no persistent r
 
 A valid player swap causes exactly one complete board-resolution phase and, unless it kills the enemy, exactly one automatic enemy-response phase. This invariant must hold in simulation, UI lock state, animations, saves, and tests. Presentation keeps input locked across both phases and does not expose an enemy-response confirmation button.
 
+This invariant belongs to `run.standard_turns_v1`. A run selects exactly one ruleset at creation. In `run.pulse_v1`, accepted swaps resolve the same complete board batch but do not schedule an enemy response. Instead, a deterministic decision clock advances through quantized `AdvanceDecisionTimeCommand` values only while the stable board accepts input. When it reaches zero, one enemy pulse is queued and resolves after the current command batch; no more than one pulse can be pending.
+
 ---
 
 ## 4. Board, gems, and combos
@@ -335,6 +337,8 @@ UseSkillCommand(skillId, targets)
 SelectRewardCommand(rewardId)
 EquipSkillCommand(skillId, slotIndex)
 ContinueCommand()
+AdvanceDecisionTimeCommand(elapsedMilliseconds)
+ActivateSurgeCommand()
 ```
 
 The application layer validates timing, asks the simulation to resolve, records a checkpoint, then publishes an immutable batch of events. Initial event names:
@@ -346,6 +350,8 @@ DamageApplied, StatusAdded, EnemyIntentStarted, EnemyDefeated,
 XPGranted, LevelUpOffered, SkillChosen, RunEnded, StatusRemoved,
 ResourceChanged, CooldownChanged, EnemyIntentTelegraphed,
 SkillUsed, SkillEquipped
+DecisionClockChanged, EnemyPulseQueued, EnemyPulseStarted,
+FlowChanged, SurgeChanged
 ```
 
 Board events use `cell` as an origin/location and optional `targetCell` for a destination, serialized with explicit `hasCell` / `hasTargetCell` flags. `relatedId` carries the secondary content identity (for example, a gem's special ID). `GemCleared.statusIds` snapshots the statuses present immediately before the gem left the board; this lets Cracked suppression remain deterministic after the board snapshot has already refilled. Clearing a status-bearing gem emits `StatusRemoved` before its `GemCleared` event. A rejected swap returns a typed rejection and an empty event batch, changes neither board nor RNG state, and does not advance `ResolvedTurnCount`. The combat turn resolver advances `ResolvedTurnCount` exactly once after each accepted swap.
@@ -362,7 +368,7 @@ For active-skill timing, zero or more valid `UseSkillCommand`s may resolve while
 | --- | --- | --- |
 | Randomness | One seeded deterministic RNG per run; named streams for board spawn, reward sampling, and intent variation | Reproducible bugs and balance cases |
 | Checkpoints | Save after encounter start, resolved player/enemy turn, victory, and reward/skill choice | Never serialize half-finished animations |
-| Save payload | `schemaVersion`, `contentVersion`, seed/RNG states, encounter, player, board, enemy, XP/level, learned/equipped skills, cooldowns, map/region/final region, pending choice/combat window, Sanctum, story flags, route vow, challenge header | Migration and local debugging |
+| Save payload | `schemaVersion`, `contentVersion`, seed/RNG states, encounter, player, board, enemy, XP/level, learned/equipped skills, cooldowns, map/region/final region, pending choice/combat window, Sanctum, story flags, route vow, challenge header, ruleset ID, Pulse timing/Flow/Surge state | Migration and local debugging |
 | Content versioning | Stable string IDs; never Unity asset instance IDs as save keys | Saves and test fixtures remain readable |
 | Debug log | Seed, commands, event batches, final state hash in development builds | Makes desyncs and balance reports actionable |
 
@@ -500,6 +506,8 @@ There is **no design blocker** for Session E. The unresolved items below should 
 
 The staged history and remaining experimental shelf for skills, enemy pools, routes, events, horizontal goals, and mastery modes are maintained in [CONTENT_EXPANSION_PLAN.md](CONTENT_EXPANSION_PLAN.md). Implemented rules live here; ideas on the shelf are not contracts.
 
+The additional settled-board real-time ruleset is specified in [REAL_TIME_MODE_PLAN.md](REAL_TIME_MODE_PLAN.md). An implementation baseline for Pulse slices 0–3 exists behind `run.pulse_v1`; its playtest and acceptance gates remain open. Standard Run remains on `run.standard_turns_v1` with unchanged balance and response timing. Phase 4 continuous board simulation remains exploratory and gated.
+
 Stages R1 through R8 are implemented contracts. The experimental shelf in the expansion plan remains non-contractual.
 
 ## Next session
@@ -628,3 +636,12 @@ Play and tune the complete `1.0.0` journey. Future additions should come from th
 - Android distribution builds use IL2CPP and include both ARMv7 and ARM64 native libraries in one APK. The minimum supported OS is Android 6.0 / API 23, matching the Unity 6 player baseline.
 - Android releases use the persistent `threerow-release` signing identity supplied to CI through repository secrets. The keystore and its credentials are never committed; losing them prevents future APKs from updating existing installations.
 - Every tagged release uses the matching version section from `CHANGELOG.md` as its GitHub Release description. These notes are maintained locally by the agent, written in Russian for players, committed before tagging, and validated by CI; publication fails instead of falling back to generated technical notes when the section is missing or invalid.
+
+## Changed contracts — Pulse Run slices 0–3
+
+- Run checkpoint schema `11` adds `RunRulesetId`, encounter-scoped `EnemyState.MaximumHealth`, and deterministic `PulseState`: clock preset/trial IDs, accepted-swap and enemy-pulse counters, integer duration/remaining milliseconds, pending pulse, Flow, Surge charge/freeze time, active decision time, swaps since pulse, onboarding state, first-Spark scope, and the pending pre-boss draft. These fields and their order participate in the state hash. Profile schema `3` adds records keyed independently by Pulse clock preset and trial.
+- The stable ruleset IDs are `run.standard_turns_v1` and `run.pulse_v1`. Pulse clock presets are `pulse.clock.relaxed`, `pulse.clock.standard`, and `pulse.clock.intense`; deterministic trial IDs are `pulse.trial.frozen_opening`, `pulse.trial.venom_rush`, and `pulse.trial.three_regions`. Pulse runs do not increment Standard aggregates, unlock content, or advance the difficulty ladder.
+- `AdvanceDecisionTimeCommand` accepts only 50 ms quanta up to 250 ms. The presentation submits them only while the encounter board is stable, input-enabled, foregrounded, outside a modal, and not targeting a skill. `ActivateSurgeCommand` spends a full 24-charge meter and freezes clock consumption for 4,000 ms of the same active-input time. Domain state never reads Unity time.
+- Each Pulse swap completes the ordinary board/player-effect batch, advances active cooldowns by one semantic step, increments Flow up to 3, and charges Surge by one per cleared gem, four per activated special, plus one on first reaching Flow 3. It does not increment legacy `ResolvedTurnCount` or schedule an enemy response. Poison, timed board statuses, shield expiry, first-Spark scope, Flow reset, and intent advancement use enemy-pulse boundaries.
+- Pulse uses the existing one-region route and regional enemy pools, replaces Standard XP/elite drafts with one opening passive draft and one passive draft immediately before each boss, and exposes the existing three-region journey as an optional deterministic trial. Pulse normal enemies have 125% of their definition health; elites and bosses have 135%. The first encounter grants 10 seconds for its first two pulses; later duration derives from enemy class, dominant pressure, region, and selected preset.
+- Stable Pulse checkpoints require a settled board and no pending enemy pulse. They preserve the exact clock and Surge values. Loading or returning from application suspension begins a presentation-only three-second countdown before active decision time resumes. Reduced Motion changes only presentation; it never changes clock values.

@@ -76,7 +76,7 @@ namespace ThreeInARow.Domain.Meta
     [Serializable]
     public sealed class ProfileState
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
         public int SchemaVersion = CurrentSchemaVersion;
         public string ContentVersion = RunState.CurrentContentVersion;
         public List<ContentId> UnlockedContentIds = new List<ContentId>();
@@ -88,6 +88,7 @@ namespace ThreeInARow.Domain.Meta
         public int BestDifficultyUnlocked;
         public List<ContentId> CompletedRouteVowIds = new List<ContentId>();
         public List<RunHistoryEntryState> RunHistory = new List<RunHistoryEntryState>();
+        public List<PulseRecordState> PulseRecords = new List<PulseRecordState>();
     }
 
     [Serializable]
@@ -145,6 +146,20 @@ namespace ThreeInARow.Domain.Meta
         public List<ContentId> SkillIds = new List<ContentId>();
         public List<ContentId> RouteVowIds = new List<ContentId>();
         public List<ContentId> RouteNodeIds = new List<ContentId>();
+    }
+
+    [Serializable]
+    public sealed class PulseRecordState
+    {
+        public ContentId ClockPresetId = "pulse.clock.standard";
+        public ContentId TrialId = "pulse.trial.none";
+        public int RunsCompleted;
+        public int Wins;
+        public int BestRemainingHealth;
+        public int FewestEnemyPulses;
+        public int MostAcceptedSwaps;
+        public int MostSurges;
+        public int HighestFlow;
     }
 
     public sealed class UnlockChallengeDefinition
@@ -381,6 +396,7 @@ namespace ThreeInARow.Domain.Meta
             if (profile.Aggregate == null) profile.Aggregate = new ProfileAggregateState();
             if (profile.CompletedRouteVowIds == null) profile.CompletedRouteVowIds = new List<ContentId>();
             if (profile.RunHistory == null) profile.RunHistory = new List<RunHistoryEntryState>();
+            if (profile.PulseRecords == null) profile.PulseRecords = new List<PulseRecordState>();
             foreach (var entry in profile.RunHistory)
             {
                 if (entry == null) continue;

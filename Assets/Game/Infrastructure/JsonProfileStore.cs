@@ -62,6 +62,7 @@ namespace ThreeInARow.Infrastructure
             public AggregateDto aggregate = new AggregateDto();
             public List<string> completedRouteVows = new List<string>();
             public List<RunHistoryDto> runHistory = new List<RunHistoryDto>();
+            public List<PulseRecordDto> pulseRecords = new List<PulseRecordDto>();
 
             public static ProfileDto FromDomain(ProfileState profile)
             {
@@ -88,6 +89,8 @@ namespace ThreeInARow.Infrastructure
                     if (record != null) dto.records.Add(RecordDto.FromDomain(record));
                 foreach (var entry in profile.RunHistory)
                     if (entry != null) dto.runHistory.Add(RunHistoryDto.FromDomain(entry));
+                foreach (var record in profile.PulseRecords)
+                    if (record != null) dto.pulseRecords.Add(PulseRecordDto.FromDomain(record));
                 return dto;
             }
 
@@ -105,7 +108,8 @@ namespace ThreeInARow.Infrastructure
                     Records = new List<RunRecordState>(),
                     Aggregate = aggregate == null ? new ProfileAggregateState() : aggregate.ToDomain(),
                     CompletedRouteVowIds = ToIds(completedRouteVows),
-                    RunHistory = new List<RunHistoryEntryState>()
+                    RunHistory = new List<RunHistoryEntryState>(),
+                    PulseRecords = new List<PulseRecordState>()
                 };
                 if (codex != null)
                     foreach (var entry in codex) profile.CodexEntries.Add(new CodexEntryState
@@ -119,8 +123,50 @@ namespace ThreeInARow.Infrastructure
                     foreach (var record in records) profile.Records.Add(record.ToDomain());
                 if (runHistory != null)
                     foreach (var entry in runHistory) profile.RunHistory.Add(entry.ToDomain());
+                if (pulseRecords != null)
+                    foreach (var record in pulseRecords) profile.PulseRecords.Add(record.ToDomain());
                 ProfileProgression.Normalize(profile);
                 return profile;
+            }
+        }
+
+        [Serializable]
+        private sealed class PulseRecordDto
+        {
+            public string clockPresetId;
+            public string trialId;
+            public int runsCompleted;
+            public int wins;
+            public int bestRemainingHealth;
+            public int fewestEnemyPulses;
+            public int mostAcceptedSwaps;
+            public int mostSurges;
+            public int highestFlow;
+
+            public static PulseRecordDto FromDomain(PulseRecordState record)
+            {
+                return new PulseRecordDto
+                {
+                    clockPresetId = record.ClockPresetId.Value, trialId = record.TrialId.Value,
+                    runsCompleted = record.RunsCompleted, wins = record.Wins,
+                    bestRemainingHealth = record.BestRemainingHealth,
+                    fewestEnemyPulses = record.FewestEnemyPulses,
+                    mostAcceptedSwaps = record.MostAcceptedSwaps,
+                    mostSurges = record.MostSurges, highestFlow = record.HighestFlow
+                };
+            }
+
+            public PulseRecordState ToDomain()
+            {
+                return new PulseRecordState
+                {
+                    ClockPresetId = Content(clockPresetId), TrialId = Content(trialId),
+                    RunsCompleted = runsCompleted, Wins = wins,
+                    BestRemainingHealth = bestRemainingHealth,
+                    FewestEnemyPulses = fewestEnemyPulses,
+                    MostAcceptedSwaps = mostAcceptedSwaps,
+                    MostSurges = mostSurges, HighestFlow = highestFlow
+                };
             }
         }
 

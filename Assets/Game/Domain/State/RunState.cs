@@ -13,7 +13,7 @@ namespace ThreeInARow.Domain.State
     [Serializable]
     public sealed class RunState
     {
-        public const int CurrentSchemaVersion = 10;
+        public const int CurrentSchemaVersion = 11;
         public const string CurrentContentVersion = "1.0.0";
 
         public int SchemaVersion = CurrentSchemaVersion;
@@ -51,6 +51,9 @@ namespace ThreeInARow.Domain.State
         public SanctumState Sanctum = new SanctumState();
         public List<ContentId> StoryFlagIds = new List<ContentId>();
         public RouteVowState RouteVow = new RouteVowState();
+        // Selected once at run creation. Standard rules never read PulseState.
+        public ContentId RunRulesetId = "run.standard_turns_v1";
+        public PulseState Pulse = new PulseState();
     }
 
     [Serializable]
@@ -76,6 +79,7 @@ namespace ThreeInARow.Domain.State
     public sealed class EnemyState
     {
         public ContentId DefinitionId = "enemy.unset";
+        public int MaximumHealth;
         public int Health;
         public int IntentIndex;
         public int PoisonStacks;
@@ -201,5 +205,26 @@ namespace ThreeInARow.Domain.State
         public List<ContentId> OfferedIds = new List<ContentId>();
         public ContentId PinnedId = "vow.none";
         public bool Completed;
+    }
+
+    [Serializable]
+    public sealed class PulseState
+    {
+        public ContentId ClockPresetId = "pulse.clock.standard";
+        public ContentId TrialId = "pulse.trial.none";
+        public int AcceptedSwapCount;
+        public int EnemyPulseCount;
+        public int PulseDurationMilliseconds;
+        public int PulseRemainingMilliseconds;
+        public bool EnemyPulsePending;
+        public int Flow;
+        public int SurgeCharge;
+        public int SurgeRemainingMilliseconds;
+        public int ActiveDecisionMilliseconds;
+        public int SwapsSincePulse;
+        public int OnboardingPulsesRemaining;
+        public bool FirstSparkConsumed;
+        public int BossDraftRegion = -1;
+        public ContentId PendingBossNodeId = "map.node.none";
     }
 }

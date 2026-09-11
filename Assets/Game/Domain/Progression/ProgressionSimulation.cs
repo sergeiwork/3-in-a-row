@@ -717,7 +717,8 @@ namespace ThreeInARow.Domain.Progression
                 if (gem == null) continue;
                 if (ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Frozen) ||
                     ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Cracked) ||
-                    ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Anchored))
+                    ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Anchored) ||
+                    ProgressionRules.Contains(gem.StatusIds, BoardContentIds.Thorned))
                     result.Add(gem);
             }
             return result;

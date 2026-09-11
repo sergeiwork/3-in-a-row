@@ -88,7 +88,8 @@ namespace ThreeInARow.Tests
         {
             var state = NewRun(5);
             CombatSimulation.StartEncounter(state, CombatContentIds.Encounter5, 4);
-            state.Enemy.Health = 70;
+            var warden = MvpCombatContentCatalog.Instance.GetEnemy(CombatContentIds.CrystalWarden);
+            state.Enemy.Health = warden.MaxHealth * warden.SecondPhaseHealthPercent / 100 + 7;
             var skill = ProgressionSimulation.UseActiveSkill(state,
                 new ThreeInARow.Domain.Commands.UseSkillCommand { SkillId = ProgressionContentIds.Sunder });
             Assert.That(skill.Accepted, Is.True);

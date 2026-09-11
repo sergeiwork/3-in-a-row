@@ -1,0 +1,18 @@
+{
+  "name": "ThreeInARow.Balance.Tests",
+  "rootNamespace": "ThreeInARow.BalanceTests",
+  "references": [
+    "ThreeInARow.Domain",
+    "ThreeInARow.Application"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "versionDefines": [],
+  "noEngineReferences": true,
+  "optionalUnityReferences": ["TestAssemblies"]
+}

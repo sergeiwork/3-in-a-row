@@ -208,7 +208,7 @@ Event choices show exact outcomes and resolve through generic effect definitions
 
 ### Tuning method
 
-Tune health from recorded median turns-to-kill with a no-upgrade baseline, then recheck every build path. The current roster uses health values 30% above the original vertical-slice baseline to give intents, resources, and active-skill cooldowns time to matter. Do not tune only from theoretical gem averages; cascades and Prism availability widen the real result distribution.
+Tune health from recorded median turns-to-kill with a no-upgrade baseline, then recheck every build path. The current roster applies a shared 150% health factor to the v0.13 values (roughly double the original vertical-slice baseline) so intents, resources, and active-skill cooldowns have time to matter. Recheck the factor with the explicit 1,000-run local balance suite rather than tuning only from theoretical gem averages; cascades and Prism availability widen the real result distribution.
 
 ---
 
@@ -240,7 +240,7 @@ Each combat victory grants 1 XP. The run starts at level 1 and grants standard l
 | Skill | Cooldown | Effect | Timing / targeting |
 | --- | --- | --- | --- |
 | Sunder | 4 player turns | Deal 14 direct damage | Usable before the player's swap; does not consume a swap |
-| Cleanse | 5 player turns | Remove Frozen, Cracked, or Anchored from up to three selected gems | Selection is cancelable before confirmation; remove all if fewer than three exist |
+| Cleanse | 5 player turns | Remove Frozen, Cracked, Anchored, or Thorned from up to three selected gems | Selection is cancelable before confirmation; remove all if fewer than three exist |
 | Catalyze | 5 player turns | Convert up to 4 Focus to damage at 3 each and up to 4 Toxic to Poison at 1:2 | Uses current resources to turn near-threshold states into tactical burst |
 | Aegis | 4 player turns | Gain 10 Shield | No target |
 | Infuse | 6 player turns | Convert one movable normal gem into its color's match-4 special | Exactly one normal, non-special cell without Frozen or Anchored; Cracked is preserved |
